@@ -4,18 +4,7 @@ use tokio::io::{self};
 use clap::Parser;
 use clap::Subcommand;
 
-
-/** Commands we'll support:
- * 
- * ps - list running runtimes
- *   runt ps
- * kill - kill runtime
- *   runt kill 23523
- * run - start a repl session
- *   runt run python3
- * 
- */
-
+/** Runtime 🔄  */
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Cli {
