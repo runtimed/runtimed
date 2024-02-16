@@ -39,3 +39,33 @@ CodeCell {
   execution: Execution
 }
 ```
+
+
+### CLI
+
+```
+$ runt start python3
+started 14598
+```
+
+```
+$ runt kill 14598
+```
+
+```
+$ runt ps
+14598 | Python
+```
+
+```
+$ runt run python3
+
+In [1]: 2 + 3
+Out[1]: 5
+
+In [2]: import pandas as pd
+
+Runtime "ul3bn3or" exited with no errors. To export a notebook from your session, run
+
+  runtime export ul3bn3or --notebook
+```

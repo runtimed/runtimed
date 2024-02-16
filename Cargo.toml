@@ -1,6 +1,5 @@
 [workspace]
 
-members = [
-    "web",
-    "cli",
-]
+members = ["web", "cli"]
+
+resolver = "2"
