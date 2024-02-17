@@ -1,0 +1,18 @@
+[package]
+name = "runtimelib"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.79"
+bytes = "1.5.0"
+chrono = "0.4.34"
+data-encoding = "2.5.0"
+ring = "0.17.7"
+serde = { version = "1.0.196", features = ["derive"] }
+serde_json = "1.0.113"
+uuid = "1.7.0"
+zeromq = { version = "=0.3.4", default-features = false, features = [
+    "tcp-transport",
+    "tokio-runtime",
+] }

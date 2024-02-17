@@ -1,5 +1,5 @@
 [workspace]
 
-members = ["web", "cli"]
+members = ["web", "cli", "runtimelib"]
 
 resolver = "2"
