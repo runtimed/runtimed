@@ -1,5 +1,5 @@
 pub mod jupyter_dirs;
-mod jupyter_msg;
+pub mod jupyter_msg;
 
 // Your existing library code here...
 
