@@ -4,6 +4,8 @@ use tokio::io::{self};
 use clap::Parser;
 use clap::Subcommand;
 
+use tabled::{Table, Tabled, settings::{Style,  Color, themes::Colorization, object::Rows}};
+
 // TODO: Rely on our server for the source of truth rather than the runtimelib
 use runtimelib::get_jupyter_runtime_instances;
 
@@ -65,6 +67,18 @@ async fn create_instance(name: String) -> io::Result<()> {
     ))
 }
 
+#[derive(Tabled)]
+struct RuntimeDisplay {
+    #[tabled(rename = "Kernel Name")]
+    kernel_name: String,
+    #[tabled(rename = "IP")]
+    ip: String,
+    #[tabled(rename = "Transport")]
+    transport: String,
+    #[tabled(rename = "Connection File")]
+    connection_file: String,
+}
+
 async fn list_instances() -> io::Result<()> {
     // equivalent to `docker ps`, presumably we'd want to get `docker ps --all`
     //
@@ -76,17 +90,17 @@ async fn list_instances() -> io::Result<()> {
 
     let runtimes = get_jupyter_runtime_instances().await;
 
-    if !runtimes.is_empty() {
-        println!(
-            "{:<15} {:<10} {:<10} {:<20}",
-            "Kernel Name", "IP", "Transport", "Connection File"
-        );
-        for runtime in runtimes {
-            println!(
-                "{:<15} {:<10} {:<10} {:<20}",
-                runtime.kernel_name, runtime.ip, runtime.transport, runtime.connection_file
-            );
-        }
+    let displays: Vec<RuntimeDisplay> = runtimes.into_iter().map(|runtime| RuntimeDisplay {
+        kernel_name: runtime.kernel_name,
+        ip: runtime.ip,
+        transport: runtime.transport,
+        connection_file: runtime.connection_file,
+    }).collect();
+
+    if !displays.is_empty() {
+        let table = Table::new(displays).with(Style::markdown()).with(Colorization::exact([Color::BOLD], Rows::first()))
+        .to_string();
+        println!("{}", table);
     } else {
         println!("No Jupyter runtimes running.");
     }
