@@ -4,10 +4,13 @@ use tokio::io::{self};
 use clap::Parser;
 use clap::Subcommand;
 
-use tabled::{Table, Tabled, settings::{Style,  Color, themes::Colorization, object::Rows}};
+use tabled::{
+    settings::{object::Rows, themes::Colorization, Color, Style},
+    Table, Tabled,
+};
 
 // TODO: Rely on our server for the source of truth rather than the runtimelib
-use runtimelib::get_jupyter_runtime_instances;
+use runtimelib::jupyter_runtime::get_jupyter_runtime_instances;
 
 /** Runtime 🔄  */
 #[derive(Parser, Debug)]
@@ -90,16 +93,21 @@ async fn list_instances() -> io::Result<()> {
 
     let runtimes = get_jupyter_runtime_instances().await;
 
-    let displays: Vec<RuntimeDisplay> = runtimes.into_iter().map(|runtime| RuntimeDisplay {
-        kernel_name: runtime.kernel_name,
-        ip: runtime.ip,
-        transport: runtime.transport,
-        connection_file: runtime.connection_file,
-    }).collect();
+    let displays: Vec<RuntimeDisplay> = runtimes
+        .into_iter()
+        .map(|runtime| RuntimeDisplay {
+            kernel_name: runtime.kernel_name,
+            ip: runtime.ip,
+            transport: runtime.transport,
+            connection_file: runtime.connection_file,
+        })
+        .collect();
 
     if !displays.is_empty() {
-        let table = Table::new(displays).with(Style::markdown()).with(Colorization::exact([Color::BOLD], Rows::first()))
-        .to_string();
+        let table = Table::new(displays)
+            .with(Style::markdown())
+            .with(Colorization::exact([Color::BOLD], Rows::first()))
+            .to_string();
         println!("{}", table);
     } else {
         println!("No Jupyter runtimes running.");
