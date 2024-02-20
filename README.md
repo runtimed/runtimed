@@ -2,6 +2,28 @@
 
 RuntimeD is a daemon for REPLs built on top of Jupyter kernels.
 
+## Getting Started
+
+```
+git clone git@github.com:runtimed/runtimed.git
+cd runtimed
+# Install the cli, `runt` into your path
+cargo install --path cli
+```
+
+### Usage
+
+```
+runt ps
+| Kernel Name | IP        | Transport | Connection File                                                                            |
+|-------------|-----------|-----------|--------------------------------------------------------------------------------------------|
+| deno        | 127.0.0.1 | tcp       | ~/Library/Jupyter/runtime/kernel-76d276d5-3625-43ae-aee4-9628a22d64e8.json |
+| python3     | 127.0.0.1 | tcp       | ~/Library/Jupyter/runtime/kernel-581f74c6-e366-4518-8826-84132763f68c.json |
+| deno        | 127.0.0.1 | tcp       | ~/Library/Jupyter/runtime/kernel-f1d7210b-1942-44c8-90c6-35ca8135054c.json |
+| deno        | 127.0.0.1 | tcp       | ~/Library/Jupyter/runtime/kernel-4bfd804a-befc-4e4c-b10a-3b3d79c3bf24.json |
+| python3     | 127.0.0.1 | tcp       | ~/Library/Jupyter/runtime/kernel-05122fc6-3d9f-4ed0-8fcb-93d1f7316756.json |
+```
+
 ## Introduction
 
 We're exposing a document oriented interface to working with kernels, as a REST or GraphQL API:
