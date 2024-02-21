@@ -96,9 +96,9 @@ async fn list_instances() -> io::Result<()> {
     let displays: Vec<RuntimeDisplay> = runtimes
         .into_iter()
         .map(|runtime| RuntimeDisplay {
-            kernel_name: runtime.kernel_name,
-            ip: runtime.ip,
-            transport: runtime.transport,
+            kernel_name: runtime.connection_info.kernel_name.unwrap_or("".to_string()),
+            ip: runtime.connection_info.ip,
+            transport: runtime.connection_info.transport,
             connection_file: runtime.connection_file,
         })
         .collect();
