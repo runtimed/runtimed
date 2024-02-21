@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+chrono = { version = "0.4.34", features = ["serde"] }
 anyhow = "1.0.79"
 bytes = "1.5.0"
-chrono = "0.4.34"
 data-encoding = "2.5.0"
 dirs = "5.0.1"
 ring = "0.17.7"
@@ -19,3 +19,6 @@ zeromq = { version = "=0.3.4", default-features = false, features = [
 ] }
 tokio = { version = "1.36.0", features = ["full"] }
 shellexpand = "3.1.0"
+lazy_static = "1.4.0"
+rand = "0.8.5"
+hex = "0.4.3"
