@@ -12,3 +12,8 @@ pub mod message;
 pub mod request;
 pub mod response;
 pub mod schema_tools;
+
+pub mod client;
+pub mod actions;
+pub mod handlers;
+pub mod notebook;

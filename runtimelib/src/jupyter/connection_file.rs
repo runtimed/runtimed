@@ -8,26 +8,29 @@ use rand::distributions::Alphanumeric;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::fs::{self, File};
-use std::io::{self, Write};
+use tokio::fs;
+use tokio::io::AsyncWriteExt;
 use std::net::TcpListener;
 use std::path::Path;
+use std::io;
+
+use anyhow::Error;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ConnectionInfo {
-    ip: String,
-    transport: String,
-    shell_port: u16,
-    iopub_port: u16,
-    stdin_port: u16,
-    control_port: u16,
-    hb_port: u16,
-    signature_scheme: String,
+    pub ip: String,
+    pub transport: String,
+    pub shell_port: u16,
+    pub iopub_port: u16,
+    pub stdin_port: u16,
+    pub control_port: u16,
+    pub hb_port: u16,
+    pub signature_scheme: String,
     pub key: String,
-    kernel_name: Option<String>,
+    pub kernel_name: Option<String>,
 }
 
-fn find_open_port() -> Result<u16, std::io::Error> {
+fn find_open_port() -> Result<u16, io::Error> {
     TcpListener::bind("127.0.0.1:0")
         .and_then(|listener| listener.local_addr())
         .map(|addr| addr.port())
@@ -42,7 +45,7 @@ fn generate_hmac_key() -> String {
 }
 
 impl ConnectionInfo {
-    pub fn new(kernel_name: Option<String>) -> Result<Self, io::Error> {
+    pub fn new(kernel_name: Option<String>) -> Result<Self, Error> {
         let mut ports = HashSet::new();
         while ports.len() < 5 {
             let port = find_open_port()?;
@@ -64,19 +67,28 @@ impl ConnectionInfo {
         })
     }
 
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, io::Error> {
-        let file_contents = fs::read_to_string(path)?;
-        serde_json::from_str(&file_contents).map_err(io::Error::from)
+    pub async fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+        let file_contents = match fs::read_to_string(path).await {
+            Ok(contents) => contents,
+            Err(e) => return Err(e.into()),
+        };
+        
+        serde_json::from_str(&file_contents).map_err(Error::from)
     }
 
-    pub fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), io::Error> {
+    pub fn from_string(s: String) -> Result<Self, Error> {
+        serde_json::from_str(&s).map_err(Error::from)
+    }
+
+    pub async fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
         let json = serde_json::to_string_pretty(self)?;
-        let mut file = File::create(path)?;
-        file.write_all(json.as_bytes())?;
+        let mut file = fs::File::create(path).await?;
+        file.write_all(json.as_bytes()).await?;
+
         Ok(())
     }
 
-    pub fn to_temp_file(&self) -> Result<std::path::PathBuf, io::Error> {
+    pub async fn to_temp_file(&self) -> Result<std::path::PathBuf, Error> {
         let mut file_path = std::env::temp_dir();
         if self.kernel_name.is_some() {
             file_path.push(format!(
@@ -87,7 +99,7 @@ impl ConnectionInfo {
         } else {
             file_path.push(format!("kernel-sidecar-{}.json", uuid::Uuid::new_v4()));
         }
-        self.to_file(&file_path)?;
+        self.to_file(&file_path).await?;
         Ok(file_path)
     }
 
