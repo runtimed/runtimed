@@ -41,22 +41,27 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, Mutex, Notify, RwLock};
 use tokio::time::sleep;
+
+use anyhow::Error;
 use zeromq::{DealerSocket, ReqSocket, Socket, SocketRecv, SocketSend, SubSocket, ZmqMessage};
 
 use crate::jupyter::actions::Action;
-use crate::jupyter::handlers::Handler;
 use crate::jupyter::connection_file::ConnectionInfo;
+use crate::jupyter::handlers::Handler;
 use crate::jupyter::request::Request;
 use crate::jupyter::response::Response;
 use crate::jupyter::shell_content::execute::ExecuteRequest;
 use crate::jupyter::shell_content::kernel_info::KernelInfoRequest;
 use crate::jupyter::wire_protocol::WireProtocol;
 
+use super::shell_content::kernel_info::KernelInfoReply;
+
 #[derive(Debug, Clone)]
 pub struct Client {
     actions: Arc<RwLock<HashMap<String, mpsc::Sender<Response>>>>,
     connection_info: ConnectionInfo,
     shell_tx: mpsc::Sender<ZmqMessage>,
+    shell_rx: Arc<Mutex<mpsc::Receiver<ZmqMessage>>>,
     shutdown_signal: Arc<Notify>,
 }
 
@@ -76,6 +81,9 @@ impl Client {
         let iopub_address = connection_info.iopub_address();
         let shell_address = connection_info.shell_address();
 
+        let shell_rx = Arc::new(Mutex::new(shell_rx));
+        let shell_rx_clone = Arc::clone(&shell_rx);
+
         tokio::spawn(iopub_worker(
             iopub_address,
             process_msg_tx.clone(),
@@ -83,7 +91,7 @@ impl Client {
         ));
         tokio::spawn(shell_worker(
             shell_address,
-            shell_rx,
+            shell_rx_clone,
             process_msg_tx.clone(),
             shutdown_signal.clone(),
         ));
@@ -95,10 +103,12 @@ impl Client {
             shutdown_signal.clone(),
         ));
 
+
         Client {
             actions,
             connection_info: connection_info.clone(),
             shell_tx,
+            shell_rx,
             shutdown_signal,
         }
     }
@@ -159,6 +169,61 @@ impl Client {
     pub async fn kernel_info_request(&self, handlers: Vec<Arc<Mutex<dyn Handler>>>) -> Action {
         let request = KernelInfoRequest::new();
         self.send_request(request.into(), handlers).await
+    }
+
+    pub fn subscribe_to_shell_messages(&self) -> mpsc::Receiver<ZmqMessage> {
+        let (tx, rx) = mpsc::channel(100);
+        let shell_rx = self.shell_rx.clone();
+        tokio::spawn(async move {
+            let mut shell_rx = shell_rx.lock().await;
+            while let Some(message) = shell_rx.recv().await {
+                if tx.send(message).await.is_err() {
+                    // If the receiver is dropped, stop the loop.
+                    break;
+                }
+            }
+        });
+        rx
+    }
+
+    pub async fn request_kernel_info_with_timeout(
+        &self,
+        timeout: Duration,
+    ) -> Result<KernelInfoReply, Error> {
+        // Subscribe to shell messages
+        let mut rx = self.subscribe_to_shell_messages();
+
+        // Construct and send the kernel info request directly
+        let request = KernelInfoRequest::new();
+        let request_enum: Request = request.into();
+        let wp: WireProtocol = request_enum.into_wire_protocol(&self.connection_info.key);
+        let zmq_msg: ZmqMessage = wp.into();
+        self.shell_tx.send(zmq_msg).await?;
+
+        // Create a timeout future
+        let timeout_future = tokio::time::sleep(timeout);
+        tokio::pin!(timeout_future);
+
+        loop {
+            tokio::select! {
+                _ = &mut timeout_future => {
+                    return Err(Error::msg("Timeout reached without receiving kernel_info_reply"));
+                }
+                msg = rx.recv() => {
+                    match msg {
+                        Some(zmq_msg) => {
+                            // Adjust the deserialization according to your actual logic
+                            let response: Response = zmq_msg.into(); // This needs to match your deserialization logic
+                            if let Response::KernelInfo(message) = response {
+                                return Ok(message.content);
+                            }
+                            // If not the expected message, continue listening
+                        },
+                        None => return Err(Error::msg("Channel closed")),
+                    }
+                }
+            }
+        }
     }
 
     pub async fn execute_request(
@@ -246,7 +311,7 @@ async fn iopub_worker(
 /// process_message_worker.
 async fn shell_worker(
     shell_address: String,
-    mut msg_rx: mpsc::Receiver<ZmqMessage>, // Client wants to send Jupyter message over ZMQ
+    msg_rx: Arc<Mutex<mpsc::Receiver<ZmqMessage>>>, // Client wants to send Jupyter message over ZMQ
     msg_tx: mpsc::Sender<ZmqMessage>,       // Kernel sent a reply over ZMQ, needs to get processed
     shutdown_signal: Arc<Notify>,
 ) {
@@ -254,8 +319,10 @@ async fn shell_worker(
     socket.connect(shell_address.as_str()).await.unwrap();
 
     loop {
+            println!("We selecting on {:?}", shell_address);
+        let mut locked_rx = msg_rx.lock().await;
         tokio::select! {
-            Some(client_to_kernel_msg) = msg_rx.recv() => {
+            Some(client_to_kernel_msg) = locked_rx.recv() => {
                 socket.send(client_to_kernel_msg).await.unwrap();
             }
             kernel_to_client_msg = socket.recv() => {

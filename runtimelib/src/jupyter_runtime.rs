@@ -1,14 +1,14 @@
+use crate::jupyter::shell_content::kernel_info::KernelInfoReply;
 use crate::jupyter_dirs;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
-use std::sync::Arc;
+use std::time::Duration;
 
 use crate::jupyter::client::Client;
 use crate::jupyter::connection_file::ConnectionInfo;
 
-use crate::jupyter::handlers::Handler;
-use crate::jupyter::response::Response;
+use anyhow::Error;
 
 // To execute the above function, it must be called from within an async context, e.g.,
 // tokio::runtime::Runtime::new().unwrap().block_on(connect_and_request_kernel_info());
@@ -42,7 +42,8 @@ pub async fn get_jupyter_runtime_instances() -> Vec<JupyterRuntime> {
                         connection_file: path.to_str().unwrap_or_default().to_string(),
                     };
 
-                    check_kernel_health(&runtime).await;
+                    let kr = check_kernel_health(&runtime).await;
+                    println!("Kernel Info {:?}", kr);
                     runtimes.push(runtime);
                 }
             }
@@ -52,23 +53,11 @@ pub async fn get_jupyter_runtime_instances() -> Vec<JupyterRuntime> {
     runtimes
 }
 
-#[derive(Debug)]
-struct DebugHandler;
 
-#[async_trait::async_trait]
-impl Handler for DebugHandler {
-    async fn handle(&mut self, msg: &Response) {
-        dbg!(msg);
-    }
-}
-
-pub async fn check_kernel_health(runtime: &JupyterRuntime) {
+pub async fn check_kernel_health(runtime: &JupyterRuntime) -> Result<KernelInfoReply, Error> {
     let client = Client::new(&runtime.connection_info).await;
 
-    let handler = DebugHandler {};
-    // Wrap the handler in Mutex and then in Arc
-    let handlers = vec![Arc::new(tokio::sync::Mutex::new(handler)) as Arc<tokio::sync::Mutex<dyn Handler>>];
+    let kr = client.request_kernel_info_with_timeout(Duration::from_secs(3)).await;
 
-    let action = client.kernel_info_request(handlers).await;
-    action.await
+    kr
 }
