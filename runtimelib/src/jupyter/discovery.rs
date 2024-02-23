@@ -1,4 +1,4 @@
-use crate::jupyter_dirs;
+use crate::jupyter::dirs;
 use serde_json;
 use serde_json::from_str;
 use serde_json::json;
@@ -13,7 +13,7 @@ use crate::jupyter::client;
 use crate::jupyter::messaging;
 
 pub async fn get_jupyter_runtime_instances() -> Vec<client::JupyterRuntime> {
-    let runtime_dir = jupyter_dirs::runtime_dir();
+    let runtime_dir = dirs::runtime_dir();
 
     let mut join_set = JoinSet::new();
 

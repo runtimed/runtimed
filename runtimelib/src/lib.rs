@@ -1,6 +1,3 @@
-pub mod jupyter_dirs;
-pub mod jupyter_runtime;
-
 pub mod jupyter;
 
 #[cfg(test)]
@@ -13,15 +10,15 @@ mod tests {
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
             // Test ask_jupyter (this will fail if Jupyter is not installed)
-            match jupyter_dirs::ask_jupyter().await {
+            match jupyter::dirs::ask_jupyter().await {
                 Ok(paths) => println!("Jupyter Paths: {:?}", paths),
                 Err(e) => panic!("Failed to ask Jupyter about its paths: {}", e),
             };
 
-            let config_dirs = jupyter_dirs::config_dirs();
+            let config_dirs = jupyter::dirs::config_dirs();
             assert!(!config_dirs.is_empty(), "Config dirs should not be empty");
 
-            let data_dirs = jupyter_dirs::data_dirs();
+            let data_dirs = jupyter::dirs::data_dirs();
             assert!(!data_dirs.is_empty(), "Data dirs should not be empty");
 
             // TODO: Test the runtime directory behavior
@@ -33,7 +30,7 @@ mod tests {
     fn check_for_runtimes() {
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
-            let jupyter_runtimes = jupyter_runtime::get_jupyter_runtime_instances().await;
+            let jupyter_runtimes = jupyter::discovery::get_jupyter_runtime_instances().await;
 
             println!("Jupyter runtimes: {:?}", jupyter_runtimes)
         })

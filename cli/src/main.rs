@@ -10,7 +10,7 @@ use tabled::{
 };
 
 // TODO: Rely on our server for the source of truth rather than the runtimelib
-use runtimelib::jupyter_runtime::get_jupyter_runtime_instances;
+use runtimelib::jupyter::discovery::get_jupyter_runtime_instances;
 
 /** Runtime 🔄  */
 #[derive(Parser, Debug)]
