@@ -84,11 +84,11 @@ struct RuntimeDisplay {
     connection_file: String,
     #[tabled(rename = "State")]
     state: String,
-
 }
 
 async fn list_instances() -> io::Result<()> {
     let runtimes = get_jupyter_runtime_instances().await;
+
 
     let displays: Vec<RuntimeDisplay> = runtimes
         .into_iter()
@@ -98,7 +98,10 @@ async fn list_instances() -> io::Result<()> {
             transport: runtime.transport,
             connection_file: runtime.connection_file,
             state: runtime.state,
-            language: runtime.kernel_info["language"].as_str().unwrap_or_default().to_string()
+            language: runtime.kernel_info["language_info"]["name"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
         })
         .collect();
 
