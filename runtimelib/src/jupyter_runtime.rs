@@ -72,7 +72,7 @@ pub async fn check_kernel_info(runtime: client::JupyterRuntime) -> Result<Value,
             Some(json!({})),
         );
 
-        let _res = message.send(&mut client.shell).await;
+        message.send(&mut client.shell).await?;
 
         let reply = messaging::JupyterMessage::read(&mut client.shell).await;
 
