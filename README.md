@@ -1,6 +1,21 @@
-# runtimed
+## runtimed
 
-RuntimeD is a daemon for REPLs built on top of Jupyter kernels.
+RuntimeD is a daemon for REPLs built on top of Jupyter kernels. It's purpose built for exposing interactive computing primitives to large language models whether hosted or local. 
+
+The main CLI for interfacing with `runtimed` is `runt`.
+
+### Goal
+
+The goal of `runt` is to provide simple, easy to use, and powerful access to interactive computing. We want to enable a new generation of builders to:
+
+* Create new notebook applications
+* Create new kinds of REPLs
+* Allow large language models to reason about code and data 
+
+There are two main interfaces: 
+
+* `runt` - a CLI for managing runtimes
+* `runtimed` - a daemon for working with the interactive computing runtimes
 
 ## Getting Started
 
@@ -24,17 +39,13 @@ runt ps
 | python3     | 127.0.0.1 | tcp       | ~/Library/Jupyter/runtime/kernel-05122fc6-3d9f-4ed0-8fcb-93d1f7316756.json |
 ```
 
-## Introduction
+## The idea behind the `runtimed` API 💡
 
-We're exposing a document oriented interface to working with kernels, as a REST or GraphQL API:
+We're exposing a document oriented interface to working with kernels, as a REST API:
 
 ![image](https://github.com/runtimed/runtimed/assets/836375/07bf5289-8b2a-466b-a9ad-e243d289c232)
 
-The short term goal is to track executions of runtimes for use by interactive applications like notebooks and consoles.
-
-RuntimeD tracks executions of runtimes for recall and for working with interactive applications like notebooks and consoles.
-
-We track the association between `Execution` and `Runtime` (a running kernel). We also track for specific notebook apps with a `Code Cell -> Execution`.
+RuntimeD tracks executions of runtimes for recall and for working with interactive applications like notebooks and consoles. We track the association between `Execution` and `Runtime` (a running kernel). We also track for specific notebook apps with a `Code Cell -> Execution`.
 
 ```typescript
 Execution {
@@ -48,12 +59,11 @@ Execution {
 
 ```typescript
 Runtime {
-  kernel_json: ...,
-  status: dead,
-  last_keepalive: ... # not sure what we need here.
+  id: ULID,
+  status: dead | alive | unresponsive,
+  last_keepalive: timestamp
 }
 ```
-
 
 ```typescript
 CodeCell {
@@ -63,7 +73,7 @@ CodeCell {
 ```
 
 
-### CLI
+### CLI Goals
 
 ```
 $ runt start python3
