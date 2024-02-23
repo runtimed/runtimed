@@ -10,7 +10,7 @@ use tabled::{
 };
 
 // TODO: Rely on our server for the source of truth rather than the runtimelib
-use runtimelib::jupyter::discovery::get_jupyter_runtime_instances;
+use runtimelib;
 
 /** Runtime 🔄  */
 #[derive(Parser, Debug)]
@@ -87,7 +87,7 @@ struct RuntimeDisplay {
 }
 
 async fn list_instances() -> io::Result<()> {
-    let runtimes = get_jupyter_runtime_instances().await;
+    let runtimes = runtimelib::list_instances().await;
 
 
     let displays: Vec<RuntimeDisplay> = runtimes
