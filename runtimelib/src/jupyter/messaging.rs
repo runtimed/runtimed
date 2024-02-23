@@ -169,6 +169,30 @@ impl JupyterMessage {
         self.content["comm_id"].as_str().unwrap_or("")
     }
 
+    pub(crate) fn new_with_type(
+        msg_type: &str,
+        content: Option<serde_json::Value>,
+        metadata: Option<serde_json::Value>,
+    ) -> JupyterMessage {
+        let header = json!({
+            "msg_id": Uuid::new_v4().to_string(),
+            "username": "kernel",
+            "session": Uuid::new_v4().to_string(),
+            "date": Utc::now().to_rfc3339(),
+            "msg_type": msg_type,
+            "version": "5.3", // Assuming Jupyter messaging protocol version 5.3
+        });
+
+        JupyterMessage {
+            zmq_identities: Vec::new(), // No identities for a new message
+            header,
+            parent_header: json!({}), // Empty for a new message
+            metadata: metadata.unwrap_or_else(|| json!({})),
+            content: content.unwrap_or_else(|| json!({})),
+            buffers: Vec::new(), // No buffers for a new message
+        }
+    }
+
     // Creates a new child message of this message. ZMQ identities are not transferred.
     pub(crate) fn new_message(&self, msg_type: &str) -> JupyterMessage {
         let mut header = self.header.clone();
@@ -279,3 +303,4 @@ impl fmt::Debug for JupyterMessage {
         Ok(())
     }
 }
+

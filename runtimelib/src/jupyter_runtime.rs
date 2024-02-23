@@ -1,34 +1,15 @@
 use crate::jupyter_dirs;
 use serde::{Deserialize, Serialize};
+use serde_json;
 use serde_json::from_str;
+use serde_json::json;
 use tokio::fs;
 
-#[derive(Serialize, Clone)]
-pub struct JupyterEnvironment {
-    process: String,
-    argv: Vec<String>,
-    display_name: String,
-    language: String,
-}
+use crate::jupyter::client;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct JupyterRuntime {
-    pub shell_port: u16,
-    pub iopub_port: u16,
-    pub stdin_port: u16,
-    pub control_port: u16,
-    pub hb_port: u16,
-    pub kernel_name: String,
-    pub ip: String,
-    key: String,
-    pub transport: String, // TODO: Enumify with tcp, ipc
-    signature_scheme: String,
-    // We'll track the connection file path here as well
-    #[serde(skip_deserializing)]
-    pub connection_file: String,
-}
+use crate::jupyter::messaging;
 
-pub async fn get_jupyter_runtime_instances() -> Vec<JupyterRuntime> {
+pub async fn get_jupyter_runtime_instances() -> Vec<client::JupyterRuntime> {
     let runtime_dir = jupyter_dirs::runtime_dir();
     let mut runtimes = Vec::new();
 
@@ -37,8 +18,11 @@ pub async fn get_jupyter_runtime_instances() -> Vec<JupyterRuntime> {
             let path = entry.path();
             if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
                 let content = fs::read_to_string(&path).await.unwrap_or_default();
-                if let Ok(mut runtime) = from_str::<JupyterRuntime>(&content) {
+                if let Ok(mut runtime) = from_str::<client::JupyterRuntime>(&content) {
                     runtime.connection_file = path.to_str().unwrap_or_default().to_string();
+
+                    check_kernel_info(runtime.clone()).await;
+
                     runtimes.push(runtime);
                 }
             }
@@ -46,4 +30,37 @@ pub async fn get_jupyter_runtime_instances() -> Vec<JupyterRuntime> {
     }
 
     runtimes
+}
+
+pub async fn check_kernel_info(runtime: client::JupyterRuntime) {
+
+    let res = tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        let mut client = runtime.attach().await;
+
+        let message = messaging::JupyterMessage::new_with_type(
+            "kernel_info_request",
+            Some(json!({})),
+            Some(json!({})),
+        );
+
+        message.send(&mut client.shell).await
+    }).await;
+
+    match res {
+        Ok(result) => println!("{:?}", result),
+        Err(e) => println!("Timeout error: {:?}", e),
+    }
+
+
+    // let message = messaging::JupyterMessage{
+    //     zmq_identities: Vec::new(),
+    //     header,
+    //     metadata: json!({}),
+    //     content: json!({}),
+    //     buffers: vec![],
+    // }
+
+    // let message:
+
+    // client.shell.socket.send(message)
 }
