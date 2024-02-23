@@ -91,3 +91,20 @@ Runtime "ul3bn3or" exited with no errors. To export a notebook from your session
 
   runtime export ul3bn3or --notebook
 ```
+
+```
+$ runt ps
+
+| Kernel Name     | Language | IP        | Transport | Connection File                                                                            | State        |
+|-----------------|----------|-----------|-----------|--------------------------------------------------------------------------------------------|--------------|
+| deno            |          | 127.0.0.1 | tcp       | /Users/kylekelley/Library/Jupyter/runtime/kernel-76d276d5-3625-43ae-aee4-9628a22d64e8.json | unresponsive |
+| python3         |          | 127.0.0.1 | tcp       | /Users/kylekelley/Library/Jupyter/runtime/kernel-24661.json                                | alive        |
+| python3         |          | 127.0.0.1 | tcp       | /Users/kylekelley/Library/Jupyter/runtime/kernel-95973.json                                | alive        |
+| python3         |          | 127.0.0.1 | tcp       | /Users/kylekelley/Library/Jupyter/runtime/kernel-581f74c6-e366-4518-8826-84132763f68c.json | unresponsive |
+| deno            |          | 127.0.0.1 | tcp       | /Users/kylekelley/Library/Jupyter/runtime/kernel-f1d7210b-1942-44c8-90c6-35ca8135054c.json | unresponsive |
+| deno            |          | 127.0.0.1 | tcp       | /Users/kylekelley/Library/Jupyter/runtime/kernel-4bfd804a-befc-4e4c-b10a-3b3d79c3bf24.json | unresponsive |
+| python3         |          | 127.0.0.1 | tcp       | /Users/kylekelley/Library/Jupyter/runtime/kernel-05122fc6-3d9f-4ed0-8fcb-93d1f7316756.json | unresponsive |
+| pythonjvsc74a57 |          | 127.0.0.1 | tcp       | /Users/kylekelley/Library/Jupyter/runtime/kernel-v2-17060MJ3bVzCxcpj6.json                 | unresponsive |
+
+$ runt rm kernel-76d276d5-3625-43ae-aee4-9628a22d64e8
+```

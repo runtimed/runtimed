@@ -1,6 +1,7 @@
 pub mod jupyter_dirs;
-pub mod jupyter_msg;
 pub mod jupyter_runtime;
+
+pub mod jupyter;
 
 #[cfg(test)]
 mod tests {
