@@ -127,6 +127,7 @@ pub(crate) struct JupyterMessage {
 
 const DELIMITER: &[u8] = b"<IDS|MSG>";
 
+#[allow(dead_code)]
 impl JupyterMessage {
     pub(crate) async fn read<S: zeromq::SocketRecv>(
         connection: &mut Connection<S>,
@@ -157,45 +158,30 @@ impl JupyterMessage {
         self.header["msg_type"].as_str().unwrap_or("")
     }
 
-    pub(crate) fn code(&self) -> &str {
-        self.content["code"].as_str().unwrap_or("")
-    }
-
-    pub(crate) fn cursor_pos(&self) -> usize {
-        self.content["cursor_pos"].as_u64().unwrap_or(0) as usize
-    }
-
-    pub(crate) fn comm_id(&self) -> &str {
-        self.content["comm_id"].as_str().unwrap_or("")
-    }
-
-
-    pub(crate) fn new_with_type(
+    pub(crate) fn new(
         msg_type: &str,
-        content: Option<serde_json::Value>,
-        metadata: Option<serde_json::Value>,
     ) -> JupyterMessage {
         let header = json!({
             "msg_id": Uuid::new_v4().to_string(),
-            "username": "kernel",
+            "username": "todo-user",
             "session": Uuid::new_v4().to_string(),
             "date": Utc::now().to_rfc3339(),
             "msg_type": msg_type,
-            "version": "5.3", // Assuming Jupyter messaging protocol version 5.3
+            "version": "5.3",
         });
 
         JupyterMessage {
-            zmq_identities: Vec::new(), // No identities for a new message
+            zmq_identities: Vec::new(),
             header,
             parent_header: json!({}), // Empty for a new message
-            metadata: metadata.unwrap_or_else(|| json!({})),
-            content: content.unwrap_or_else(|| json!({})),
-            buffers: Vec::new(), // No buffers for a new message
+            metadata: json!({}),
+            content: json!({}),
+            buffers: Vec::new(), 
         }
     }
 
     // Creates a new child message of this message. ZMQ identities are not transferred.
-    pub(crate) fn new_message(&self, msg_type: &str) -> JupyterMessage {
+    pub(crate) fn child_message(&self, msg_type: &str) -> JupyterMessage {
         let mut header = self.header.clone();
         header["msg_type"] = serde_json::Value::String(msg_type.to_owned());
         header["username"] = serde_json::Value::String("kernel".to_owned());
@@ -215,14 +201,18 @@ impl JupyterMessage {
     // Creates a reply to this message. This is a child with the message type determined
     // automatically by replacing "request" with "reply". ZMQ identities are transferred.
     pub(crate) fn new_reply(&self) -> JupyterMessage {
-        let mut reply = self.new_message(&self.message_type().replace("_request", "_reply"));
+        let mut reply = self.child_message(&self.message_type().replace("_request", "_reply"));
         reply.zmq_identities = self.zmq_identities.clone();
         reply
     }
 
+    pub(crate) fn comm_id(&self) -> &str {
+        self.content["comm_id"].as_str().unwrap_or("")
+    }
+
     #[must_use = "Need to send this message for it to have any effect"]
     pub(crate) fn comm_close_message(&self) -> JupyterMessage {
-        self.new_message("comm_close").with_content(json!({
+        self.child_message("comm_close").with_content(json!({
           "comm_id": self.comm_id()
         }))
     }
