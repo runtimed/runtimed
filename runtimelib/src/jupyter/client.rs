@@ -1,9 +1,13 @@
 use crate::jupyter::messaging::Connection;
+use tokio::time::{timeout, Duration};
 
-use zeromq;
-use zeromq::Socket;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use zeromq;
+use zeromq::Socket;
+
+use anyhow::anyhow;
+use anyhow::Error;
 
 #[derive(Serialize, Clone)]
 pub struct JupyterEnvironment {
@@ -31,11 +35,8 @@ pub struct JupyterRuntime {
     #[serde(skip_deserializing)]
     pub state: String, // TODO: Use an enum
     #[serde(skip_deserializing)]
-    pub kernel_info: Value
-
-
+    pub kernel_info: Value,
 }
-
 
 impl JupyterRuntime {
     pub async fn attach(self) -> JupyterClient {
@@ -104,11 +105,31 @@ impl JupyterRuntime {
     }
 }
 
-#[allow(dead_code)]
 pub struct JupyterClient {
     pub(crate) shell: Connection<zeromq::DealerSocket>,
     pub(crate) iopub: Connection<zeromq::SubSocket>,
     pub(crate) stdin: Connection<zeromq::DealerSocket>,
     pub(crate) control: Connection<zeromq::DealerSocket>,
     pub(crate) heartbeat: Connection<zeromq::ReqSocket>,
+}
+
+impl JupyterClient {
+    pub async fn detach(self) -> Result<(), Error> {
+        let timeout_duration = Duration::from_millis(60);
+
+        let close_sockets = async {
+            let _ = tokio::join!(
+                self.shell.socket.close(),
+                self.iopub.socket.close(),
+                self.stdin.socket.close(),
+                self.control.socket.close(),
+                self.heartbeat.socket.close(),
+            );
+        };
+
+        match timeout(timeout_duration, close_sockets).await {
+            Ok(_) => Ok(()),
+            Err(_) => Err(anyhow!("Timeout reached while closing sockets.")),
+        }
+    }
 }

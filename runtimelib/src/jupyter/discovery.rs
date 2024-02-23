@@ -19,10 +19,10 @@ pub async fn get_jupyter_runtime_instances() -> Vec<client::JupyterRuntime> {
 
     if let Ok(mut entries) = fs::read_dir(runtime_dir).await {
         while let Ok(Some(entry)) = entries.next_entry().await {
-            let path = entry.path();
-            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
+            let connection_file_path = entry.path();
+            if connection_file_path.is_file() && connection_file_path.extension().and_then(|s| s.to_str()) == Some("json") {
                 join_set.spawn(async move {
-                    process_file(path).await
+                    check_runtime_up(connection_file_path).await
                 });
             }
         }
@@ -32,17 +32,17 @@ pub async fn get_jupyter_runtime_instances() -> Vec<client::JupyterRuntime> {
     while let Some(result) = join_set.join_next().await {
         match result {
             Ok(Ok(runtime)) => runtimes.push(runtime),
-            _ => continue, // Handle skipped files
+            _ => continue, // Ignore skipped connection files
         }
     }
 
     runtimes
 }
 
-async fn process_file(path: std::path::PathBuf) -> Result<client::JupyterRuntime, Error> {
-    let content = fs::read_to_string(&path).await.unwrap_or_default();
+async fn check_runtime_up(connection_file_path: std::path::PathBuf) -> Result<client::JupyterRuntime, Error> {
+    let content = fs::read_to_string(&connection_file_path).await.unwrap_or_default();
     if let Ok(mut runtime) = from_str::<client::JupyterRuntime>(&content) {
-        runtime.connection_file = path.to_str().unwrap_or_default().to_string();
+        runtime.connection_file = connection_file_path.to_str().unwrap_or_default().to_string();
 
         match check_kernel_info(runtime.clone()).await {
             Ok(kernel_info) => {
@@ -74,7 +74,7 @@ pub async fn check_kernel_info(runtime: client::JupyterRuntime) -> Result<Value,
 
         let reply = messaging::JupyterMessage::read(&mut client.shell).await;
 
-        match reply {
+        let result = match reply {
             Ok(msg) => {
                 if msg.message_type() == "kernel_info_reply" {
                     Ok(msg.content)
@@ -86,7 +86,14 @@ pub async fn check_kernel_info(runtime: client::JupyterRuntime) -> Result<Value,
                 println!("Failed to receive kernel info reply: {:?}", e);
                 Err(anyhow::anyhow!("Failed to receive kernel info reply: {:?}", e)) // Ensure this arm also returns a Result
             },
+        };
+
+        if let Err(e) = client.detach().await {
+            println!("Failed to detach client: {:?}", e);
         }
+
+        result
+
     }).await;
 
    res?
