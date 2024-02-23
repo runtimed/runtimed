@@ -1,5 +1,7 @@
 ## runtimed
 
+![lilrunt](https://github.com/runtimed/runtimed/assets/836375/f5d36136-5154-4c2c-b968-4354c29670b1)
+
 RuntimeD is a daemon for REPLs built on top of Jupyter kernels. It's purpose built for exposing interactive computing primitives to large language models whether hosted or local. 
 
 The main CLI for interfacing with `runtimed` is `runt`.
