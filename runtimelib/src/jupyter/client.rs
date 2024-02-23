@@ -104,6 +104,7 @@ impl JupyterRuntime {
     }
 }
 
+#[allow(dead_code)]
 pub struct JupyterClient {
     pub(crate) shell: Connection<zeromq::DealerSocket>,
     pub(crate) iopub: Connection<zeromq::SubSocket>,

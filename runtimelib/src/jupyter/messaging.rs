@@ -127,6 +127,7 @@ pub(crate) struct JupyterMessage {
 
 const DELIMITER: &[u8] = b"<IDS|MSG>";
 
+#[allow(dead_code)]
 impl JupyterMessage {
     pub(crate) async fn read<S: zeromq::SocketRecv>(
         connection: &mut Connection<S>,
@@ -203,6 +204,10 @@ impl JupyterMessage {
         let mut reply = self.child_message(&self.message_type().replace("_request", "_reply"));
         reply.zmq_identities = self.zmq_identities.clone();
         reply
+    }
+
+    pub(crate) fn comm_id(&self) -> &str {
+        self.content["comm_id"].as_str().unwrap_or("")
     }
 
     #[must_use = "Need to send this message for it to have any effect"]
