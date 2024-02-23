@@ -66,11 +66,9 @@ pub async fn check_kernel_info(runtime: client::JupyterRuntime) -> Result<Value,
     let res = tokio::time::timeout(std::time::Duration::from_secs(1), async {
         let mut client = runtime.attach().await;
 
-        let message = messaging::JupyterMessage::new_with_type(
+        let message = messaging::JupyterMessage::new(
             "kernel_info_request",
-            Some(json!({})),
-            Some(json!({})),
-        );
+        ).with_content(json!({}));
 
         message.send(&mut client.shell).await?;
 
