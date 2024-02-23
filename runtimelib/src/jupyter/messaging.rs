@@ -121,7 +121,7 @@ pub(crate) struct JupyterMessage {
     header: serde_json::Value,
     parent_header: serde_json::Value,
     metadata: serde_json::Value,
-    content: serde_json::Value,
+    pub content: serde_json::Value,
     buffers: Vec<Bytes>,
 }
 
@@ -168,6 +168,7 @@ impl JupyterMessage {
     pub(crate) fn comm_id(&self) -> &str {
         self.content["comm_id"].as_str().unwrap_or("")
     }
+
 
     pub(crate) fn new_with_type(
         msg_type: &str,

@@ -1,10 +1,11 @@
 use crate::jupyter_dirs;
-use serde::{Deserialize, Serialize};
 use serde_json;
 use serde_json::from_str;
 use serde_json::json;
+use serde_json::Value;
 use tokio::fs;
-use zeromq::SocketRecv;
+
+use anyhow::Error;
 
 use crate::jupyter::client;
 
@@ -22,7 +23,13 @@ pub async fn get_jupyter_runtime_instances() -> Vec<client::JupyterRuntime> {
                 if let Ok(mut runtime) = from_str::<client::JupyterRuntime>(&content) {
                     runtime.connection_file = path.to_str().unwrap_or_default().to_string();
 
-                    check_kernel_info(runtime.clone()).await;
+                    match check_kernel_info(runtime.clone()).await {
+                        Ok(kernel_info) => {
+                            runtime.kernel_info = kernel_info;
+                            runtime.state = "alive".to_string();
+                        }
+                        Err(_) => runtime.state = "unresponsive".to_string()
+                    }
 
                     runtimes.push(runtime);
                 }
@@ -33,8 +40,8 @@ pub async fn get_jupyter_runtime_instances() -> Vec<client::JupyterRuntime> {
     runtimes
 }
 
-pub async fn check_kernel_info(runtime: client::JupyterRuntime) {
-    let res = tokio::time::timeout(std::time::Duration::from_secs(3), async {
+pub async fn check_kernel_info(runtime: client::JupyterRuntime) -> Result<Value, Error> {
+    let res = tokio::time::timeout(std::time::Duration::from_secs(1), async {
         let mut client = runtime.attach().await;
 
         let message = messaging::JupyterMessage::new_with_type(
@@ -44,30 +51,23 @@ pub async fn check_kernel_info(runtime: client::JupyterRuntime) {
         );
 
         let _res = message.send(&mut client.shell).await;
-        let reply = client.shell.socket.recv().await;
+
+        let reply = messaging::JupyterMessage::read(&mut client.shell).await;
+
         match reply {
             Ok(msg) => {
-                println!("Received kernel info reply: {:?}", msg);
-            }
-            Err(e) => println!("Failed to receive kernel info reply: {:?}", e),
+                if msg.message_type() == "kernel_info_reply" {
+                    Ok(msg.content)
+                } else {
+                    Err(anyhow::anyhow!("Expected kernel_info_reply, got {}", msg.message_type()))
+                }
+            },
+            Err(e) => {
+                println!("Failed to receive kernel info reply: {:?}", e);
+                Err(anyhow::anyhow!("Failed to receive kernel info reply: {:?}", e)) // Ensure this arm also returns a Result
+            },
         }
-    })
-    .await;
+    }).await;
 
-    match res {
-        Ok(result) => println!("we ok {:?}", result),
-        Err(e) => println!("Timeout error: {:?}", e),
-    }
-
-    // let message = messaging::JupyterMessage{
-    //     zmq_identities: Vec::new(),
-    //     header,
-    //     metadata: json!({}),
-    //     content: json!({}),
-    //     buffers: vec![],
-    // }
-
-    // let message:
-
-    // client.shell.socket.send(message)
+   res?
 }

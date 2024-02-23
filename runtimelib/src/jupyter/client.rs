@@ -3,6 +3,7 @@ use crate::jupyter::messaging::Connection;
 use zeromq;
 use zeromq::Socket;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Serialize, Clone)]
 pub struct JupyterEnvironment {
@@ -27,6 +28,12 @@ pub struct JupyterRuntime {
     // We'll track the connection file path here as well
     #[serde(skip_deserializing)]
     pub connection_file: String,
+    #[serde(skip_deserializing)]
+    pub state: String, // TODO: Use an enum
+    #[serde(skip_deserializing)]
+    pub kernel_info: Value
+
+
 }
 
 
