@@ -4,6 +4,7 @@ use serde_json::from_str;
 use serde_json::json;
 use serde_json::Value;
 use tokio::fs;
+use tokio::task::JoinSet;
 
 use anyhow::Error;
 
@@ -13,32 +14,53 @@ use crate::jupyter::messaging;
 
 pub async fn get_jupyter_runtime_instances() -> Vec<client::JupyterRuntime> {
     let runtime_dir = jupyter_dirs::runtime_dir();
-    let mut runtimes = Vec::new();
+
+    let mut join_set = JoinSet::new();
 
     if let Ok(mut entries) = fs::read_dir(runtime_dir).await {
-        while let Some(entry) = entries.next_entry().await.unwrap_or(None) {
+        while let Ok(Some(entry)) = entries.next_entry().await {
             let path = entry.path();
             if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
-                let content = fs::read_to_string(&path).await.unwrap_or_default();
-                if let Ok(mut runtime) = from_str::<client::JupyterRuntime>(&content) {
-                    runtime.connection_file = path.to_str().unwrap_or_default().to_string();
-
-                    match check_kernel_info(runtime.clone()).await {
-                        Ok(kernel_info) => {
-                            runtime.kernel_info = kernel_info;
-                            runtime.state = "alive".to_string();
-                        }
-                        Err(_) => runtime.state = "unresponsive".to_string()
-                    }
-
-                    runtimes.push(runtime);
-                }
+                join_set.spawn(async move {
+                    process_file(path).await
+                });
             }
+        }
+    }
+
+    let mut runtimes: Vec<client::JupyterRuntime> = Vec::new();
+    while let Some(result) = join_set.join_next().await {
+        match result {
+            Ok(Ok(runtime)) => runtimes.push(runtime),
+            _ => continue, // Handle skipped files
         }
     }
 
     runtimes
 }
+
+async fn process_file(path: std::path::PathBuf) -> Result<client::JupyterRuntime, Error> {
+    let content = fs::read_to_string(&path).await.unwrap_or_default();
+    if let Ok(mut runtime) = from_str::<client::JupyterRuntime>(&content) {
+        runtime.connection_file = path.to_str().unwrap_or_default().to_string();
+
+        match check_kernel_info(runtime.clone()).await {
+            Ok(kernel_info) => {
+                runtime.kernel_info = kernel_info;
+                runtime.state = "alive".to_string();
+                Ok(runtime)
+            }
+            Err(_) => {
+                runtime.state = "unresponsive".to_string();
+                Ok(runtime)
+            }
+        }
+    } else {
+        Err(anyhow::anyhow!("Failed to parse JupyterRuntime from file"))
+    }
+
+}
+
 
 pub async fn check_kernel_info(runtime: client::JupyterRuntime) -> Result<Value, Error> {
     let res = tokio::time::timeout(std::time::Duration::from_secs(1), async {
