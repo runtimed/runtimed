@@ -4,6 +4,7 @@ use serde_json;
 use serde_json::from_str;
 use serde_json::json;
 use tokio::fs;
+use zeromq::SocketRecv;
 
 use crate::jupyter::client;
 
@@ -33,7 +34,6 @@ pub async fn get_jupyter_runtime_instances() -> Vec<client::JupyterRuntime> {
 }
 
 pub async fn check_kernel_info(runtime: client::JupyterRuntime) {
-
     let res = tokio::time::timeout(std::time::Duration::from_secs(3), async {
         let mut client = runtime.attach().await;
 
@@ -43,14 +43,21 @@ pub async fn check_kernel_info(runtime: client::JupyterRuntime) {
             Some(json!({})),
         );
 
-        message.send(&mut client.shell).await
-    }).await;
+        let _res = message.send(&mut client.shell).await;
+        let reply = client.shell.socket.recv().await;
+        match reply {
+            Ok(msg) => {
+                println!("Received kernel info reply: {:?}", msg);
+            }
+            Err(e) => println!("Failed to receive kernel info reply: {:?}", e),
+        }
+    })
+    .await;
 
     match res {
-        Ok(result) => println!("{:?}", result),
+        Ok(result) => println!("we ok {:?}", result),
         Err(e) => println!("Timeout error: {:?}", e),
     }
-
 
     // let message = messaging::JupyterMessage{
     //     zmq_identities: Vec::new(),
