@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use zeromq;
 use zeromq::Socket;
-use zeromq::SocketRecv;
 
 use anyhow::anyhow;
 use anyhow::Error;
