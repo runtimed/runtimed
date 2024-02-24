@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use zeromq;
 use zeromq::Socket;
+use zeromq::SocketRecv;
 
 use anyhow::anyhow;
 use anyhow::Error;
@@ -130,6 +131,14 @@ impl JupyterClient {
         match timeout(timeout_duration, close_sockets).await {
             Ok(_) => Ok(()),
             Err(_) => Err(anyhow!("Timeout reached while closing sockets.")),
+        }
+    }
+
+    pub async fn listen(mut self) {
+        // Listen to all messages coming in from iopub, emit them as events
+        loop {
+            let message = self.iopub.socket.recv().await.unwrap();
+            println!("{:?}", message);
         }
     }
 }

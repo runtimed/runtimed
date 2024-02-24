@@ -4,6 +4,8 @@ use tokio::io::{self};
 use clap::Parser;
 use clap::Subcommand;
 
+use anyhow::Error;
+
 use tabled::{
     settings::{object::Rows, themes::Colorization, Color, Style},
     Table, Tabled,
@@ -31,8 +33,11 @@ enum Commands {
     /// Kill a specific runtime
     Kill {
         /// ID of the runtime to kill
-        id: u32,
+        id: String,
     },
+    Attach {
+        id: String,
+    }
     /* TODO: Start a REPL session
     // Run {
     //     /// The REPL to start (e.g., python3, node)
@@ -42,7 +47,7 @@ enum Commands {
 }
 
 #[tokio::main]
-async fn main() -> io::Result<()> {
+async fn main() -> Result<(), Error> {
     let cli = Cli::parse();
 
     match cli.command {
@@ -51,6 +56,9 @@ async fn main() -> io::Result<()> {
         }
         Commands::Ps => {
             list_instances().await?;
+        }
+        Commands::Attach { id } => {
+            attach_instance(id).await?;
         }
         Commands::Kill { id } => {
             kill_instance(id).await?;
@@ -62,12 +70,13 @@ async fn main() -> io::Result<()> {
     Ok(())
 }
 
-async fn create_instance(name: String) -> io::Result<()> {
-    println!("No runtime for: {}", name);
-    Err(io::Error::new(
-        io::ErrorKind::NotFound,
-        format!("No runtime for: {}", name),
-    ))
+async fn create_instance(name: String) -> Result<(), Error> {
+    Err(Error::msg(format!("No runtime for: {}", name)))
+}
+
+async fn attach_instance(id: String) -> Result<(), Error> {
+    runtimelib::attach(id).await.map_err(Error::msg)?;
+    Ok(())
 }
 
 #[derive(Tabled)]
@@ -118,7 +127,7 @@ async fn list_instances() -> io::Result<()> {
     Ok(())
 }
 
-async fn kill_instance(id: u32) -> io::Result<()> {
+async fn kill_instance(id: String) -> io::Result<()> {
     println!("No runtime running with ID: {}", id);
     Err(io::Error::new(
         io::ErrorKind::NotFound,
