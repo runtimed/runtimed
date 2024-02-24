@@ -1,4 +1,4 @@
-use crate::jupyter::messaging::Connection;
+use crate::jupyter::messaging::{Connection, JupyterMessage};
 use tokio::time::{timeout, Duration};
 
 use serde::{Deserialize, Serialize};
@@ -39,8 +39,13 @@ pub struct JupyterRuntime {
 }
 
 impl JupyterRuntime {
-    pub async fn attach(self) -> JupyterClient {
-        let iopub_socket = zeromq::SubSocket::new();
+    pub async fn attach(self) -> Result<JupyterClient, Error> {
+        let mut iopub_socket = zeromq::SubSocket::new();
+        match iopub_socket.subscribe("").await {
+            Ok(_) => (),
+            Err(e) => return Err(anyhow!("Error subscribing to iopub: {}", e)),
+        }
+
         let mut iopub_connection = Connection::new(iopub_socket, &self.key);
         iopub_connection
             .socket
@@ -95,13 +100,13 @@ impl JupyterRuntime {
             .await
             .unwrap();
 
-        return JupyterClient {
+        return Ok(JupyterClient {
             iopub: iopub_connection,
             shell: shell_connection,
             stdin: stdin_connection,
             control: control_connection,
             heartbeat: heartbeat_connection,
-        };
+        });
     }
 }
 
@@ -130,6 +135,23 @@ impl JupyterClient {
         match timeout(timeout_duration, close_sockets).await {
             Ok(_) => Ok(()),
             Err(_) => Err(anyhow!("Timeout reached while closing sockets.")),
+        }
+    }
+
+    pub async fn listen(mut self) {
+        // Listen to all messages coming in from iopub, emit them as events
+        loop {
+            let message = JupyterMessage::read(&mut self.iopub).await;
+
+            match message {
+                Ok(message) => {
+                    println!("{:?}", message);
+                }
+                Err(e) => {
+                    println!("Error reading message: {}", e);
+                    break;
+                }
+            }
         }
     }
 }
