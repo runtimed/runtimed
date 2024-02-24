@@ -1,4 +1,4 @@
-use crate::jupyter::messaging::Connection;
+use crate::jupyter::messaging::{Connection, JupyterMessage};
 use tokio::time::{timeout, Duration};
 
 use serde::{Deserialize, Serialize};
@@ -142,8 +142,17 @@ impl JupyterClient {
     pub async fn listen(mut self) {
         // Listen to all messages coming in from iopub, emit them as events
         loop {
-            let message = self.iopub.socket.recv().await;
-            println!("{:?}", message);
+            let message = JupyterMessage::read(&mut self.iopub).await;
+
+            match message {
+                Ok(message) => {
+                    println!("{:?}", message);
+                }
+                Err(e) => {
+                    println!("Error reading message: {}", e);
+                    break;
+                }
+            }
         }
     }
 }

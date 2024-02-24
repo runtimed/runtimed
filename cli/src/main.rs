@@ -99,7 +99,6 @@ struct RuntimeDisplay {
 async fn list_instances() -> io::Result<()> {
     let runtimes = runtimelib::list_instances().await;
 
-
     let displays: Vec<RuntimeDisplay> = runtimes
         .into_iter()
         .map(|runtime| RuntimeDisplay {
