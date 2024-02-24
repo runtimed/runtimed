@@ -12,7 +12,7 @@ pub async fn list_instances() -> Vec<client::JupyterRuntime>  {
     discovery::get_jupyter_runtime_instances().await
 }
 
-pub async fn attach(id: String) -> Result<(), Error> {
+pub async fn attach(id: String) -> Result<client::JupyterClient, Error> {
     // Goal: Attach to a running instance based on the connection file
     // See if {runtime_dir}/{id}.json exists (or {runtime_dir}/kernel-{id}.json) exists
     // Create a client from that connection info
@@ -53,12 +53,13 @@ pub async fn attach(id: String) -> Result<(), Error> {
         for file_path in found_files {
             // Example: Create a client from the first found file
             println!("Found runtime file: {:?}", file_path);
-            // let client = client::JupyterClient::new(file_path);
-            // client.listen().await;
-            // Assuming you handle the client creation and listening elsewhere
-            break; // or handle all found files as needed
+
+            let runtime = discovery::load_connection_file(file_path).await?;
+
+            return runtime.attach().await
         }
     }
 
-    Ok(())
+    Err(anyhow!("No matching runtime files found"))
+
 }

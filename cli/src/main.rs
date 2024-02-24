@@ -75,7 +75,8 @@ async fn create_instance(name: String) -> Result<(), Error> {
 }
 
 async fn attach_instance(id: String) -> Result<(), Error> {
-    runtimelib::attach(id).await.map_err(Error::msg)?;
+    let client = runtimelib::attach(id).await.map_err(Error::msg)?;
+    client.listen().await;
     Ok(())
 }
 
