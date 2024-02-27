@@ -17,3 +17,11 @@ Cargo.lock
 # Added by cargo
 
 /target
+
+# Local sqlite db files
+*.db
+*.db-wal
+*.db-shm
+
+# Local environment configuration files
+.env
