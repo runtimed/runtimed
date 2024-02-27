@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO runtime_instances VALUES($1, $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "aa9ee4f3fb0033cce9412695e28dbfae9b5f953bc730af13a6e5a395b2aebe87"
+}

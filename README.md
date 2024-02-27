@@ -120,3 +120,16 @@ $ runt ps
 
 $ runt rm kernel-76d276d5-3625-43ae-aee4-9628a22d64e8
 ```
+
+## Development
+
+### Working with the DB
+
+The database is managed by the [sqlx library](https://github.com/launchbadge/sqlx). The db is created and any migrations are run automatically. If you are updating the schema or add more queries to the app, more tooling needs to be installed.
+
+1. cargo install sqlx-cli
+2. ln -s .env.example .env
+
+New queries will need to be prepared with `cargo sqlx prepare --workspace`.
+
+New migrations should be added with `cargo sqlx migrate add <description>`, edited, and then executed with `cargo sqlx migrate run`
