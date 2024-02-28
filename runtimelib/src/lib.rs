@@ -1,14 +1,14 @@
 pub mod jupyter;
-use crate::jupyter::discovery;
 use crate::jupyter::client;
 use crate::jupyter::dirs;
+use crate::jupyter::discovery;
 
 use anyhow::anyhow;
 use anyhow::Error;
 
 use glob::glob;
 
-pub async fn list_instances() -> Vec<client::JupyterRuntime>  {
+pub async fn list_instances() -> Vec<client::JupyterRuntime> {
     discovery::get_jupyter_runtime_instances().await
 }
 
@@ -22,8 +22,13 @@ pub async fn attach(id: String) -> Result<client::JupyterClient, Error> {
     // If it does, continue
 
     // Validate ID format
-    if !id.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
-        return Err(anyhow!("Invalid ID: only alphanumeric characters, hyphens, and underscores are allowed"));
+    if !id
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(anyhow!(
+            "Invalid ID: only alphanumeric characters, hyphens, and underscores are allowed"
+        ));
     }
 
     let runtime_dir = dirs::runtime_dir();
@@ -33,12 +38,21 @@ pub async fn attach(id: String) -> Result<client::JupyterClient, Error> {
     let pattern2 = runtime_dir.join(format!("kernel-{id}.json"));
 
     // Convert PathBuf to String for glob
-    let glob_pattern1 = pattern1.to_str().ok_or_else(|| anyhow!("Failed to convert path to string"))?.to_string();
-    let glob_pattern2 = pattern2.to_str().ok_or_else(|| anyhow!("Failed to convert path to string"))?.to_string();
+    let glob_pattern1 = pattern1
+        .to_str()
+        .ok_or_else(|| anyhow!("Failed to convert path to string"))?
+        .to_string();
+    let glob_pattern2 = pattern2
+        .to_str()
+        .ok_or_else(|| anyhow!("Failed to convert path to string"))?
+        .to_string();
 
     // Search for matching files
     let mut found_files = Vec::new();
-    for entry in glob(&glob_pattern1).expect("Failed to read glob pattern").chain(glob(&glob_pattern2).expect("Failed to read glob pattern")) {
+    for entry in glob(&glob_pattern1)
+        .expect("Failed to read glob pattern")
+        .chain(glob(&glob_pattern2).expect("Failed to read glob pattern"))
+    {
         match entry {
             Ok(path) => found_files.push(path),
             Err(e) => println!("Error while matching glob pattern: {}", e),
@@ -56,10 +70,9 @@ pub async fn attach(id: String) -> Result<client::JupyterClient, Error> {
 
             let runtime = discovery::load_connection_file(file_path).await?;
 
-            return runtime.attach().await
+            return runtime.attach().await;
         }
     }
 
     Err(anyhow!("No matching runtime files found"))
-
 }

@@ -116,13 +116,13 @@ impl RawMessage {
 }
 
 #[derive(Clone)]
-pub(crate) struct JupyterMessage {
+pub struct JupyterMessage {
     zmq_identities: Vec<Bytes>,
-    header: serde_json::Value,
-    parent_header: serde_json::Value,
-    metadata: serde_json::Value,
+    pub header: serde_json::Value,
+    pub parent_header: serde_json::Value,
+    pub metadata: serde_json::Value,
     pub content: serde_json::Value,
-    buffers: Vec<Bytes>,
+    pub buffers: Vec<Bytes>,
 }
 
 const DELIMITER: &[u8] = b"<IDS|MSG>";
@@ -158,9 +158,7 @@ impl JupyterMessage {
         self.header["msg_type"].as_str().unwrap_or("")
     }
 
-    pub(crate) fn new(
-        msg_type: &str,
-    ) -> JupyterMessage {
+    pub(crate) fn new(msg_type: &str) -> JupyterMessage {
         let header = json!({
             "msg_id": Uuid::new_v4().to_string(),
             "username": "todo-user",
@@ -176,7 +174,7 @@ impl JupyterMessage {
             parent_header: json!({}), // Empty for a new message
             metadata: json!({}),
             content: json!({}),
-            buffers: Vec::new(), 
+            buffers: Vec::new(),
         }
     }
 
@@ -294,4 +292,3 @@ impl fmt::Debug for JupyterMessage {
         Ok(())
     }
 }
-

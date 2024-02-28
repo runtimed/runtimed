@@ -1,18 +1,19 @@
-use axum::{routing::get, Router};
-use std::net::IpAddr;
-use std::net::SocketAddr;
-use sqlx::sqlite::SqlitePoolOptions;
 use anyhow::Error;
+use axum::{routing::get, Router};
+use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::Pool;
 use sqlx::Sqlite;
+use std::net::IpAddr;
+use std::net::SocketAddr;
 
 const IP: &str = "0.0.0.0";
 const PORT: u16 = 12397;
 // TODO: Instead of the rwc flag. Actually test if db exists and log if new db is created
 const DB_STRING: &str = "sqlite:runtimed.db?mode=rwc";
 
-pub mod routes;
 pub mod instance;
+pub mod routes;
+pub mod startup;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -27,12 +28,12 @@ async fn main() -> Result<(), Error> {
     let ip: IpAddr = IP.parse().expect("Could not parse IP Address");
     let addr = SocketAddr::from((ip, PORT));
     let dbpool = SqlitePoolOptions::new()
-                .max_connections(5)
-                .connect(DB_STRING)
-                .await?;
+        .max_connections(5)
+        .connect(DB_STRING)
+        .await?;
     sqlx::migrate!("../migrations").run(&dbpool).await?;
 
-    let shared_state = AppState {dbpool};
+    let shared_state = AppState { dbpool };
     let app = Router::new()
         .merge(routes::instance_routes())
         .route("/", get(get_root))

@@ -138,6 +138,11 @@ impl JupyterClient {
         }
     }
 
+    pub async fn next_io(&mut self) -> Result<JupyterMessage, Error> {
+        let message = JupyterMessage::read(&mut self.iopub).await;
+        return message;
+    }
+
     pub async fn listen(mut self) {
         // Listen to all messages coming in from iopub, emit them as events
         loop {
