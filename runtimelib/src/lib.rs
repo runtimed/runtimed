@@ -1,5 +1,4 @@
 pub mod jupyter;
-use crate::jupyter::discovery;
 use crate::jupyter::client;
 use crate::jupyter::dirs;
 
