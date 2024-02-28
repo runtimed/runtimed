@@ -4,6 +4,7 @@ use crate::AxumSharedState;
 use crate::SharedState;
 use axum::{extract::State, http::StatusCode, routing::get, routing::post, Json, Router};
 use uuid::Uuid;
+use runtimelib::jupyter::client::JupyterRuntime;
 
 pub fn instance_routes() -> Router<SharedState> {
     Router::new()
@@ -13,7 +14,7 @@ pub fn instance_routes() -> Router<SharedState> {
 
 async fn get_runtime_instances(
     State(state): AxumSharedState,
-) -> (StatusCode, Json<Vec<RuntimeInstance>>) {
+) -> (StatusCode, Json<Vec<JupyterRuntime>>) {
     let instances = sqlx::query_as!(
         RuntimeInstance,
         r#"SELECT id "id: uuid::Uuid", name FROM runtime_instances;"#
@@ -22,7 +23,9 @@ async fn get_runtime_instances(
     .await
     .unwrap();
 
-    (StatusCode::CREATED, Json(instances))
+    let runtimes = runtimelib::list_instances().await;
+
+    (StatusCode::CREATED, Json(runtimes))
 }
 
 async fn post_runtime_instance(
