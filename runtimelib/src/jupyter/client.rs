@@ -30,11 +30,11 @@ pub struct JupyterRuntime {
     pub transport: String, // TODO: Enumify with tcp, ipc
     signature_scheme: String,
     // We'll track the connection file path here as well
-    #[serde(skip_deserializing)]
+    #[serde(default)]
     pub connection_file: String,
-    #[serde(skip_deserializing)]
+    #[serde(default)]
     pub state: String, // TODO: Use an enum
-    #[serde(skip_deserializing)]
+    #[serde(default)]
     pub kernel_info: Value,
 }
 

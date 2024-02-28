@@ -1,8 +1,8 @@
 use tokio::io::{self};
 // use tokio::net::TcpStream;
-// use reqwest::Client;
 use clap::Parser;
 use clap::Subcommand;
+use runtimelib::jupyter::client::JupyterRuntime;
 
 use anyhow::Error;
 
@@ -37,13 +37,12 @@ enum Commands {
     },
     Attach {
         id: String,
-    }
-    /* TODO: Start a REPL session
-    // Run {
-    //     /// The REPL to start (e.g., python3, node)
-    //     repl: String,
-    // },
-     */
+    }, /* TODO: Start a REPL session
+       // Run {
+       //     /// The REPL to start (e.g., python3, node)
+       //     repl: String,
+       // },
+        */
 }
 
 #[tokio::main]
@@ -96,8 +95,11 @@ struct RuntimeDisplay {
     state: String,
 }
 
-async fn list_instances() -> io::Result<()> {
-    let runtimes = runtimelib::list_instances().await;
+async fn list_instances() -> Result<(), Error> {
+    let runtimes = reqwest::get("http://127.0.0.1:12397/v0/runtime_instances")
+        .await?
+        .json::<Vec<JupyterRuntime>>()
+        .await?;
 
     let displays: Vec<RuntimeDisplay> = runtimes
         .into_iter()
