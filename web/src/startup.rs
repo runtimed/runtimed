@@ -11,16 +11,18 @@
 
 */
 
-use runtimelib::jupyter::client::Client;
-use sqlx::Pool;
+use runtimelib::jupyter::client::JupyterClient;
 use sqlx::Sqlite;
 
 /**
  * Wishing for:
  * - What runtime ID did this come from?
  * - What execution did this come from? (likely known with the parent_header.message_id)
+ *
+ * Note:
+ * We could drop any messages that are not outputs or which aren't
  */
-async fn gather_outputs(client: Client, db: sqlx::Pool<Sqlite>) {
+async fn gather_messages(runtime_id: String, client: JupyterClient, db: sqlx::Pool<Sqlite>) {
     loop {
         // As each message comes in on iopub, shove to database
         let message = client.next_io().await;
@@ -29,11 +31,12 @@ async fn gather_outputs(client: Client, db: sqlx::Pool<Sqlite>) {
             // Database the message
             sqlx::query!(
                 r#"INSERT INTO disorganized_messages VALUES($1, $2, $3, $4, $5)"#,
-                message.parent_header.message_id,
-                message.id,
-                message.message_type,
+                message.header["msg_id"],
+                message.header["msg_type"],
                 message.content,
                 message.metadata,
+                message.parent_header["msg_id"],
+                message.parent_header["msg_type"],
             )
         } else {
             // Log error
