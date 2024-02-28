@@ -3,6 +3,7 @@ use tokio::time::{timeout, Duration};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use serde_json::json;
 use zeromq;
 use zeromq::Socket;
 
@@ -136,6 +137,15 @@ impl JupyterClient {
             Ok(_) => Ok(()),
             Err(_) => Err(anyhow!("Timeout reached while closing sockets.")),
         }
+    }
+
+    pub async fn run_code(&mut self, code: &str) -> Result<JupyterMessage, Error> {
+        let message = JupyterMessage::new("execute_request")
+        .with_content(json!({"code": code}));
+
+        message.send(&mut self.shell).await?;
+        let response = JupyterMessage::read(&mut self.shell).await?;
+        return Ok(response);
     }
 
     pub async fn next_io(&mut self) -> Result<JupyterMessage, Error> {
