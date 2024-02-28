@@ -10,7 +10,8 @@ tokio = { version = "1.36.0", features = ["full"] }
 serde = { version = "1.0.196", features = ["derive"] }
 axum = "0.7.4"
 runtimelib = { path = "../runtimelib" }
-sqlx = { version = "0.7", features = [ "runtime-tokio", "sqlite", "uuid" ] }
+sqlx = { version = "0.7", features = [ "runtime-tokio", "sqlite", "uuid", "chrono" ] }
 ulid = "1.1.2"
 anyhow = "1.0.80"
 uuid = { version = "1.7.0", features = ["serde"] }
+chrono = "0.4.34"

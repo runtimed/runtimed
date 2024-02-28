@@ -11,7 +11,7 @@ CREATE TABLE disorganized_messages (
 
     -- We don't know if we have also collected the parent ID
     -- so we just store it for later retrieval
-    parent_id UUID,
+    parent_msg_id UUID,
     parent_msg_type VARCHAR(255),
 
     created_at TIMESTAMP

@@ -138,7 +138,7 @@ impl JupyterClient {
         }
     }
 
-    pub async fn next_io(mut self) -> Result<JupyterMessage, Error> {
+    pub async fn next_io(&mut self) -> Result<JupyterMessage, Error> {
         let message = JupyterMessage::read(&mut self.iopub).await;
         return message;
     }
