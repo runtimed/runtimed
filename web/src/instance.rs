@@ -2,6 +2,11 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Deserialize)]
+pub struct RuntimeInstanceRunCode {
+    pub code: String,
+}
+
+#[derive(Deserialize)]
 pub struct CreateRuntimeInstance {
     pub process: String,
 }
