@@ -161,7 +161,14 @@ impl JupyterClient {
             match message {
                 Ok(message) => {
                     println!("{:?}", message);
+
+                    // Check to see if the kernel has stopped
+                    if message.parent_header["msg_type"] == "shutdown_request" 
+                        && message.content["execution_state"] == "idle" {
+                        break;
+                    }
                 }
+                
                 Err(e) => {
                     println!("Error reading message: {}", e);
                     break;
