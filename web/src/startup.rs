@@ -15,6 +15,8 @@ use chrono::Utc;
 use runtimelib::jupyter::client::JupyterClient;
 use sqlx::Sqlite;
 
+use crate::AppState;
+
 /**
  * Wishing for:
  * - What runtime ID did this come from?
@@ -54,11 +56,29 @@ pub async fn gather_messages(
 
             if let Ok(_) = res.execute(&db).await {
                 // Log success
+                println!("Message saved to database: {:?}", message.header["msg_id"]);
             } else {
                 // Log error
             }
         } else {
             // Log error
+        }
+    }
+}
+
+pub async fn startup(state: AppState) {
+    // Get all the runtimes
+    let runtimes = runtimelib::jupyter::discovery::get_jupyter_runtime_instances().await;
+
+    for runtime in runtimes {
+        // Runtimes don't necessarily have an ID so we need to either generate one
+        // or use the connection file path as the ID
+
+        let client = runtime.clone().attach().await;
+
+        if let Ok(client) = client {
+            let runtime_id = runtime.connection_file.clone();
+            tokio::spawn(gather_messages(runtime_id, client, state.dbpool.clone()));
         }
     }
 }

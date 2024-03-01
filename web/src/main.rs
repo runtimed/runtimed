@@ -37,7 +37,10 @@ async fn main() -> Result<(), Error> {
     let app = Router::new()
         .merge(routes::instance_routes())
         .route("/", get(get_root))
-        .with_state(shared_state);
+        .with_state(shared_state.clone());
+
+    // Background threads to process all existing runtimes
+    tokio::spawn(startup::startup(shared_state.clone()));
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     println!("Listening on {}:{}", IP, PORT);
