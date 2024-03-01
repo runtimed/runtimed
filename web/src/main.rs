@@ -25,6 +25,8 @@ type AxumSharedState = axum::extract::State<SharedState>;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    env_logger::init();
+
     let ip: IpAddr = IP.parse().expect("Could not parse IP Address");
     let addr = SocketAddr::from((ip, PORT));
     let dbpool = SqlitePoolOptions::new()

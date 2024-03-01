@@ -56,12 +56,17 @@ pub async fn gather_messages(
 
             if let Ok(_) = res.execute(&db).await {
                 // Log success
-                println!("Message saved to database: {:?}", message.header["msg_id"]);
+                log::debug!("Message saved to database: {:?}", message.header["msg_id"]);
             } else {
                 // Log error
+                log::error!(
+                    "Failed ot log message to database: {:?}",
+                    message.header["msg_id"]
+                );
             }
         } else {
             // Log error
+            log::error!("Failed to recieve message from IOPub");
         }
     }
 }
