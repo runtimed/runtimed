@@ -15,6 +15,16 @@ pub mod instance;
 pub mod routes;
 pub mod startup;
 
+fn init_logger() {
+    let level = if cfg!(debug_assertions) {
+        "debug"
+    } else {
+        "info"
+    };
+    std::env::set_var("RUST_LOG", level);
+    env_logger::init();
+}
+
 #[derive(Clone)]
 pub struct AppState {
     dbpool: Pool<Sqlite>,
@@ -25,6 +35,8 @@ type AxumSharedState = axum::extract::State<SharedState>;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    init_logger();
+
     let ip: IpAddr = IP.parse().expect("Could not parse IP Address");
     let addr = SocketAddr::from((ip, PORT));
     let dbpool = SqlitePoolOptions::new()
@@ -37,7 +49,10 @@ async fn main() -> Result<(), Error> {
     let app = Router::new()
         .merge(routes::instance_routes())
         .route("/", get(get_root))
-        .with_state(shared_state);
+        .with_state(shared_state.clone());
+
+    // Background threads to process all existing runtimes
+    tokio::spawn(startup::startup(shared_state.clone()));
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     println!("Listening on {}:{}", IP, PORT);
