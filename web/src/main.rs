@@ -15,6 +15,16 @@ pub mod instance;
 pub mod routes;
 pub mod startup;
 
+fn init_logger() {
+    let level = if cfg!(debug_assertions) {
+        "debug"
+    } else {
+        "info"
+    };
+    std::env::set_var("RUST_LOG", level);
+    env_logger::init();
+}
+
 #[derive(Clone)]
 pub struct AppState {
     dbpool: Pool<Sqlite>,
@@ -25,7 +35,7 @@ type AxumSharedState = axum::extract::State<SharedState>;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    env_logger::init();
+    init_logger();
 
     let ip: IpAddr = IP.parse().expect("Could not parse IP Address");
     let addr = SocketAddr::from((ip, PORT));
