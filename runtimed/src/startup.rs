@@ -11,12 +11,14 @@
 
 */
 
-use chrono::Utc;
+use runtimelib::jupyter;
 use runtimelib::jupyter::client::JupyterClient;
+use runtimelib::jupyter::client::JupyterRuntime;
 use sqlx::Sqlite;
+use std::collections::HashMap;
 use uuid::Uuid;
 
-use crate::AppState;
+use crate::state::AppState;
 
 /**
  * Wishing for:
@@ -39,18 +41,11 @@ pub async fn gather_messages(runtime_id: Uuid, mut client: JupyterClient, db: sq
 }
 
 pub async fn startup(state: AppState) {
-    // Get all the runtimes
-    let runtimes = runtimelib::jupyter::discovery::get_jupyter_runtime_instances().await;
-
-    for runtime in runtimes {
-        // Runtimes don't necessarily have an ID so we need to either generate one
-        // or use the connection file path as the ID
-        let runtime_id = Uuid::new_v5(&Uuid::NAMESPACE_URL, runtime.connection_file.as_bytes());
-
-        let client = runtime.clone().attach().await;
+    for (runtime_id, runtime) in &state.runtimes {
+        let client = runtime.attach().await;
 
         if let Ok(client) = client {
-            tokio::spawn(gather_messages(runtime_id, client, state.dbpool.clone()));
+            tokio::spawn(gather_messages(*runtime_id, client, state.dbpool.clone()));
         }
     }
 }
