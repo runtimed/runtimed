@@ -11,9 +11,10 @@ const PORT: u16 = 12397;
 // TODO: Instead of the rwc flag. Actually test if db exists and log if new db is created
 const DB_STRING: &str = "sqlite:runtimed.db?mode=rwc";
 
-pub mod instance;
-pub mod routes;
-pub mod startup;
+mod instance;
+mod routes;
+mod startup;
+mod db;
 
 fn init_logger() {
     let level = if cfg!(debug_assertions) {
