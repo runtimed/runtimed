@@ -6,6 +6,7 @@ use serde_json::Value;
 use serde_json::json;
 use zeromq;
 use zeromq::Socket;
+use uuid::Uuid;
 
 use anyhow::anyhow;
 use anyhow::Error;
@@ -20,6 +21,8 @@ pub struct JupyterEnvironment {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct JupyterRuntime {
+    #[serde(default)]
+    pub id: Uuid,
     pub shell_port: u16,
     pub iopub_port: u16,
     pub stdin_port: u16,
