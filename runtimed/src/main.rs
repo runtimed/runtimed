@@ -9,10 +9,10 @@ const PORT: u16 = 12397;
 // TODO: Instead of the rwc flag. Actually test if db exists and log if new db is created
 const DB_STRING: &str = "sqlite:runtimed.db?mode=rwc";
 
+mod db;
 mod instance;
 mod routes;
 mod startup;
-mod db;
 mod state;
 
 fn init_logger() {
@@ -39,15 +39,13 @@ async fn main() -> Result<(), Error> {
         .await?;
     sqlx::migrate!("../migrations").run(&dbpool).await?;
 
-    let runtimes = state::load_runtimes().await;
+    let runtimes = startup::initialize_runtimes(&dbpool).await;
+
     let shared_state = state::AppState { dbpool, runtimes };
     let app = Router::new()
         .merge(routes::instance_routes())
         .route("/", get(get_root))
         .with_state(shared_state.clone());
-
-    // Background threads to process all existing runtimes
-    tokio::spawn(startup::startup(shared_state.clone()));
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     println!("Listening on {}:{}", IP, PORT);

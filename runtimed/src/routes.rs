@@ -22,14 +22,16 @@ pub fn instance_routes() -> Router<AppState> {
 async fn get_runtime_instances(
     State(state): AxumSharedState,
 ) -> Result<Json<Vec<JupyterRuntime>>, StatusCode> {
-    Ok(Json(state.runtimes.into_values().collect()))
+    let runtimes = state.runtimes.read().await;
+    Ok(Json(runtimes.clone().into_values().collect()))
 }
 
 async fn get_runtime_instance(
     Path(id): Path<Uuid>,
     State(state): AxumSharedState,
 ) -> Result<Json<JupyterRuntime>, StatusCode> {
-    let instance = state.runtimes.get(&id).ok_or(StatusCode::NOT_FOUND)?;
+    let runtimes = state.runtimes.read().await;
+    let instance = runtimes.get(&id).ok_or(StatusCode::NOT_FOUND)?;
 
     Ok(Json(instance.clone()))
 }
@@ -61,10 +63,10 @@ async fn post_runtime_instance_run_code(
     State(state): AxumSharedState,
     Json(payload): Json<RuntimeInstanceRunCode>,
 ) -> Result<Json<JupyterRuntime>, StatusCode> {
-    let instance = state.runtimes.get(&id).ok_or(StatusCode::NOT_FOUND)?;
+    let runtimes = state.runtimes.read().await;
+    let instance = runtimes.get(&id).ok_or(StatusCode::NOT_FOUND)?.clone();
 
     let mut client = instance
-        .clone()
         .attach()
         .await
         .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;

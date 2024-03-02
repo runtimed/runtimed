@@ -22,3 +22,4 @@ uuid = { version = "1.7.0", features = ["serde", "v5"] }
 chrono = "0.4.34"
 env_logger = "0.11.2"
 log = "0.4.21"
+notify = "6.1.1"
