@@ -40,7 +40,7 @@ pub struct JupyterRuntime {
 }
 
 impl JupyterRuntime {
-    pub async fn attach(self) -> Result<JupyterClient, Error> {
+    pub async fn attach(&self) -> Result<JupyterClient, Error> {
         let mut iopub_socket = zeromq::SubSocket::new();
         match iopub_socket.subscribe("").await {
             Ok(_) => (),
