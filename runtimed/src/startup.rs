@@ -14,6 +14,7 @@
 use chrono::Utc;
 use runtimelib::jupyter::client::JupyterClient;
 use sqlx::Sqlite;
+use uuid::Uuid;
 
 use crate::AppState;
 
@@ -26,7 +27,7 @@ use crate::AppState;
  * We could drop any messages that are not outputs or which aren't
  */
 pub async fn gather_messages(
-    runtime_id: String,
+    runtime_id: Uuid,
     mut client: JupyterClient,
     db: sqlx::Pool<Sqlite>,
 ) {
@@ -78,11 +79,11 @@ pub async fn startup(state: AppState) {
     for runtime in runtimes {
         // Runtimes don't necessarily have an ID so we need to either generate one
         // or use the connection file path as the ID
+        let runtime_id = Uuid::new_v5(&Uuid::NAMESPACE_URL, runtime.connection_file.as_bytes());
 
         let client = runtime.clone().attach().await;
 
         if let Ok(client) = client {
-            let runtime_id = runtime.connection_file.clone();
             tokio::spawn(gather_messages(runtime_id, client, state.dbpool.clone()));
         }
     }

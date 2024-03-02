@@ -18,7 +18,7 @@ sqlx = { version = "0.7", features = [
 ] }
 ulid = "1.1.2"
 anyhow = "1.0.80"
-uuid = { version = "1.7.0", features = ["serde"] }
+uuid = { version = "1.7.0", features = ["serde", "v5"] }
 chrono = "0.4.34"
 env_logger = "0.11.2"
 log = "0.4.21"
