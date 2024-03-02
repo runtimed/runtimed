@@ -1,14 +1,14 @@
 use crate::instance::RuntimeInstance;
 use crate::instance::{CreateRuntimeInstance, RuntimeInstanceRunCode};
+use crate::state::AppState;
 use crate::AxumSharedState;
-use crate::SharedState;
 use axum::{
     extract::Path, extract::State, http::StatusCode, routing::get, routing::post, Json, Router,
 };
 use runtimelib::jupyter::client::JupyterRuntime;
 use uuid::Uuid;
 
-pub fn instance_routes() -> Router<SharedState> {
+pub fn instance_routes() -> Router<AppState> {
     Router::new()
         .route("/v0/runtime_instances", post(post_runtime_instance))
         .route("/v0/runtime_instances/:id", get(get_runtime_instance))
@@ -22,25 +22,14 @@ pub fn instance_routes() -> Router<SharedState> {
 async fn get_runtime_instances(
     State(state): AxumSharedState,
 ) -> Result<Json<Vec<JupyterRuntime>>, StatusCode> {
-    let instances = sqlx::query_as!(
-        RuntimeInstance,
-        r#"SELECT id "id: uuid::Uuid", name FROM runtime_instances;"#
-    )
-    .fetch_all(&state.dbpool)
-    .await
-    .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
-
-    let runtimes = runtimelib::list_instances().await;
-
-    Ok(Json(runtimes))
+    Ok(Json(state.runtimes.into_values().collect()))
 }
 
-async fn get_runtime_instance(Path(id): Path<String>) -> Result<Json<JupyterRuntime>, StatusCode> {
-    let runtimes = runtimelib::list_instances().await;
-    let instance = runtimes
-        .iter()
-        .find(|runtime| runtime.connection_file.contains(&id))
-        .ok_or(StatusCode::NOT_FOUND)?;
+async fn get_runtime_instance(
+    Path(id): Path<Uuid>,
+    State(state): AxumSharedState,
+) -> Result<Json<JupyterRuntime>, StatusCode> {
+    let instance = state.runtimes.get(&id).ok_or(StatusCode::NOT_FOUND)?;
 
     Ok(Json(instance.clone()))
 }
@@ -68,15 +57,11 @@ async fn post_runtime_instance(
 }
 
 async fn post_runtime_instance_run_code(
-    Path(id): Path<String>,
+    Path(id): Path<Uuid>,
     State(state): AxumSharedState,
     Json(payload): Json<RuntimeInstanceRunCode>,
 ) -> Result<Json<JupyterRuntime>, StatusCode> {
-    let runtimes = runtimelib::list_instances().await;
-    let instance = runtimes
-        .iter()
-        .find(|runtime| runtime.connection_file.contains(&id))
-        .ok_or(StatusCode::NOT_FOUND)?;
+    let instance = state.runtimes.get(&id).ok_or(StatusCode::NOT_FOUND)?;
 
     let mut client = instance
         .clone()
@@ -84,10 +69,13 @@ async fn post_runtime_instance_run_code(
         .await
         .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
 
-    client
+    let (message, response) = client
         .run_code(&payload.code)
         .await
         .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+
+    crate::db::insert_message(&state.dbpool, id, message).await;
+    crate::db::insert_message(&state.dbpool, id, response).await;
 
     Ok(Json(instance.clone()))
 }
