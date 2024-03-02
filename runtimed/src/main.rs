@@ -1,8 +1,6 @@
 use anyhow::Error;
 use axum::{routing::get, Router};
 use sqlx::sqlite::SqlitePoolOptions;
-use sqlx::Pool;
-use sqlx::Sqlite;
 use std::net::IpAddr;
 use std::net::SocketAddr;
 
@@ -15,6 +13,7 @@ mod instance;
 mod routes;
 mod startup;
 mod db;
+mod state;
 
 fn init_logger() {
     let level = if cfg!(debug_assertions) {
@@ -26,13 +25,7 @@ fn init_logger() {
     env_logger::init();
 }
 
-#[derive(Clone)]
-pub struct AppState {
-    dbpool: Pool<Sqlite>,
-}
-
-type SharedState = AppState;
-type AxumSharedState = axum::extract::State<SharedState>;
+type AxumSharedState = axum::extract::State<state::AppState>;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -46,7 +39,8 @@ async fn main() -> Result<(), Error> {
         .await?;
     sqlx::migrate!("../migrations").run(&dbpool).await?;
 
-    let shared_state = AppState { dbpool };
+    let runtimes = state::load_runtimes().await;
+    let shared_state = state::AppState { dbpool, runtimes };
     let app = Router::new()
         .merge(routes::instance_routes())
         .route("/", get(get_root))
