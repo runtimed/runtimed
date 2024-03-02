@@ -139,13 +139,13 @@ impl JupyterClient {
         }
     }
 
-    pub async fn run_code(&mut self, code: &str) -> Result<JupyterMessage, Error> {
+    pub async fn run_code(&mut self, code: &str) -> Result<(JupyterMessage, JupyterMessage), Error> {
         let message = JupyterMessage::new("execute_request")
         .with_content(json!({"code": code}));
 
         message.send(&mut self.shell).await?;
         let response = JupyterMessage::read(&mut self.shell).await?;
-        return Ok(response);
+        Ok((message, response))
     }
 
     pub async fn next_io(&mut self) -> Result<JupyterMessage, Error> {
