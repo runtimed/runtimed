@@ -41,7 +41,7 @@ pub async fn gather_messages(runtime_id: Uuid, mut client: JupyterClient, db: Po
     loop {
         // As each message comes in on iopub, shove to database
         if let Ok(message) = client.next_io().await {
-            crate::db::insert_message(&db, runtime_id, message).await;
+            crate::db::insert_message(&db, runtime_id, &message).await;
         } else {
             // Log error
             log::error!("Failed to recieve message from IOPub");
