@@ -3,6 +3,7 @@ use tokio::io::{self};
 use clap::Parser;
 use clap::Subcommand;
 use runtimelib::jupyter::client::JupyterRuntime;
+use std::collections::HashMap;
 
 use anyhow::Error;
 
@@ -35,6 +36,13 @@ enum Commands {
         /// ID of the runtime to kill
         id: String,
     },
+    RunCode {
+        id: String,
+        code: String,
+    },
+    Execution {
+        id: String,
+    },
     Attach {
         id: String,
     }, /* TODO: Start a REPL session
@@ -58,6 +66,12 @@ async fn main() -> Result<(), Error> {
         }
         Commands::Attach { id } => {
             attach_instance(id).await?;
+        }
+        Commands::RunCode { id, code } => {
+            run_code(id, code).await?;
+        }
+        Commands::Execution { id } => {
+            execution(id).await?;
         }
         Commands::Kill { id } => {
             kill_instance(id).await?;
@@ -85,6 +99,8 @@ struct RuntimeDisplay {
     kernel_name: String,
     #[tabled(rename = "Language")]
     language: String,
+    #[tabled(rename = "ID")]
+    id: uuid::Uuid,
     #[tabled(rename = "IP")]
     ip: String,
     #[tabled(rename = "Transport")]
@@ -105,6 +121,7 @@ async fn list_instances() -> Result<(), Error> {
         .into_iter()
         .map(|runtime| RuntimeDisplay {
             kernel_name: runtime.kernel_name.chars().take(15).collect(),
+            id: runtime.id,
             ip: runtime.ip,
             transport: runtime.transport,
             connection_file: runtime.connection_file,
@@ -125,6 +142,35 @@ async fn list_instances() -> Result<(), Error> {
     } else {
         println!("No Jupyter runtimes running.");
     }
+
+    Ok(())
+}
+
+async fn run_code(id: String, code: String) -> Result<(), Error> {
+    let client = reqwest::Client::new();
+    let response = client
+        .post(format!(
+            "http://127.0.0.1:12397/v0/runtime_instances/{}/run_code",
+            id,
+        ))
+        .json(&HashMap::from([("code", code)]))
+        .send()
+        .await?
+        .text()
+        .await?;
+
+    println!("{}", response);
+
+    Ok(())
+}
+
+async fn execution(id: String) -> Result<(), Error> {
+    let response = reqwest::get(format!("http://127.0.0.1:12397/v0/executions/{}", id))
+        .await?
+        .text()
+        .await?;
+
+    println!("{}", response);
 
     Ok(())
 }
