@@ -5,12 +5,17 @@ use serde_json::json;
 use serde_json::Value;
 use tokio::fs;
 use tokio::task::JoinSet;
+use uuid::Uuid;
 
-use anyhow::Error;
+use anyhow::{anyhow, Error, Result, Context};
 
 use crate::jupyter::client;
 
 use crate::jupyter::messaging;
+
+pub fn is_connection_file(path: &std::path::Path) -> bool {
+    path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json")
+}
 
 pub async fn get_jupyter_runtime_instances() -> Vec<client::JupyterRuntime> {
     let runtime_dir = dirs::runtime_dir();
@@ -20,9 +25,7 @@ pub async fn get_jupyter_runtime_instances() -> Vec<client::JupyterRuntime> {
     if let Ok(mut entries) = fs::read_dir(runtime_dir).await {
         while let Ok(Some(entry)) = entries.next_entry().await {
             let connection_file_path = entry.path();
-            if connection_file_path.is_file()
-                && connection_file_path.extension().and_then(|s| s.to_str()) == Some("json")
-            {
+            if is_connection_file(&connection_file_path) {
                 join_set.spawn(async move { check_runtime_up(connection_file_path).await });
             }
         }
@@ -45,18 +48,20 @@ pub async fn load_connection_file(
     let content = fs::read_to_string(&connection_file_path)
         .await
         .unwrap_or_default();
-    if let Ok(mut runtime) = from_str::<client::JupyterRuntime>(&content) {
-        runtime.connection_file = connection_file_path
-            .to_str()
-            .unwrap_or_default()
-            .to_string();
-        Ok(runtime)
-    } else {
-        Err(anyhow::anyhow!("Failed to parse JupyterRuntime from file"))
-    }
+    match from_str::<client::JupyterRuntime>(&content) {
+        Ok(mut runtime) => {
+            runtime.connection_file = connection_file_path
+                .to_str()
+                .ok_or(anyhow!("Non-unicode runtime file name"))?
+                .to_string();
+            runtime.id = Uuid::new_v5(&Uuid::NAMESPACE_URL, runtime.connection_file.as_bytes());
+            Ok(runtime)
+        }
+        err => err,
+    }.context("Failed to parse JupyterRuntime from file")
 }
 
-async fn check_runtime_up(
+pub async fn check_runtime_up(
     connection_file_path: std::path::PathBuf,
 ) -> Result<client::JupyterRuntime, Error> {
     let mut runtime = load_connection_file(connection_file_path).await?;

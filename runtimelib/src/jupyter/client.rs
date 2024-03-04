@@ -6,6 +6,7 @@ use serde_json::Value;
 use serde_json::json;
 use zeromq;
 use zeromq::Socket;
+use uuid::Uuid;
 
 use anyhow::anyhow;
 use anyhow::Error;
@@ -20,6 +21,8 @@ pub struct JupyterEnvironment {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct JupyterRuntime {
+    #[serde(default)]
+    pub id: Uuid,
     pub shell_port: u16,
     pub iopub_port: u16,
     pub stdin_port: u16,
@@ -40,7 +43,7 @@ pub struct JupyterRuntime {
 }
 
 impl JupyterRuntime {
-    pub async fn attach(self) -> Result<JupyterClient, Error> {
+    pub async fn attach(&self) -> Result<JupyterClient, Error> {
         let mut iopub_socket = zeromq::SubSocket::new();
         match iopub_socket.subscribe("").await {
             Ok(_) => (),
@@ -139,13 +142,13 @@ impl JupyterClient {
         }
     }
 
-    pub async fn run_code(&mut self, code: &str) -> Result<JupyterMessage, Error> {
+    pub async fn run_code(&mut self, code: &str) -> Result<(JupyterMessage, JupyterMessage), Error> {
         let message = JupyterMessage::new("execute_request")
         .with_content(json!({"code": code}));
 
         message.send(&mut self.shell).await?;
         let response = JupyterMessage::read(&mut self.shell).await?;
-        return Ok(response);
+        Ok((message, response))
     }
 
     pub async fn next_io(&mut self) -> Result<JupyterMessage, Error> {

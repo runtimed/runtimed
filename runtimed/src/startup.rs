@@ -11,11 +11,23 @@
 
 */
 
-use chrono::Utc;
-use runtimelib::jupyter::client::JupyterClient;
+use crate::state::RuntimesLock;
+use anyhow::Error;
+use notify::{
+    event::CreateKind, Config, EventKind::Create, RecommendedWatcher, RecursiveMode, Watcher,
+};
+use runtimelib::jupyter::client::{JupyterClient, JupyterRuntime};
+use runtimelib::jupyter::discovery::{
+    check_runtime_up, get_jupyter_runtime_instances, is_connection_file,
+};
+use sqlx::Pool;
 use sqlx::Sqlite;
-
-use crate::AppState;
+use std::collections::HashMap;
+use tokio::runtime::Handle;
+use std::sync::Arc;
+use tokio::sync::mpsc::channel;
+use tokio::sync::RwLock;
+use uuid::Uuid;
 
 /**
  * Wishing for:
@@ -25,45 +37,11 @@ use crate::AppState;
  * Note:
  * We could drop any messages that are not outputs or which aren't
  */
-pub async fn gather_messages(
-    runtime_id: String,
-    mut client: JupyterClient,
-    db: sqlx::Pool<Sqlite>,
-) {
+pub async fn gather_messages(runtime_id: Uuid, mut client: JupyterClient, db: Pool<Sqlite>) {
     loop {
         // As each message comes in on iopub, shove to database
-        let message = client.next_io().await;
-
-        let created_at = Utc::now();
-        let new_id = uuid::Uuid::new_v4();
-
-        if let Ok(message) = message {
-            // Database the message
-            let res = sqlx::query!(
-                r#"INSERT INTO disorganized_messages
-                    (id, msg_id, msg_type, content, metadata, runtime_id, parent_msg_id, parent_msg_type, created_at)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"#,
-                new_id,
-                message.header["msg_id"],
-                message.header["msg_type"],
-                message.content,
-                message.metadata,
-                runtime_id,
-                message.parent_header["msg_id"],
-                message.parent_header["msg_type"],
-                created_at,
-            );
-
-            if let Ok(_) = res.execute(&db).await {
-                // Log success
-                log::debug!("Message saved to database: {:?}", message.header["msg_id"]);
-            } else {
-                // Log error
-                log::error!(
-                    "Failed ot log message to database: {:?}",
-                    message.header["msg_id"]
-                );
-            }
+        if let Ok(message) = client.next_io().await {
+            crate::db::insert_message(&db, runtime_id, &message).await;
         } else {
             // Log error
             log::error!("Failed to recieve message from IOPub");
@@ -71,19 +49,75 @@ pub async fn gather_messages(
     }
 }
 
-pub async fn startup(state: AppState) {
-    // Get all the runtimes
-    let runtimes = runtimelib::jupyter::discovery::get_jupyter_runtime_instances().await;
+/**
+* Initialize a `HashMap` of runtimes
+* Spawn a thread to watch the runtime folder for new runtimes
+* Spawn threads to recieve and record messages for each runtime
+*/
+pub async fn initialize_runtimes(db: &Pool<Sqlite>) -> RuntimesLock {
+    let runtimes = get_jupyter_runtime_instances()
+        .await
+        .into_iter()
+        .map(|runtime| (runtime.id, runtime))
+        .collect::<HashMap<Uuid, JupyterRuntime>>();
 
-    for runtime in runtimes {
-        // Runtimes don't necessarily have an ID so we need to either generate one
-        // or use the connection file path as the ID
+    let runtimes = Arc::new(RwLock::new(runtimes));
+    tokio::spawn(watch_runtime_dir(runtimes.clone()));
 
-        let client = runtime.clone().attach().await;
+    for (runtime_id, runtime) in runtimes.clone().read().await.iter() {
+        let client = runtime.attach().await;
 
         if let Ok(client) = client {
-            let runtime_id = runtime.connection_file.clone();
-            tokio::spawn(gather_messages(runtime_id, client, state.dbpool.clone()));
+            tokio::spawn(gather_messages(*runtime_id, client, db.clone()));
+        }
+    }
+
+    runtimes
+}
+
+pub async fn watch_runtime_dir(runtimes: RuntimesLock) -> Result<(), Error> {
+    let (tx, mut rs) = channel(1);
+    let handle = Handle::current();
+
+    let mut watcher = RecommendedWatcher::new(
+        move |res| {
+            handle.block_on(async {
+                tx.send(res).await.unwrap();
+            })
+        },
+        Config::default(),
+    )?;
+
+    watcher.watch(
+        runtimelib::jupyter::dirs::runtime_dir().as_path(),
+        RecursiveMode::Recursive,
+    )?;
+
+    loop {
+        if let Some(res) = rs.recv().await {
+            match res {
+                Ok(event) => {
+                    if let Create(CreateKind::File) = event.kind {
+                        for path in event.paths {
+                            if is_connection_file(&path) {
+                                log::debug!("New runtime file found {:?}", path);
+                                let runtime = check_runtime_up(path.clone()).await;
+
+                                match runtime {
+                                    Ok(runtime) => {
+                                        log::debug!("Connected to runtime {:?}", path);
+                                        runtimes.write().await.insert(runtime.id, runtime);
+                                    }
+                                    Err(err) => log::error!("Could not load runtime {:?}", err),
+                                };
+                            }
+                        }
+                    }
+                }
+                Err(error) => {
+                    log::error!("Error: {error:?}");
+                }
+            }
         }
     }
 }

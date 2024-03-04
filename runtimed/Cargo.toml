@@ -18,7 +18,9 @@ sqlx = { version = "0.7", features = [
 ] }
 ulid = "1.1.2"
 anyhow = "1.0.80"
-uuid = { version = "1.7.0", features = ["serde"] }
-chrono = "0.4.34"
+uuid = { version = "1.7.0", features = ["serde", "v5"] }
+chrono = { version = "0.4.34", features = ["serde"] }
 env_logger = "0.11.2"
 log = "0.4.21"
+notify = "6.1.1"
+serde_json = "1.0.114"

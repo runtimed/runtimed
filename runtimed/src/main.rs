@@ -1,8 +1,6 @@
 use anyhow::Error;
 use axum::{routing::get, Router};
 use sqlx::sqlite::SqlitePoolOptions;
-use sqlx::Pool;
-use sqlx::Sqlite;
 use std::net::IpAddr;
 use std::net::SocketAddr;
 
@@ -11,9 +9,11 @@ const PORT: u16 = 12397;
 // TODO: Instead of the rwc flag. Actually test if db exists and log if new db is created
 const DB_STRING: &str = "sqlite:runtimed.db?mode=rwc";
 
-pub mod instance;
-pub mod routes;
-pub mod startup;
+mod db;
+mod instance;
+mod routes;
+mod startup;
+mod state;
 
 fn init_logger() {
     let level = if cfg!(debug_assertions) {
@@ -25,13 +25,7 @@ fn init_logger() {
     env_logger::init();
 }
 
-#[derive(Clone)]
-pub struct AppState {
-    dbpool: Pool<Sqlite>,
-}
-
-type SharedState = AppState;
-type AxumSharedState = axum::extract::State<SharedState>;
+type AxumSharedState = axum::extract::State<state::AppState>;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -45,14 +39,13 @@ async fn main() -> Result<(), Error> {
         .await?;
     sqlx::migrate!("../migrations").run(&dbpool).await?;
 
-    let shared_state = AppState { dbpool };
+    let runtimes = startup::initialize_runtimes(&dbpool).await;
+
+    let shared_state = state::AppState { dbpool, runtimes };
     let app = Router::new()
         .merge(routes::instance_routes())
         .route("/", get(get_root))
         .with_state(shared_state.clone());
-
-    // Background threads to process all existing runtimes
-    tokio::spawn(startup::startup(shared_state.clone()));
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     println!("Listening on {}:{}", IP, PORT);
