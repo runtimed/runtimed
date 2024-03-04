@@ -37,10 +37,14 @@ async fn main() -> Result<(), Error> {
         .max_connections(5)
         .connect(DB_STRING)
         .await?;
+
+    log::debug!("Running migrations");
     sqlx::migrate!("../migrations").run(&dbpool).await?;
 
+    log::debug!("Database connected and migrations run");
     let runtimes = startup::initialize_runtimes(&dbpool).await;
 
+    log::debug!("Runtimes initialized");
     let shared_state = state::AppState { dbpool, runtimes };
     let app = Router::new()
         .merge(routes::instance_routes())
