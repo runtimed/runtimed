@@ -1,5 +1,5 @@
 [workspace]
 
-members = ["runtimed", "cli", "runtimelib"]
+members = ["runtimed", "runt", "runtimelib"]
 
 resolver = "2"
