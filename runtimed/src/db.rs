@@ -8,19 +8,23 @@ use uuid::Uuid;
 pub async fn insert_message(dbpool: &Pool<Sqlite>, runtime_id: Uuid, message: &JupyterMessage) {
     let id = Uuid::new_v4();
     let created_at = Utc::now();
+    let parent_msg_id = message.parent_header["msg_id"].as_str();
+    let parent_msg_type = message.parent_header["msg_type"].as_str();
+    let msg_id = message.header["msg_id"].as_str();
+    let msg_type = message.header["msg_type"].as_str();
 
     let result = sqlx::query!(
         r#"INSERT INTO disorganized_messages
             (id, msg_id, msg_type, content, metadata, runtime_id, parent_msg_id, parent_msg_type, created_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"#,
         id,
-        message.header["msg_id"],
-        message.header["msg_type"],
+        msg_id,
+        msg_type,
         message.content,
         message.metadata,
         runtime_id,
-        message.parent_header["msg_id"],
-        message.parent_header["msg_type"],
+        parent_msg_id,
+        parent_msg_type,
         created_at,
     )
     .execute(dbpool)
