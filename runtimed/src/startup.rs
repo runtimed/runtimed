@@ -23,8 +23,8 @@ use runtimelib::jupyter::discovery::{
 use sqlx::Pool;
 use sqlx::Sqlite;
 use std::collections::HashMap;
-use tokio::runtime::Handle;
 use std::sync::Arc;
+use tokio::runtime::Handle;
 use tokio::sync::mpsc::channel;
 use tokio::sync::RwLock;
 use uuid::Uuid;
@@ -58,6 +58,7 @@ pub async fn gather_messages(runtime: JupyterRuntime, db: Pool<Sqlite>) {
 * Spawn threads to recieve and record messages for each runtime
 */
 pub async fn initialize_runtimes(db: &Pool<Sqlite>) -> RuntimesLock {
+    log::debug!("Gathering runtimes");
     let runtimes = get_jupyter_runtime_instances()
         .await
         .into_iter()
@@ -65,6 +66,7 @@ pub async fn initialize_runtimes(db: &Pool<Sqlite>) -> RuntimesLock {
         .collect::<HashMap<Uuid, JupyterRuntime>>();
 
     for (_, runtime) in runtimes.iter() {
+        log::debug!("Gathering messages for runtime {}", runtime.id);
         tokio::spawn(gather_messages(runtime.clone(), db.clone()));
     }
 
