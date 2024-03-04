@@ -16,7 +16,7 @@ use anyhow::Error;
 use notify::{
     event::CreateKind, Config, EventKind::Create, RecommendedWatcher, RecursiveMode, Watcher,
 };
-use runtimelib::jupyter::client::{JupyterClient, JupyterRuntime};
+use runtimelib::jupyter::client::JupyterRuntime;
 use runtimelib::jupyter::discovery::{
     check_runtime_up, get_jupyter_runtime_instances, is_connection_file,
 };
@@ -37,14 +37,17 @@ use uuid::Uuid;
  * Note:
  * We could drop any messages that are not outputs or which aren't
  */
-pub async fn gather_messages(runtime_id: Uuid, mut client: JupyterClient, db: Pool<Sqlite>) {
-    loop {
-        // As each message comes in on iopub, shove to database
-        if let Ok(message) = client.next_io().await {
-            crate::db::insert_message(&db, runtime_id, &message).await;
-        } else {
-            // Log error
-            log::error!("Failed to recieve message from IOPub");
+pub async fn gather_messages(runtime: JupyterRuntime, db: Pool<Sqlite>) {
+    // TODO: This will never timeout and will just sit there watching indefinitely
+    if let Ok(mut client) = runtime.attach().await {
+        loop {
+            // As each message comes in on iopub, shove to database
+            if let Ok(message) = client.next_io().await {
+                crate::db::insert_message(&db, runtime.id, &message).await;
+            } else {
+                // Log error
+                log::error!("Failed to recieve message from IOPub");
+            }
         }
     }
 }
@@ -61,21 +64,18 @@ pub async fn initialize_runtimes(db: &Pool<Sqlite>) -> RuntimesLock {
         .map(|runtime| (runtime.id, runtime))
         .collect::<HashMap<Uuid, JupyterRuntime>>();
 
-    let runtimes = Arc::new(RwLock::new(runtimes));
-    tokio::spawn(watch_runtime_dir(runtimes.clone()));
-
-    for (runtime_id, runtime) in runtimes.clone().read().await.iter() {
-        let client = runtime.attach().await;
-
-        if let Ok(client) = client {
-            tokio::spawn(gather_messages(*runtime_id, client, db.clone()));
-        }
+    for (_, runtime) in runtimes.iter() {
+        tokio::spawn(gather_messages(runtime.clone(), db.clone()));
     }
+
+    let runtimes = Arc::new(RwLock::new(runtimes));
+
+    tokio::spawn(watch_runtime_dir(runtimes.clone(), db.clone()));
 
     runtimes
 }
 
-pub async fn watch_runtime_dir(runtimes: RuntimesLock) -> Result<(), Error> {
+pub async fn watch_runtime_dir(runtimes: RuntimesLock, db: Pool<Sqlite>) -> Result<(), Error> {
     let (tx, mut rs) = channel(1);
     let handle = Handle::current();
 
@@ -105,6 +105,7 @@ pub async fn watch_runtime_dir(runtimes: RuntimesLock) -> Result<(), Error> {
 
                                 match runtime {
                                     Ok(runtime) => {
+                                        tokio::spawn(gather_messages(runtime.clone(), db.clone()));
                                         log::debug!("Connected to runtime {:?}", path);
                                         runtimes.write().await.insert(runtime.id, runtime);
                                     }
