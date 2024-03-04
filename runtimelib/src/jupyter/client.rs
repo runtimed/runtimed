@@ -2,11 +2,11 @@ use crate::jupyter::messaging::{Connection, JupyterMessage};
 use tokio::time::{timeout, Duration};
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use serde_json::json;
+use serde_json::Value;
+use uuid::Uuid;
 use zeromq;
 use zeromq::Socket;
-use uuid::Uuid;
 
 use anyhow::anyhow;
 use anyhow::Error;
@@ -142,9 +142,11 @@ impl JupyterClient {
         }
     }
 
-    pub async fn run_code(&mut self, code: &str) -> Result<(JupyterMessage, JupyterMessage), Error> {
-        let message = JupyterMessage::new("execute_request")
-        .with_content(json!({"code": code}));
+    pub async fn run_code(
+        &mut self,
+        code: &str,
+    ) -> Result<(JupyterMessage, JupyterMessage), Error> {
+        let message = JupyterMessage::new("execute_request").with_content(json!({"code": code}));
 
         message.send(&mut self.shell).await?;
         let response = JupyterMessage::read(&mut self.shell).await?;
@@ -171,7 +173,7 @@ impl JupyterClient {
                         break;
                     }
                 }
-                
+
                 Err(e) => {
                     println!("Error reading message: {}", e);
                     break;
