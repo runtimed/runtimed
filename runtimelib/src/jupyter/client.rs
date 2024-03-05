@@ -146,7 +146,13 @@ impl JupyterClient {
         &mut self,
         code: &str,
     ) -> Result<(JupyterMessage, JupyterMessage), Error> {
-        let message = JupyterMessage::new("execute_request").with_content(json!({"code": code}));
+        let message = JupyterMessage::new("execute_request").with_content(json!({
+            "code": code,
+            "silent": false,
+            "store_history": true,
+            "user_expressions": {},
+            "allow_stdin": false,
+        }));
 
         message.send(&mut self.shell).await?;
         let response = JupyterMessage::read(&mut self.shell).await?;
@@ -168,8 +174,9 @@ impl JupyterClient {
                     println!("{:?}", message);
 
                     // Check to see if the kernel has stopped
-                    if message.parent_header["msg_type"] == "shutdown_request" 
-                        && message.content["execution_state"] == "idle" {
+                    if message.parent_header["msg_type"] == "shutdown_request"
+                        && message.content["execution_state"] == "idle"
+                    {
                         break;
                     }
                 }
