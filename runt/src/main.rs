@@ -1,5 +1,3 @@
-use tokio::io::{self};
-// use tokio::net::TcpStream;
 use clap::Parser;
 use clap::Subcommand;
 use std::collections::HashMap;
@@ -28,6 +26,7 @@ enum Commands {
     // Run {
     //     name: String,
     // },
+    //
     /// List running runtimes
     Ps,
     /// TODO: Kill a specific runtime
@@ -35,11 +34,12 @@ enum Commands {
     //     /// ID of the runtime to kill
     //     id: String,
     // },
-    RunCode {
+    /// Run code on a specific runtime
+    Exec {
         id: String,
         code: String,
     },
-    Execution {
+    GetResults {
         id: String,
     },
 }
@@ -52,10 +52,10 @@ async fn main() -> Result<(), Error> {
         Commands::Ps => {
             list_instances().await?;
         }
-        Commands::RunCode { id, code } => {
+        Commands::Exec { id, code } => {
             run_code(id, code).await?;
         }
-        Commands::Execution { id } => {
+        Commands::GetResults { id } => {
             execution(id).await?;
         } //
           // TODO:
@@ -136,7 +136,10 @@ async fn run_code(id: String, code: String) -> Result<(), Error> {
         .text()
         .await?;
 
-    println!("{}", response);
+    // Deserialize the response
+    let response: serde_json::Value = serde_json::from_str(&response)?;
+
+    println!("Execution {} submitted", response["msg_id"]);
 
     Ok(())
 }
