@@ -24,16 +24,17 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    Start {
-        name: String,
-    },
+    // TODO: Implement
+    // Run {
+    //     name: String,
+    // },
     /// List running runtimes
     Ps,
-    /// Kill a specific runtime
-    Kill {
-        /// ID of the runtime to kill
-        id: String,
-    },
+    /// TODO: Kill a specific runtime
+    // Kill {
+    //     /// ID of the runtime to kill
+    //     id: String,
+    // },
     RunCode {
         id: String,
         code: String,
@@ -48,9 +49,6 @@ async fn main() -> Result<(), Error> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Start { name } => {
-            create_instance(name).await?;
-        }
         Commands::Ps => {
             list_instances().await?;
         }
@@ -59,19 +57,17 @@ async fn main() -> Result<(), Error> {
         }
         Commands::Execution { id } => {
             execution(id).await?;
-        }
-        Commands::Kill { id } => {
-            kill_instance(id).await?;
-        } // Commands::Run { repl } => {
+        } //
+          // TODO:
+          // Commands::Kill { id } => {
+          //     kill_instance(id).await?;
+          // }
+          // Commands::Run { repl } => {
           //     start_repl(repl).await?;
           // }
     }
 
     Ok(())
-}
-
-async fn create_instance(name: String) -> Result<(), Error> {
-    Err(Error::msg(format!("No runtime for: {}", name)))
 }
 
 #[derive(Tabled)]
@@ -154,12 +150,4 @@ async fn execution(id: String) -> Result<(), Error> {
     println!("{}", response);
 
     Ok(())
-}
-
-async fn kill_instance(id: String) -> io::Result<()> {
-    println!("No runtime running with ID: {}", id);
-    Err(io::Error::new(
-        io::ErrorKind::NotFound,
-        format!("Runtime with ID {} not found", id),
-    ))
 }
