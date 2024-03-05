@@ -130,7 +130,9 @@ async fn run_code(id: String, code: String) -> Result<(), Error> {
     // Deserialize the response
     let response: serde_json::Value = serde_json::from_str(&response)?;
 
-    println!("Execution {} submitted", response["msg_id"]);
+    println!("Execution {} submitted, run\n", response["msg_id"]);
+    println!("runt get-results {}", response["msg_id"]);
+    println!("\nto get the results of the execution.");
 
     Ok(())
 }
