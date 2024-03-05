@@ -29,19 +29,10 @@ enum Commands {
     //
     /// List running runtimes
     Ps,
-    /// TODO: Kill a specific runtime
-    // Kill {
-    //     /// ID of the runtime to kill
-    //     id: String,
-    // },
     /// Run code on a specific runtime
-    Exec {
-        id: String,
-        code: String,
-    },
-    GetResults {
-        id: String,
-    },
+    Exec { id: String, code: String },
+    /// Get results from a previous execution
+    GetResults { id: String },
 }
 
 #[tokio::main]
