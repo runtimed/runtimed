@@ -2,8 +2,9 @@ use tokio::io::{self};
 // use tokio::net::TcpStream;
 use clap::Parser;
 use clap::Subcommand;
-use runtimelib::jupyter::client::JupyterRuntime;
 use std::collections::HashMap;
+
+use runtimelib::jupyter::client::JupyterRuntime;
 
 use anyhow::Error;
 
@@ -11,9 +12,6 @@ use tabled::{
     settings::{object::Rows, themes::Colorization, Color, Style},
     Table, Tabled,
 };
-
-// TODO: Rely on our server for the source of truth rather than the runtimelib
-use runtimelib;
 
 /** Runtime 🔄  */
 #[derive(Parser, Debug)]
@@ -43,14 +41,6 @@ enum Commands {
     Execution {
         id: String,
     },
-    Attach {
-        id: String,
-    }, /* TODO: Start a REPL session
-       // Run {
-       //     /// The REPL to start (e.g., python3, node)
-       //     repl: String,
-       // },
-        */
 }
 
 #[tokio::main]
@@ -63,9 +53,6 @@ async fn main() -> Result<(), Error> {
         }
         Commands::Ps => {
             list_instances().await?;
-        }
-        Commands::Attach { id } => {
-            attach_instance(id).await?;
         }
         Commands::RunCode { id, code } => {
             run_code(id, code).await?;
@@ -85,12 +72,6 @@ async fn main() -> Result<(), Error> {
 
 async fn create_instance(name: String) -> Result<(), Error> {
     Err(Error::msg(format!("No runtime for: {}", name)))
-}
-
-async fn attach_instance(id: String) -> Result<(), Error> {
-    let client = runtimelib::attach(id).await.map_err(Error::msg)?;
-    client.listen().await;
-    Ok(())
 }
 
 #[derive(Tabled)]
