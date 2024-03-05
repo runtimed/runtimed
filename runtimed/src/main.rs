@@ -52,7 +52,7 @@ async fn main() -> Result<(), Error> {
         .with_state(shared_state.clone());
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    println!("Listening on {}:{}", IP, PORT);
+    log::info!("Listening on {}:{}", IP, PORT);
 
     axum::serve(listener, app).await?;
 
