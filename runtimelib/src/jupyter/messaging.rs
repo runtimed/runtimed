@@ -115,13 +115,15 @@ impl RawMessage {
     }
 }
 
-#[derive(Clone)]
+#[derive(serde::Serialize, Clone)]
 pub struct JupyterMessage {
+    #[serde(skip_serializing)]
     zmq_identities: Vec<Bytes>,
     pub header: serde_json::Value,
     pub parent_header: serde_json::Value,
     pub metadata: serde_json::Value,
     pub content: serde_json::Value,
+    #[serde(skip_serializing)]
     pub buffers: Vec<Bytes>,
 }
 
@@ -158,7 +160,7 @@ impl JupyterMessage {
         self.header["msg_type"].as_str().unwrap_or("")
     }
 
-    pub(crate) fn new(msg_type: &str) -> JupyterMessage {
+    pub fn new(msg_type: &str) -> JupyterMessage {
         let header = json!({
             "msg_id": Uuid::new_v4().to_string(),
             "username": "todo-user",
@@ -215,7 +217,7 @@ impl JupyterMessage {
         }))
     }
 
-    pub(crate) fn with_content(mut self, content: serde_json::Value) -> JupyterMessage {
+    pub fn with_content(mut self, content: serde_json::Value) -> JupyterMessage {
         self.content = content;
         self
     }

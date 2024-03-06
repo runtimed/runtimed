@@ -104,13 +104,13 @@ impl JupyterRuntime {
             .await
             .unwrap();
 
-        return Ok(JupyterClient {
+        Ok(JupyterClient {
             iopub: iopub_connection,
             shell: shell_connection,
             stdin: stdin_connection,
             control: control_connection,
             heartbeat: heartbeat_connection,
-        });
+        })
     }
 }
 
@@ -140,6 +140,12 @@ impl JupyterClient {
             Ok(_) => Ok(()),
             Err(_) => Err(anyhow!("Timeout reached while closing sockets.")),
         }
+    }
+
+    pub async fn send(&mut self, message: JupyterMessage) -> Result<JupyterMessage, Error> {
+        message.send(&mut self.shell).await?;
+        let response = JupyterMessage::read(&mut self.shell).await?;
+        Ok(response)
     }
 
     pub async fn run_code(
