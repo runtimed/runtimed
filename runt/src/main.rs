@@ -74,7 +74,7 @@ struct RuntimeDisplay {
     ip: String,
     #[tabled(rename = "Transport")]
     transport: String,
-    #[tabled(rename = "Connection File")]
+    #[tabled(rename = "Connection File", skip)]
     connection_file: String,
     #[tabled(rename = "State")]
     state: String,
@@ -104,7 +104,7 @@ async fn list_instances() -> Result<(), Error> {
 
     if !displays.is_empty() {
         let table = Table::new(displays)
-            .with(Style::markdown())
+            .with(Style::rounded())
             .with(Colorization::exact([Color::BOLD], Rows::first()))
             .to_string();
         println!("{}", table);

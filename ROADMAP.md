@@ -5,17 +5,29 @@
 - [x] List running runtimes (`runt ps`)
 - [ ] Start a new runtime (`runt start`)
 - [ ] Stop a running runtime (`runt stop`)
-- [ ] Store client messages into a SQL DB
+- [x] Store client messages into a SQL DB
 
-### Milestone 2: REST API for runtime access
+- [x] Add a `runt exec` command to submit code to a runtime
+- [x] Add a `runt get-results` command to get the results of an execution
+- [ ] Add a `runt export` command to export a runtime session to a notebook
 
-- [ ] Connect to a running runtime (`runt connect`)
-- [ ] `/v0/runtime` APIs
-  - [x] `GET /v0/runtime`
-  - [ ] `POST /v0/runtime`
-- [ ] `/v0/runtime/:id/cell` APIs
-  - [ ] `POST /v0/runtime/:id/cell`
-  - [ ] `GET /v0/runtime/:id/cell/:cell_id`
+#### REST API
+
+- [x] `GET /v0/runtime_instances/`
+  - [x] `GET /v0/runtime_instances/:id`
+  - [x] `POST /v0/runtime_instances/:id/run_code`
+  - [ ] `POST /v0/runtime_instances`
+- [x] `GET /v0/executions/:msg_id`
+- [ ] `GET /v0/environment`
+
+### Milestone 2: Document based access to runtimes
+
+- [ ] `/v0/notebook` APIs
+  - [ ] `POST /v0/notebook`
+  - [ ] `GET /v0/notebook/:id`
+  - [ ] `POST /v0/notebook/:id/cell`
+  - [ ] `GET /v0/notebook/:id/cell/:cell_id`
+  - [ ] `POST /v0/notebook/:id/cell/:cell_id/run`
 
 ### Milestone 3: Release with documentation
 
@@ -32,3 +44,7 @@ For the purpose of getting users to hook up runtimes with large language models,
 ### Future Vision
 
 We want to go beyond jupyter kernels for showing off an environment. We want to have access to what the packages available in a kernel are as well as databases. LLMs do very well getting access to databases. Exposing it through interactive computing.
+
+```
+
+```
