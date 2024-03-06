@@ -27,9 +27,19 @@ git clone git@github.com:runtimed/runtimed.git
 cd runtimed
 # Install the cli, `runt` into your path
 cargo install --path runt
+# Install the CLI for the `runtimed` daemon.
+cargo install --path runtimed
 ```
 
 ### Usage
+
+Start the `runtimed` daemon.
+
+```
+$ runtimed
+```
+
+List the available runtimes.
 
 ```
 $ runt ps
