@@ -12,8 +12,8 @@ const DB_STRING: &str = "sqlite:runtimed.db?mode=rwc";
 mod db;
 mod instance;
 mod routes;
-mod startup;
 mod state;
+mod runtime_manager;
 
 fn init_logger() {
     let level = if cfg!(debug_assertions) {
@@ -42,7 +42,8 @@ async fn main() -> Result<(), Error> {
     sqlx::migrate!("../migrations").run(&dbpool).await?;
 
     log::debug!("Database connected and migrations run");
-    let runtimes = startup::initialize_runtimes(&dbpool).await;
+
+    let runtimes = runtime_manager::RuntimeManager::new(&dbpool).await;
 
     log::debug!("Runtimes initialized");
     let shared_state = state::AppState { dbpool, runtimes };
