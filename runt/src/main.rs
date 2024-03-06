@@ -1,5 +1,7 @@
 use clap::Parser;
 use clap::Subcommand;
+use futures::stream::StreamExt;
+use reqwest_eventsource::{Event, EventSource};
 use std::collections::HashMap;
 
 use runtimelib::jupyter::client::JupyterRuntime;
@@ -30,6 +32,8 @@ enum Commands {
     //
     /// List running runtimes
     Ps,
+    /// Attach and stream messages from runtime
+    Attach { id: String },
     /// Run code on a specific runtime
     Exec { id: String, code: String },
     /// Get results from a previous execution
@@ -43,6 +47,9 @@ async fn main() -> Result<(), Error> {
     match cli.command {
         Commands::Ps => {
             list_instances().await?;
+        }
+        Commands::Attach { id } => {
+            attach(id).await?;
         }
         Commands::Exec { id, code } => {
             run_code(id, code).await?;
@@ -221,5 +228,23 @@ async fn execution(id: String) -> Result<(), Error> {
 
     println!("{}", table);
 
+    Ok(())
+}
+
+async fn attach(id: String) -> Result<(), Error> {
+    let mut es = EventSource::get(format!(
+        "http://127.0.0.1:12397/v0/runtime_instances/{}/attach",
+        id,
+    ));
+    while let Some(event) = es.next().await {
+        match event {
+            Ok(Event::Open) => println!("Connection Open!"),
+            Ok(Event::Message(message)) => println!("Message: {:#?}", message),
+            Err(err) => {
+                println!("Error: {}", err);
+                es.close();
+            }
+        }
+    }
     Ok(())
 }
