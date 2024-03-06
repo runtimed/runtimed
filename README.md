@@ -2,7 +2,7 @@
 
 ![lilrunt](https://github.com/runtimed/runtimed/assets/836375/f5d36136-5154-4c2c-b968-4354c29670b1)
 
-RuntimeD is a daemon for REPLs built on top of Jupyter kernels. It's purpose built for exposing interactive computing primitives to large language models whether hosted or local. 
+RuntimeD is a daemon for REPLs built on top of Jupyter kernels. It's purpose built for exposing interactive computing primitives to large language models whether hosted or local.
 
 The main CLI for interfacing with `runtimed` is `runt`.
 
@@ -10,14 +10,15 @@ The main CLI for interfacing with `runtimed` is `runt`.
 
 The goal of `runt` is to provide simple, easy to use, and powerful access to interactive computing. We want to enable a new generation of builders to:
 
-* Create new notebook applications
-* Create new kinds of REPLs
-* Allow large language models to reason about code and data 
+- Create new notebook applications
+- Create new kinds of REPLs
+- Allow large language models to reason about code and data
 
-There are two main interfaces: 
+There are three main interfaces:
 
-* `runt` - a CLI for managing runtimes
-* `runtimed` - a daemon for working with the interactive computing runtimes
+- `runt` - a CLI for managing runtimes
+- `runtimed` - a daemon for working with the interactive computing runtimes
+- `runtimelib` - a rust library for interfacing with runtimes directly
 
 ## Getting Started
 
@@ -25,27 +26,57 @@ There are two main interfaces:
 git clone git@github.com:runtimed/runtimed.git
 cd runtimed
 # Install the cli, `runt` into your path
-cargo install --path cli
+cargo install --path runt
 ```
 
 ### Usage
 
 ```
-runt ps
-| Kernel Name | IP        | Transport | Connection File                                                                            |
-|-------------|-----------|-----------|--------------------------------------------------------------------------------------------|
-| deno        | 127.0.0.1 | tcp       | ~/Library/Jupyter/runtime/kernel-76d276d5-3625-43ae-aee4-9628a22d64e8.json |
-| python3     | 127.0.0.1 | tcp       | ~/Library/Jupyter/runtime/kernel-581f74c6-e366-4518-8826-84132763f68c.json |
-| deno        | 127.0.0.1 | tcp       | ~/Library/Jupyter/runtime/kernel-f1d7210b-1942-44c8-90c6-35ca8135054c.json |
-| deno        | 127.0.0.1 | tcp       | ~/Library/Jupyter/runtime/kernel-4bfd804a-befc-4e4c-b10a-3b3d79c3bf24.json |
-| python3     | 127.0.0.1 | tcp       | ~/Library/Jupyter/runtime/kernel-05122fc6-3d9f-4ed0-8fcb-93d1f7316756.json |
+$ runt ps
+╭─────────────┬────────────┬──────────────────────────────────────┬───────────┬───────────┬───────╮
+│ Kernel Name │ Language   │ ID                                   │ IP        │ Transport │ State │
+├─────────────┼────────────┼──────────────────────────────────────┼───────────┼───────────┼───────┤
+│ python3     │ python     │ 6a090dec-08cb-5429-a6c7-ea19d71fc06e │ 127.0.0.1 │ tcp       │ alive │
+│ deno        │ typescript │ 79c4c28f-1ffb-579a-b77c-23e4a1bb45ec │ 127.0.0.1 │ tcp       │ alive │
+╰─────────────┴────────────┴──────────────────────────────────────┴───────────┴───────────┴───────╯
+```
+
+### Submitting an Execution
+
+```
+$ runt exec 79c4c28f-1ffb-579a-b77c-23e4a1bb45ec $'function X() { return Math.random() };\nX()'
+Execution "2d3827a2-4a7f-4a1f-bc41-5091f9ade2ab" submitted, run
+
+runt get-results "2d3827a2-4a7f-4a1f-bc41-5091f9ade2ab"
+
+to get the results of the execution.
+```
+
+### Getting Results
+
+```
+$ runt get-results "2d3827a2-4a7f-4a1f-bc41-5091f9ade2ab"
+╭────────────────────────────────────────────────────╮
+│ Execution Results                                  │
+├────────────────────────────────────────────────────┤
+│ Execution ID: 2d3827a2-4a7f-4a1f-bc41-5091f9ade2ab │
+│ Status: idle                                       │
+│ Started: 2024-03-05T23:57:46.680992Z               │
+│ Finished: 2024-03-05T23:57:46.688572Z              │
+│                                                    │
+│ -- Code --                                         │
+│ function X() { return Math.random() };             │
+│ X()                                                │
+│                                                    │
+│ -- Output --                                       │
+│ 0.21616865512200545                                │
+│                                                    │
+╰────────────────────────────────────────────────────╯
 ```
 
 ## The idea behind the `runtimed` API 💡
 
-We're exposing a document oriented interface to working with kernels, as a REST API:
-
-![image](https://github.com/runtimed/runtimed/assets/836375/07bf5289-8b2a-466b-a9ad-e243d289c232)
+We're exposing a document oriented interface to working with kernels, as a REST API.
 
 RuntimeD tracks executions of runtimes for recall and for working with interactive applications like notebooks and consoles. We track the association between `Execution` and `Runtime` (a running kernel). We also track for specific notebook apps with a `Code Cell -> Execution`.
 
@@ -74,62 +105,38 @@ CodeCell {
 }
 ```
 
-
-### CLI Goals
-
-```
-$ runt start python3
-started 14598
-```
-
-```
-$ runt kill 14598
-```
-
-```
-$ runt ps
-14598 | Python
-```
-
-```
-$ runt run python3
-
-In [1]: 2 + 3
-Out[1]: 5
-
-In [2]: import pandas as pd
-
-Runtime "ul3bn3or" exited with no errors. To export a notebook from your session, run
-
-  runtime export ul3bn3or --notebook
-```
-
-```
-$ runt ps
-
-| Kernel Name     | Language | IP        | Transport | Connection File                                                                            | State        |
-|-----------------|----------|-----------|-----------|--------------------------------------------------------------------------------------------|--------------|
-| deno            |          | 127.0.0.1 | tcp       | /Users/kylekelley/Library/Jupyter/runtime/kernel-76d276d5-3625-43ae-aee4-9628a22d64e8.json | unresponsive |
-| python3         |          | 127.0.0.1 | tcp       | /Users/kylekelley/Library/Jupyter/runtime/kernel-24661.json                                | alive        |
-| python3         |          | 127.0.0.1 | tcp       | /Users/kylekelley/Library/Jupyter/runtime/kernel-95973.json                                | alive        |
-| python3         |          | 127.0.0.1 | tcp       | /Users/kylekelley/Library/Jupyter/runtime/kernel-581f74c6-e366-4518-8826-84132763f68c.json | unresponsive |
-| deno            |          | 127.0.0.1 | tcp       | /Users/kylekelley/Library/Jupyter/runtime/kernel-f1d7210b-1942-44c8-90c6-35ca8135054c.json | unresponsive |
-| deno            |          | 127.0.0.1 | tcp       | /Users/kylekelley/Library/Jupyter/runtime/kernel-4bfd804a-befc-4e4c-b10a-3b3d79c3bf24.json | unresponsive |
-| python3         |          | 127.0.0.1 | tcp       | /Users/kylekelley/Library/Jupyter/runtime/kernel-05122fc6-3d9f-4ed0-8fcb-93d1f7316756.json | unresponsive |
-| pythonjvsc74a57 |          | 127.0.0.1 | tcp       | /Users/kylekelley/Library/Jupyter/runtime/kernel-v2-17060MJ3bVzCxcpj6.json                 | unresponsive |
-
-$ runt rm kernel-76d276d5-3625-43ae-aee4-9628a22d64e8
-```
-
 ## Development
 
 ### Working with the DB
 
 The database is managed by the [sqlx library](https://github.com/launchbadge/sqlx). The db is created and any migrations are run automatically. If you are updating the schema or add more queries to the app, more tooling needs to be installed.
 
-1. cargo install sqlx-cli
-2. ln -s .env.example .env
+```sh
+cargo install sqlx-cli
+```
 
-New queries will need to be prepared with `cargo sqlx prepare --workspace`.
+```sh
+ln -s .env.example .env
+```
 
-New migrations should be added with `cargo sqlx migrate add <description>`, edited, and then executed with `cargo sqlx migrate run`
+#### Preparing new queries
+
+After you write a new query, you will need to run
+
+```sh
+cargo sqlx prepare --workspace
+```
+
+#### Migrations
+
+New migrations should be added with the following command:
+
+```sh
+cargo sqlx migrate add create_executions_table
+```
+
+This will create a new migration file in `migrations/` that you can edit. After you are done, you can run the migration with:
+
+```sh
+cargo sqlx migrate run
+```
