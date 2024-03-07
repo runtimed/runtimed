@@ -38,6 +38,8 @@ enum Commands {
     Exec { id: String, code: String },
     /// Get results from a previous execution
     GetResults { id: String },
+    /// Export a runtime to a notebook
+    Export { id: String },
 }
 
 #[tokio::main]
@@ -64,6 +66,9 @@ async fn main() -> Result<(), Error> {
           // Commands::Run { repl } => {
           //     start_repl(repl).await?;
           // }
+        Commands::Export { id } => {
+            export_instance(id);
+        }
     }
 
     Ok(())
@@ -247,4 +252,8 @@ async fn attach(id: String) -> Result<(), Error> {
         }
     }
     Ok(())
+}
+
+fn export_instance(id: String) -> () {
+    println!("Exporting instance {}", id);
 }
