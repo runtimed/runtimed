@@ -23,6 +23,7 @@ pub struct JupyterEnvironment {
 pub struct JupyterRuntime {
     #[serde(default)]
     pub id: Uuid,
+    // ZeroMQ Socket (TCP, IPC)
     pub shell_port: u16,
     pub iopub_port: u16,
     pub stdin_port: u16,
