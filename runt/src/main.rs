@@ -238,10 +238,10 @@ async fn attach(id: String) -> Result<(), Error> {
     ));
     while let Some(event) = es.next().await {
         match event {
-            Ok(Event::Open) => println!("Connection Open!"),
-            Ok(Event::Message(message)) => println!("Message: {:#?}", message),
+            Ok(Event::Open) => eprintln!("Connection Open!"),
+            Ok(Event::Message(message)) => println!("{}", message.data),
             Err(err) => {
-                println!("Error: {}", err);
+                eprintln!("Error: {}", err);
                 es.close();
             }
         }
