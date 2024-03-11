@@ -1,7 +1,14 @@
 pub mod client;
+pub mod constants;
+pub mod content;
 pub mod dirs;
 pub mod discovery;
+pub mod header;
+pub mod message;
 pub mod messaging;
+pub mod request;
+pub mod response;
+pub mod wire_protocol;
 
 #[cfg(test)]
 mod tests {
