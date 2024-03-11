@@ -151,7 +151,6 @@ where
             .map(|s| s.as_str().unwrap_or_default())
             .collect::<Vec<_>>()
             .join("\n");
-
         Ok(source_string)
     } else if let Some(source_str) = source_value.as_str() {
         // If source is already a string, return it

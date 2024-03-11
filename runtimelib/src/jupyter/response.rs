@@ -8,8 +8,7 @@ use crate::jupyter::content::iopub::{
     ClearOutput, DisplayData, Error, ExecuteInput, ExecuteResult, Status, Stream, UpdateDisplayData,
 };
 use crate::jupyter::content::shell::{ExecuteReply, KernelInfoReply};
-use crate::jupyter::header::Header;
-use crate::jupyter::message::{Message, Metadata};
+use crate::jupyter::message::{Header, Message, Metadata};
 use crate::jupyter::wire_protocol::WireProtocol;
 use serde::{Deserialize, Serialize};
 

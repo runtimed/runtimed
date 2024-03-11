@@ -6,7 +6,7 @@ that I wanted to use here, so WireProtocol serialization and deserialization is 
 Ref: https://jupyter-client.readthedocs.io/en/latest/messaging.html#the-wire-protocol
 */
 use crate::jupyter::constants::EMPTY_DICT_BYTES;
-use crate::jupyter::header::Header;
+use crate::jupyter::message::Header;
 use bytes::Bytes;
 use ring::hmac;
 use serde::Serialize;
