@@ -133,6 +133,28 @@ impl From<String> for MimeType {
 /// A `MimeBundle` is a collection of data associated with different MIME types.
 /// It allows for the representation of rich content that can be displayed in multiple formats.
 /// These are found in the `data` field of a `DisplayData` and `ExecuteResult` messages/output types.
+///
+/// # Examples
+///
+/// ```rust
+/// use runtimelib::media::{MimeBundle, MimeType};
+///
+/// let raw = r#"{
+///    "text/plain": "FancyThing()",
+///    "text/html": "<h1>Fancy!</h1>",
+///    "application/json": {"fancy": true}
+/// }"#;
+///
+/// let mime_bundle: MimeBundle = serde_json::from_str(raw).unwrap();
+///
+/// let richest = mime_bundle.richest(&[MimeType::Html, MimeType::Json, MimeType::Plain]);
+///
+/// if let Some((mime_type, content)) = richest {
+///    println!("Richest MIME type: {:?}", mime_type);
+///    println!("Content: {:?}", content);
+/// }
+/// ```
+///
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct MimeBundle {
     /// A map of MIME types to their corresponding data, represented as JSON `Value`.
