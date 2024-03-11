@@ -118,9 +118,9 @@ pub struct MimeBundle {
 }
 
 impl MimeBundle {
-    // Finds the first richest mime type in the list matching this bundle if available
-    pub fn richest(&self, mime_types: &[MimeType]) -> Option<(MimeType, Value)> {
-        for mime_type in mime_types {
+    /* Find the first matching mime_type that is both in the priority order and this bundle. */
+    pub fn richest(&self, priority_order: &[MimeType]) -> Option<(MimeType, Value)> {
+        for mime_type in priority_order {
             if let Some(content) = self.content.get(mime_type) {
                 return Some((mime_type.clone(), content.clone()));
             }
