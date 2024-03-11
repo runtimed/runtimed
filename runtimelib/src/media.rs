@@ -9,20 +9,61 @@ pub enum MimeType {
     Plain,
     #[serde(rename = "text/html")]
     Html,
-    #[serde(rename = "application/json")]
-    Json,
-    #[serde(rename = "application/vnd.dataresource+json")]
-    DataTable,
-    #[serde(rename = "application/vnd.plotly.v1+json")]
-    Plotly,
+    #[serde(rename = "text/latex")]
+    Latex,
+    #[serde(rename = "application/javascript")]
+    Javascript,
+
+    /* Text based Images */
     #[serde(rename = "image/svg+xml")]
     Svg,
+
+    /* Binary Images */
     #[serde(rename = "image/png")]
     Png,
     #[serde(rename = "image/jpeg")]
     Jpeg,
     #[serde(rename = "image/gif")]
     Gif,
+
+    /* Pure JSON for viewing */
+    #[serde(rename = "application/json")]
+    Json,
+
+    /* Special JSON Media Types that require custom renderers */
+    #[serde(rename = "application/vnd.dataresource+json")]
+    DataTable,
+    #[serde(rename = "application/vnd.plotly.v1+json")]
+    Plotly,
+
+    #[serde(rename = "application/vnd.jupyter.widget-view+json")]
+    WidgetView,
+    #[serde(rename = "application/vnd.jupyter.widget-state+json")]
+    WidgetState,
+    #[serde(rename = "application/geo+json")]
+    GeoJson,
+    #[serde(rename = "application/vnd.vegalite.v2+json")]
+    VegaLite2,
+    #[serde(rename = "application/vnd.vegalite.v3+json")]
+    VegaLiteV3,
+    #[serde(rename = "application/vnd.vegalite.v4+json")]
+    VegaLiteV4,
+    #[serde(rename = "application/vnd.vegalite.v5+json")]
+    VegaLiteV5,
+    #[serde(rename = "application/vnd.vegalite.v6+json")]
+    VegaLiteV6,
+
+    #[serde(rename = "application/vnd.vega.v3+json")]
+    VegaV3,
+    #[serde(rename = "application/vnd.vega.v4+json")]
+    VegaV4,
+    #[serde(rename = "application/vnd.vega.v5+json")]
+    VegaV5,
+
+    #[serde(rename = "application/vdom.v1+json")]
+    Vdom,
+
+    /* Anything goes */
     #[serde(other)]
     Other,
 }
@@ -32,6 +73,9 @@ impl From<String> for MimeType {
         match s.as_str() {
             "text/plain" => MimeType::Plain,
             "text/html" => MimeType::Html,
+            "text/latex" => MimeType::Latex,
+            "application/javascript" => MimeType::Javascript,
+
             "application/json" => MimeType::Json,
             "application/vnd.dataresource+json" => MimeType::DataTable,
             "application/vnd.plotly.v1+json" => MimeType::Plotly,
@@ -39,6 +83,24 @@ impl From<String> for MimeType {
             "image/png" => MimeType::Png,
             "image/jpeg" => MimeType::Jpeg,
             "image/gif" => MimeType::Gif,
+
+            "application/vnd.jupyter.widget-view+json" => MimeType::WidgetView,
+            "application/vnd.jupyter.widget-state+json" => MimeType::WidgetState,
+
+            "application/geo+json" => MimeType::GeoJson,
+
+            "application/vnd.vegalite.v2+json" => MimeType::VegaLite2,
+            "application/vnd.vegalite.v3+json" => MimeType::VegaLiteV3,
+            "application/vnd.vegalite.v4+json" => MimeType::VegaLiteV4,
+            "application/vnd.vegalite.v5+json" => MimeType::VegaLiteV5,
+            "application/vnd.vegalite.v6+json" => MimeType::VegaLiteV6,
+
+            "application/vnd.vega.v3+json" => MimeType::VegaV3,
+            "application/vnd.vega.v4+json" => MimeType::VegaV4,
+            "application/vnd.vega.v5+json" => MimeType::VegaV5,
+
+            "application/vdom.v1+json" => MimeType::Vdom,
+
             _ => MimeType::Other,
         }
     }
