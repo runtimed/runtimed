@@ -1,8 +1,7 @@
 pub mod client;
-pub mod messaging;
 pub mod dirs;
 pub mod discovery;
-
+pub mod messaging;
 
 #[cfg(test)]
 mod tests {
