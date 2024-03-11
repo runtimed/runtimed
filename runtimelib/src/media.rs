@@ -275,4 +275,44 @@ mod test {
         let richest = bundle.richest(&[]);
         assert_eq!(richest, None);
     }
+
+    #[test]
+    fn direct_access() {
+        let raw = r#"{
+            "text/plain": "🦀 Hello from Rust! 🦀",
+            "text/html": "<h1>Hello, world!</h1>",
+            "application/json": {
+                "name": "John Doe",
+                "age": 30
+            },
+            "application/vnd.dataresource+json": {
+                "data": [
+                    {"name": "Alice", "age": 25},
+                    {"name": "Bob", "age": 35}
+                ],
+                "schema": {
+                    "fields": [
+                        {"name": "name", "type": "string"},
+                        {"name": "age", "type": "integer"}
+                    ]
+                }
+            },
+            "application/octet-stream": "Binary data"
+        }"#;
+
+        let bundle: MimeBundle = serde_json::from_str(raw).unwrap();
+
+        assert_eq!(
+            bundle.content.get(&MimeType::Html).unwrap(),
+            &serde_json::json!("<h1>Hello, world!</h1>")
+        );
+
+        assert_eq!(
+            bundle
+                .content
+                .get(&MimeType::from("text/plain".to_string()))
+                .unwrap(),
+            "🦀 Hello from Rust! 🦀"
+        )
+    }
 }
