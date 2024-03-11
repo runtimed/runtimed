@@ -147,4 +147,65 @@ mod test {
             })
         );
     }
+
+    #[test]
+    fn find_nothing_and_be_happy() {
+        let raw = r#"{
+            "application/octet-stream": "Binary data"
+        }"#;
+
+        let bundle: MimeBundle = serde_json::from_str(raw).unwrap();
+
+        let richest = bundle.richest(&[
+            MimeType::DataTable,
+            MimeType::Json,
+            MimeType::Html,
+            MimeType::Svg,
+            MimeType::Plain,
+        ]);
+
+        assert_eq!(richest, None);
+    }
+
+    #[test]
+    fn from_string() {
+        let mime_type: MimeType = "text/plain".to_string().into();
+        assert_eq!(mime_type, MimeType::Plain);
+    }
+
+    #[test]
+    fn from_string_unknown() {
+        let mime_type: MimeType = "application/octet-stream".to_string().into();
+        assert_eq!(mime_type, MimeType::Other);
+    }
+
+    #[test]
+    fn edge_case() {
+        let raw = r#"{
+            "text/plain": "Hello, world!",
+            "text/html": "<h1>Hello, world!</h1>",
+            "application/json": {
+                "name": "John Doe",
+                "age": 30
+            },
+            "application/vnd.dataresource+json": {
+                "data": [
+                    {"name": "Alice", "age": 25},
+                    {"name": "Bob", "age": 35}
+                ],
+                "schema": {
+                    "fields": [
+                        {"name": "name", "type": "string"},
+                        {"name": "age", "type": "integer"}
+                    ]
+                }
+            },
+            "application/octet-stream": "Binary data"
+        }"#;
+
+        let bundle: MimeBundle = serde_json::from_str(raw).unwrap();
+
+        let richest = bundle.richest(&[]);
+        assert_eq!(richest, None);
+    }
 }
