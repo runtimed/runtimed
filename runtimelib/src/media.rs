@@ -5,6 +5,7 @@ use std::collections::HashMap;
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum MimeType {
+    /* Plaintext media types */
     #[serde(rename = "text/plain")]
     Plain,
     #[serde(rename = "text/html")]
@@ -31,17 +32,21 @@ pub enum MimeType {
     Json,
 
     /* Special JSON Media Types that require custom renderers */
+    /* GeoJSON */
+    #[serde(rename = "application/geo+json")]
+    GeoJson,
+    /* Data Table, e.g. `{data: [], schema: {}}` */
     #[serde(rename = "application/vnd.dataresource+json")]
     DataTable,
+    /* Plotly */
     #[serde(rename = "application/vnd.plotly.v1+json")]
     Plotly,
-
+    /* Jupyter/IPython widgets */
     #[serde(rename = "application/vnd.jupyter.widget-view+json")]
     WidgetView,
     #[serde(rename = "application/vnd.jupyter.widget-state+json")]
     WidgetState,
-    #[serde(rename = "application/geo+json")]
-    GeoJson,
+    /* Vega & VegaLite */
     #[serde(rename = "application/vnd.vegalite.v2+json")]
     VegaLite2,
     #[serde(rename = "application/vnd.vegalite.v3+json")]
@@ -52,7 +57,6 @@ pub enum MimeType {
     VegaLiteV5,
     #[serde(rename = "application/vnd.vegalite.v6+json")]
     VegaLiteV6,
-
     #[serde(rename = "application/vnd.vega.v3+json")]
     VegaV3,
     #[serde(rename = "application/vnd.vega.v4+json")]
@@ -60,6 +64,7 @@ pub enum MimeType {
     #[serde(rename = "application/vnd.vega.v5+json")]
     VegaV5,
 
+    /* Virtual DOM (nteract/vdom) */
     #[serde(rename = "application/vdom.v1+json")]
     Vdom,
 
@@ -109,7 +114,7 @@ impl From<String> for MimeType {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct MimeBundle {
     #[serde(flatten)]
-    content: HashMap<MimeType, Value>,
+    pub content: HashMap<MimeType, Value>,
 }
 
 impl MimeBundle {
