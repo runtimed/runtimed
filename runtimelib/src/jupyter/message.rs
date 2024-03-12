@@ -20,11 +20,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Header {
     pub msg_id: String,
-    session: String,
-    username: String,
-    date: DateTime<Utc>,
+    pub session: String,
+    pub username: String,
+    pub date: DateTime<Utc>,
     pub msg_type: String,
-    version: String,
+    pub version: String,
 }
 
 impl Header {
@@ -82,4 +82,10 @@ impl<T> Message<T> {
     pub fn msg_type(&self) -> String {
         self.header.msg_type.to_owned()
     }
+}
+
+pub trait MessageLike {
+    fn header(&self) -> &Header;
+    fn parent_header(&self) -> &Option<Header>;
+    fn metadata(&self) -> &Option<Metadata>;
 }

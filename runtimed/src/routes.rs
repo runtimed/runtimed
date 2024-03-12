@@ -13,8 +13,7 @@ use axum::{
     Json, Router,
 };
 use futures::stream::Stream;
-use runtimelib::jupyter::request::ExecuteRequest;
-use serde_json::json;
+use runtimelib::jupyter::content::shell::ExecuteRequest;
 use serde_json::Value;
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt;
@@ -65,6 +64,7 @@ async fn post_runtime_instance_run_code(
         store_history: true,
         user_expressions: Default::default(),
         allow_stdin: false,
+        stop_on_error: true,
     };
 
     // Not quite finished converting over here

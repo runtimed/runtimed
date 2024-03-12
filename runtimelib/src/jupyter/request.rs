@@ -7,7 +7,7 @@ The impl's for message_content T -> Message<T> -> Request are in individual mess
 */
 
 use crate::jupyter::content::shell::{ExecuteRequest, KernelInfoRequest};
-use crate::jupyter::message::Message;
+use crate::jupyter::message::{Message, MessageLike};
 use crate::jupyter::wire_protocol::WireProtocol;
 
 #[derive(Debug)]

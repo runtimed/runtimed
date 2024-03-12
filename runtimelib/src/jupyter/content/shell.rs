@@ -10,12 +10,12 @@ use std::collections::HashMap;
 /// Ref [`execute_request`](https://jupyter-client.readthedocs.io/en/latest/messaging.html#execute)
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteRequest {
-    code: String,
-    silent: bool,
-    store_history: bool,
-    user_expressions: HashMap<String, String>,
-    allow_stdin: bool,
-    stop_on_error: bool,
+    pub code: String,
+    pub silent: bool,
+    pub store_history: bool,
+    pub user_expressions: HashMap<String, String>,
+    pub allow_stdin: bool,
+    pub stop_on_error: bool,
 }
 
 impl ExecuteRequest {

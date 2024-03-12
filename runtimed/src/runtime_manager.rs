@@ -6,7 +6,7 @@ use runtimelib::jupyter::client::JupyterRuntime;
 use runtimelib::jupyter::discovery::{
     check_runtime_up, get_jupyter_runtime_instances, is_connection_file,
 };
-use runtimelib::jupyter::message::Message;
+use runtimelib::jupyter::message::MessageLike;
 
 use serde::Serialize;
 use sqlx::Pool;
@@ -25,18 +25,18 @@ pub struct RuntimeInstance {
     pub runtime: JupyterRuntime,
     /// To send commands/messages to the runtime
     #[serde(skip)]
-    pub send_tx: mpsc::Sender<Message>,
+    pub send_tx: mpsc::Sender<dyn MessageLike>,
     /// To follow all messages from the runtime
     #[serde(skip)]
-    pub broadcast_tx: broadcast::Sender<Message>,
+    pub broadcast_tx: broadcast::Sender<dyn MessageLike>,
 }
 
 impl RuntimeInstance {
-    pub async fn get_receiver(&self) -> broadcast::Receiver<Message> {
+    pub async fn get_receiver(&self) -> broadcast::Receiver<dyn MessageLike> {
         self.broadcast_tx.subscribe()
     }
 
-    pub async fn get_sender(&self) -> mpsc::Sender<Message> {
+    pub async fn get_sender(&self) -> mpsc::Sender<dyn MessageLike> {
         self.send_tx.clone()
     }
 }
@@ -86,8 +86,8 @@ impl RuntimeManager {
     /// 2. Start a task to watch all messages from the runtime and insert them into the database
     /// 3. Start a task to recieve messages and send time to the runtime
     async fn insert(&self, runtime: JupyterRuntime) {
-        let (mpsc_tx, mut mpsc_rx) = mpsc::channel::<Message>(1);
-        let (broadcast_tx, _) = broadcast::channel::<Message>(1);
+        let (mpsc_tx, mut mpsc_rx) = mpsc::channel::<MessageLike>(1);
+        let (broadcast_tx, _) = broadcast::channel::<MessageLike>(1);
 
         // Inser the runtime into the runtime collection
         self.lock.write().await.insert(
