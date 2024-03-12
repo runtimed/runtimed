@@ -13,7 +13,7 @@ use axum::{
     Json, Router,
 };
 use futures::stream::Stream;
-use runtimelib::jupyter::messaging::JupyterMessage;
+use runtimelib::jupyter::messaging_old::JupyterMessage;
 use serde_json::json;
 use serde_json::Value;
 use tokio_stream::wrappers::BroadcastStream;

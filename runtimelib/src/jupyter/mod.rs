@@ -8,6 +8,9 @@ pub mod request;
 pub mod response;
 pub mod wire_protocol;
 
+// TODO: Finish converting to new message type
+pub mod messaging_old;
+
 #[cfg(test)]
 mod tests {
     use super::*;
