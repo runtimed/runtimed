@@ -1,35 +1,44 @@
 use anyhow::Result;
 use chrono::Utc;
+use runtimelib::jupyter::messaging::JupyterMessage;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite};
 use uuid::Uuid;
 
-use runtimelib::jupyter::message::{Message, MessageLike};
+pub async fn insert_message(dbpool: &Pool<Sqlite>, runtime_id: Uuid, message: &JupyterMessage) {
+    let id = Uuid::new_v4();
+    let created_at = Utc::now();
+    let parent_msg_id = message.parent_header["msg_id"].as_str();
+    let parent_msg_type = message.parent_header["msg_type"].as_str();
+    let msg_id = message.header["msg_id"].as_str();
+    let msg_type = message.header["msg_type"].as_str();
 
-pub async fn insert_message(dbpool: &Pool<Sqlite>, runtime_id: Uuid, message: DbJupyterMessage) {
     let result = sqlx::query!(
         r#"INSERT INTO disorganized_messages
             (id, msg_id, msg_type, content, metadata, runtime_id, parent_msg_id, parent_msg_type, created_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"#,
-        message.id,
-        message.msg_id,
-        message.msg_type,
-        serde_json::to_string(&message.content).unwrap(),
-        serde_json::to_string(&message.metadata).unwrap(),
+        id,
+        msg_id,
+        msg_type,
+        message.content,
+        message.metadata,
         runtime_id,
-        message.parent_msg_id,
-        message.parent_msg_type,
-        message.created_at,
+        parent_msg_id,
+        parent_msg_type,
+        created_at,
     )
     .execute(dbpool)
     .await;
 
     if let Ok(_) = result {
         // Log success
-        log::debug!("Message saved to database: {:?}", message.msg_id);
+        log::debug!("Message saved to database: {:?}", message.header["msg_id"]);
     } else {
         // Log error
-        log::error!("Failed to log message to database: {:?}", message.msg_id);
+        log::error!(
+            "Failed to log message to database: {:?}",
+            message.header["msg_id"]
+        );
     }
 }
 
@@ -41,35 +50,6 @@ pub struct DbJupyterMessage {
     pub metadata: serde_json::Value,
     pub content: serde_json::Value,
     pub created_at: chrono::DateTime<Utc>,
-}
-
-// Let's write an into method for converting from Request and Reply into DbJupyterMessage
-
-impl From<dyn MessageLike> for DbJupyterMessage {
-    fn from(message_like: dyn MessageLike) -> Self {
-        let message: Message = message_like.into();
-        let id = Uuid::new_v4();
-        let created_at = Utc::now();
-        let parent_msg_id = message
-            .parent_header()
-            .get("msg_id")
-            .and_then(|v| v.as_str());
-        let parent_msg_type = message
-            .parent_header()
-            .get("msg_type")
-            .and_then(|v| v.as_str());
-        let msg_id = message.header().get("msg_id").and_then(|v| v.as_str());
-        let msg_type = message.header().get("msg_type").and_then(|v| v.as_str());
-
-        DbJupyterMessage {
-            id,
-            msg_id: msg_id.map(|s| s.to_string()),
-            msg_type: msg_type.map(|s| s.to_string()),
-            content: message.content().clone(),
-            metadata: message.metadata().clone(),
-            created_at,
-        }
-    }
 }
 
 pub async fn get_messages_by_parent_id(

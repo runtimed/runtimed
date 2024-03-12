@@ -13,7 +13,8 @@ use axum::{
     Json, Router,
 };
 use futures::stream::Stream;
-use runtimelib::jupyter::content::shell::ExecuteRequest;
+use runtimelib::jupyter::messaging::JupyterMessage;
+use serde_json::json;
 use serde_json::Value;
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt;
@@ -58,16 +59,13 @@ async fn post_runtime_instance_run_code(
     let instance = state.runtimes.get(id).await.ok_or(StatusCode::NOT_FOUND)?;
     let sender = instance.get_sender().await;
 
-    let execute = ExecuteRequest {
-        code: payload.code,
-        silent: false,
-        store_history: true,
-        user_expressions: Default::default(),
-        allow_stdin: false,
-        stop_on_error: true,
-    };
-
-    // Not quite finished converting over here
+    let message = JupyterMessage::new("execute_request").with_content(json!({
+        "code": payload.code,
+        "silent": false,
+        "store_history": true,
+        "user_expressions": {},
+        "allow_stdin": false,
+    }));
 
     let response = message.header.clone();
 
