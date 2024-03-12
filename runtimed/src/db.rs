@@ -4,15 +4,27 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite};
 use uuid::Uuid;
 
-use runtimelib::jupyter::message::Message;
+use runtimelib::jupyter::request::Request;
+use runtimelib::jupyter::response::Response;
 
-pub async fn insert_message(dbpool: &Pool<Sqlite>, runtime_id: Uuid, message: &Message) {
+pub async fn insert_message<T: Into<dyn MessageLike>>(
+    dbpool: &Pool<Sqlite>,
+    runtime_id: Uuid,
+    message_like: T,
+) {
+    let message = message_like.into();
     let id = Uuid::new_v4();
     let created_at = Utc::now();
-    let parent_msg_id = message.parent_header["msg_id"].as_str();
-    let parent_msg_type = message.parent_header["msg_type"].as_str();
-    let msg_id = message.header["msg_id"].as_str();
-    let msg_type = message.header["msg_type"].as_str();
+    let parent_msg_id = message
+        .parent_header()
+        .get("msg_id")
+        .and_then(|v| v.as_str());
+    let parent_msg_type = message
+        .parent_header()
+        .get("msg_type")
+        .and_then(|v| v.as_str());
+    let msg_id = message.header().get("msg_id").and_then(|v| v.as_str());
+    let msg_type = message.header().get("msg_type").and_then(|v| v.as_str());
 
     let result = sqlx::query!(
         r#"INSERT INTO disorganized_messages
@@ -21,8 +33,8 @@ pub async fn insert_message(dbpool: &Pool<Sqlite>, runtime_id: Uuid, message: &M
         id,
         msg_id,
         msg_type,
-        message.content,
-        message.metadata,
+        message.content(),
+        message.metadata(),
         runtime_id,
         parent_msg_id,
         parent_msg_type,
@@ -33,13 +45,53 @@ pub async fn insert_message(dbpool: &Pool<Sqlite>, runtime_id: Uuid, message: &M
 
     if let Ok(_) = result {
         // Log success
-        log::debug!("Message saved to database: {:?}", message.header["msg_id"]);
+        log::debug!("Message saved to database: {:?}", msg_id);
     } else {
         // Log error
-        log::error!(
-            "Failed to log message to database: {:?}",
-            message.header["msg_id"]
-        );
+        log::error!("Failed to log message to database: {:?}", msg_id);
+    }
+}
+
+pub trait MessageLike {
+    fn header(&self) -> &serde_json::Value;
+    fn parent_header(&self) -> &serde_json::Value;
+    fn content(&self) -> &serde_json::Value;
+    fn metadata(&self) -> &serde_json::Value;
+}
+
+impl MessageLike for Request {
+    fn header(&self) -> &serde_json::Value {
+        &self.header
+    }
+
+    fn parent_header(&self) -> &serde_json::Value {
+        &self.parent_header
+    }
+
+    fn content(&self) -> &serde_json::Value {
+        &self.content
+    }
+
+    fn metadata(&self) -> &serde_json::Value {
+        &self.metadata
+    }
+}
+
+impl MessageLike for Response {
+    fn header(&self) -> &serde_json::Value {
+        &self.header
+    }
+
+    fn parent_header(&self) -> &serde_json::Value {
+        &self.parent_header
+    }
+
+    fn content(&self) -> &serde_json::Value {
+        &self.content
+    }
+
+    fn metadata(&self) -> &serde_json::Value {
+        &self.metadata
     }
 }
 
