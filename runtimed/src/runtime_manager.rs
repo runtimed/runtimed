@@ -6,7 +6,7 @@ use runtimelib::jupyter::client::JupyterRuntime;
 use runtimelib::jupyter::discovery::{
     check_runtime_up, get_jupyter_runtime_instances, is_connection_file,
 };
-use runtimelib::jupyter::messaging_old::JupyterMessage;
+use runtimelib::jupyter::messaging::JupyterMessage;
 use serde::Serialize;
 use sqlx::Pool;
 use sqlx::Sqlite;
@@ -60,7 +60,7 @@ impl RuntimeManager {
 
         // Watch the jupyter runtime directory
         let watcher_manager = manager.clone();
-        tokio::spawn(async move { watcher_manager.watch_runtime_dir().await });
+        tokio::spawn(async move {watcher_manager.watch_runtime_dir().await});
 
         // Load all the runtimes already in the runtime directory
         let initial_runtimes = get_jupyter_runtime_instances().await;
