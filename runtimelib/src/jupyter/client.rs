@@ -1,15 +1,17 @@
-use crate::jupyter::messaging::{Connection, JupyterMessage};
 use tokio::time::{timeout, Duration};
 
+use anyhow::anyhow;
+use anyhow::Error;
+use ring::hmac;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_json::Value;
 use uuid::Uuid;
 use zeromq;
-use zeromq::Socket;
+use zeromq::{Socket, SocketRecv, SocketSend, SocketType, ZmqMessage};
 
-use anyhow::anyhow;
-use anyhow::Error;
+use crate::jupyter::request::Request;
+use crate::jupyter::response::Response;
 
 #[derive(Serialize, Clone)]
 pub struct JupyterEnvironment {
@@ -44,82 +46,69 @@ pub struct JupyterRuntime {
 
 impl JupyterRuntime {
     pub async fn attach(&self) -> Result<JupyterClient, Error> {
-        let mut iopub_socket = zeromq::SubSocket::new();
-        match iopub_socket.subscribe("").await {
+        let mut iopub = zeromq::SubSocket::new();
+        match iopub.subscribe("").await {
             Ok(_) => (),
             Err(e) => return Err(anyhow!("Error subscribing to iopub: {}", e)),
         }
 
-        let mut iopub_connection = Connection::new(iopub_socket, &self.key);
-        iopub_connection
-            .socket
+        iopub
             .connect(&format!(
                 "{}://{}:{}",
                 self.transport, self.ip, self.iopub_port
             ))
-            .await
-            .unwrap();
+            .await?;
 
-        let shell_socket = zeromq::DealerSocket::new();
-        let mut shell_connection = Connection::new(shell_socket, &self.key);
-        shell_connection
-            .socket
+        let mut shell = zeromq::DealerSocket::new();
+        shell
             .connect(&format!(
                 "{}://{}:{}",
                 self.transport, self.ip, self.shell_port
             ))
-            .await
-            .unwrap();
+            .await?;
 
-        let stdin_socket = zeromq::DealerSocket::new();
-        let mut stdin_connection = Connection::new(stdin_socket, &self.key);
-        stdin_connection
-            .socket
+        let mut stdin = zeromq::DealerSocket::new();
+        stdin
             .connect(&format!(
                 "{}://{}:{}",
                 self.transport, self.ip, self.stdin_port
             ))
-            .await
-            .unwrap();
+            .await?;
 
-        let control_socket = zeromq::DealerSocket::new();
-        let mut control_connection = Connection::new(control_socket, &self.key);
-        control_connection
-            .socket
+        let mut control = zeromq::DealerSocket::new();
+        control
             .connect(&format!(
                 "{}://{}:{}",
                 self.transport, self.ip, self.control_port
             ))
-            .await
-            .unwrap();
+            .await?;
 
-        let heartbeat_socket = zeromq::ReqSocket::new();
-        let mut heartbeat_connection = Connection::new(heartbeat_socket, &self.key);
-        heartbeat_connection
-            .socket
+        let mut heartbeat = zeromq::ReqSocket::new();
+        heartbeat
             .connect(&format!(
                 "{}://{}:{}",
                 self.transport, self.ip, self.hb_port
             ))
-            .await
-            .unwrap();
+            .await?;
 
         Ok(JupyterClient {
-            iopub: iopub_connection,
-            shell: shell_connection,
-            stdin: stdin_connection,
-            control: control_connection,
-            heartbeat: heartbeat_connection,
+            key: self.key.clone(),
+            iopub,
+            shell,
+            stdin,
+            control,
+            heartbeat,
         })
     }
 }
 
 pub struct JupyterClient {
-    pub(crate) shell: Connection<zeromq::DealerSocket>,
-    pub(crate) iopub: Connection<zeromq::SubSocket>,
-    pub(crate) stdin: Connection<zeromq::DealerSocket>,
-    pub(crate) control: Connection<zeromq::DealerSocket>,
-    pub(crate) heartbeat: Connection<zeromq::ReqSocket>,
+    key: String,
+    pub(crate) shell: zeromq::DealerSocket,
+    pub(crate) iopub: zeromq::SubSocket,
+    pub(crate) stdin: zeromq::DealerSocket,
+    pub(crate) control: zeromq::DealerSocket,
+    pub(crate) heartbeat: zeromq::ReqSocket,
 }
 
 impl JupyterClient {
@@ -128,11 +117,11 @@ impl JupyterClient {
 
         let close_sockets = async {
             let _ = tokio::join!(
-                self.shell.socket.close(),
-                self.iopub.socket.close(),
-                self.stdin.socket.close(),
-                self.control.socket.close(),
-                self.heartbeat.socket.close(),
+                self.shell.close(),
+                self.iopub.close(),
+                self.stdin.close(),
+                self.control.close(),
+                self.heartbeat.close(),
             );
         };
 
@@ -142,56 +131,18 @@ impl JupyterClient {
         }
     }
 
-    pub async fn send(&mut self, message: JupyterMessage) -> Result<JupyterMessage, Error> {
-        message.send(&mut self.shell).await?;
-        let response = JupyterMessage::read(&mut self.shell).await?;
+    pub async fn send(&mut self, message: Request) -> Result<Response, Error> {
+        let wire_protocol = message.into_wire_protocol(&self.key);
+
+        let zmq_message: ZmqMessage = wire_protocol.into();
+        self.shell.send(zmq_message).await?;
+        let response: Response = self.shell.recv().await?.into();
+
         Ok(response)
     }
 
-    pub async fn run_code(
-        &mut self,
-        code: &str,
-    ) -> Result<(JupyterMessage, JupyterMessage), Error> {
-        let message = JupyterMessage::new("execute_request").with_content(json!({
-            "code": code,
-            "silent": false,
-            "store_history": true,
-            "user_expressions": {},
-            "allow_stdin": false,
-        }));
-
-        message.send(&mut self.shell).await?;
-        let response = JupyterMessage::read(&mut self.shell).await?;
-        Ok((message, response))
-    }
-
-    pub async fn next_io(&mut self) -> Result<JupyterMessage, Error> {
-        let message = JupyterMessage::read(&mut self.iopub).await;
-        return message;
-    }
-
-    pub async fn listen(mut self) {
-        // Listen to all messages coming in from iopub, emit them as events
-        loop {
-            let message = JupyterMessage::read(&mut self.iopub).await;
-
-            match message {
-                Ok(message) => {
-                    println!("{:?}", message);
-
-                    // Check to see if the kernel has stopped
-                    if message.parent_header["msg_type"] == "shutdown_request"
-                        && message.content["execution_state"] == "idle"
-                    {
-                        break;
-                    }
-                }
-
-                Err(e) => {
-                    println!("Error reading message: {}", e);
-                    break;
-                }
-            }
-        }
+    pub async fn next_io(&mut self) -> Result<Response, Error> {
+        let response: Response = self.iopub.recv().await?.into();
+        Ok(response)
     }
 }
