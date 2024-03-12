@@ -7,11 +7,11 @@ use tokio::fs;
 use tokio::task::JoinSet;
 use uuid::Uuid;
 
-use anyhow::{anyhow, Error, Result, Context};
+use anyhow::{anyhow, Context, Error, Result};
 
 use crate::jupyter::client;
 
-use crate::jupyter::messaging;
+use crate::jupyter::content::shell::KernelInfoReply;
 
 pub fn is_connection_file(path: &std::path::Path) -> bool {
     path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json")
@@ -58,7 +58,8 @@ pub async fn load_connection_file(
             Ok(runtime)
         }
         err => err,
-    }.context("Failed to parse JupyterRuntime from file")
+    }
+    .context("Failed to parse JupyterRuntime from file")
 }
 
 pub async fn check_runtime_up(
@@ -79,44 +80,19 @@ pub async fn check_runtime_up(
     }
 }
 
-pub async fn check_kernel_info(runtime: client::JupyterRuntime) -> Result<Value, Error> {
+pub async fn check_kernel_info(runtime: client::JupyterRuntime) -> Result<KernelInfoReply, Error> {
     let res = tokio::time::timeout(std::time::Duration::from_secs(1), async {
         let mut client = match runtime.attach().await {
             Ok(client) => client,
             Err(e) => return Err(anyhow::anyhow!("Failed to attach to runtime: {}", e)),
         };
 
-        let message = messaging::JupyterMessage::new("kernel_info_request").with_content(json!({}));
-
-        message.send(&mut client.shell).await?;
-
-        let reply = messaging::JupyterMessage::read(&mut client.shell).await;
-
-        let result = match reply {
-            Ok(msg) => {
-                if msg.message_type() == "kernel_info_reply" {
-                    Ok(msg.content)
-                } else {
-                    Err(anyhow::anyhow!(
-                        "Expected kernel_info_reply, got {}",
-                        msg.message_type()
-                    ))
-                }
-            }
-            Err(e) => {
-                println!("Failed to receive kernel info reply: {:?}", e);
-                Err(anyhow::anyhow!(
-                    "Failed to receive kernel info reply: {:?}",
-                    e
-                )) // Ensure this arm also returns a Result
-            }
+        let kernel_info = match client.kernel_info().await {
+            Ok(kernel_info) => kernel_info,
+            Err(e) => return Err(anyhow::anyhow!("Failed to get kernel info: {}", e)),
         };
 
-        if let Err(e) = client.detach().await {
-            println!("Failed to detach client: {:?}", e);
-        }
-
-        result
+        Ok(kernel_info.content)
     })
     .await;
 

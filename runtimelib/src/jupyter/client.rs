@@ -10,6 +10,10 @@ use uuid::Uuid;
 use zeromq;
 use zeromq::{Socket, SocketRecv, SocketSend, SocketType, ZmqMessage};
 
+use crate::jupyter::content::shell::{
+    ExecuteReply, ExecuteRequest, KernelInfoReply, KernelInfoRequest,
+};
+use crate::jupyter::message::Message;
 use crate::jupyter::request::Request;
 use crate::jupyter::response::Response;
 
@@ -40,8 +44,7 @@ pub struct JupyterRuntime {
     pub connection_file: String,
     #[serde(default)]
     pub state: String, // TODO: Use an enum
-    #[serde(default)]
-    pub kernel_info: Value,
+    pub kernel_info: KernelInfoReply,
 }
 
 impl JupyterRuntime {
@@ -128,6 +131,16 @@ impl JupyterClient {
         match timeout(timeout_duration, close_sockets).await {
             Ok(_) => Ok(()),
             Err(_) => Err(anyhow!("Timeout reached while closing sockets.")),
+        }
+    }
+
+    pub async fn kernel_info(&mut self) -> Result<Message<KernelInfoReply>, Error> {
+        let request: Request = KernelInfoRequest::new().into();
+        let response: Response = self.send(request).await?;
+
+        match response {
+            Response::KernelInfo(reply) => Ok(reply),
+            _ => Err(anyhow!("Unexpected response from kernel_info")),
         }
     }
 

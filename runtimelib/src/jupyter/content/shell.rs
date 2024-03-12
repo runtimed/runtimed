@@ -1,5 +1,4 @@
-use crate::jupyter::header::Header;
-use crate::jupyter::message::Message;
+use crate::jupyter::message::{Header, Message};
 use crate::jupyter::request::Request;
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
@@ -89,13 +88,13 @@ impl From<KernelInfoRequest> for Request {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct HelpLink {
     text: String,
     url: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct LanguageInfo {
     name: String,
     version: String,
@@ -106,7 +105,7 @@ struct LanguageInfo {
     nbconvert_exporter: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KernelInfoReply {
     banner: String,
     help_links: Option<Vec<HelpLink>>,
