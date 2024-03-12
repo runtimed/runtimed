@@ -158,4 +158,17 @@ impl JupyterClient {
         let response: Response = self.iopub.recv().await?.into();
         Ok(response)
     }
+
+    pub async fn run_code(&mut self, code: String) -> Result<Message<ExecuteReply>, Error> {
+        let request: Request = ExecuteRequest::new(code).into();
+        let response: Response = self.send(request).await?;
+
+        match response {
+            Response::Execute(reply) => {
+                println!("Execution result: {:?}", reply);
+                Ok(reply)
+            }
+            _ => Err(anyhow!("Unexpected response from execute")),
+        }
+    }
 }
