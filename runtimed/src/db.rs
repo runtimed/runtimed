@@ -1,11 +1,12 @@
 use anyhow::Result;
 use chrono::Utc;
-use runtimelib::jupyter::messaging::JupyterMessage;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite};
 use uuid::Uuid;
 
-pub async fn insert_message(dbpool: &Pool<Sqlite>, runtime_id: Uuid, message: &JupyterMessage) {
+use runtimelib::jupyter::message::Message;
+
+pub async fn insert_message(dbpool: &Pool<Sqlite>, runtime_id: Uuid, message: &Message) {
     let id = Uuid::new_v4();
     let created_at = Utc::now();
     let parent_msg_id = message.parent_header["msg_id"].as_str();

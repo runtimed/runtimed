@@ -6,7 +6,8 @@ use runtimelib::jupyter::client::JupyterRuntime;
 use runtimelib::jupyter::discovery::{
     check_runtime_up, get_jupyter_runtime_instances, is_connection_file,
 };
-use runtimelib::jupyter::messaging::JupyterMessage;
+use runtimelib::jupyter::message::Message;
+
 use serde::Serialize;
 use sqlx::Pool;
 use sqlx::Sqlite;
@@ -24,18 +25,18 @@ pub struct RuntimeInstance {
     pub runtime: JupyterRuntime,
     /// To send commands/messages to the runtime
     #[serde(skip)]
-    pub send_tx: mpsc::Sender<JupyterMessage>,
+    pub send_tx: mpsc::Sender<Message>,
     /// To follow all messages from the runtime
     #[serde(skip)]
-    pub broadcast_tx: broadcast::Sender<JupyterMessage>,
+    pub broadcast_tx: broadcast::Sender<Message>,
 }
 
 impl RuntimeInstance {
-    pub async fn get_receiver(&self) -> broadcast::Receiver<JupyterMessage> {
+    pub async fn get_receiver(&self) -> broadcast::Receiver<Message> {
         self.broadcast_tx.subscribe()
     }
 
-    pub async fn get_sender(&self) -> mpsc::Sender<JupyterMessage> {
+    pub async fn get_sender(&self) -> mpsc::Sender<Message> {
         self.send_tx.clone()
     }
 }
@@ -60,7 +61,7 @@ impl RuntimeManager {
 
         // Watch the jupyter runtime directory
         let watcher_manager = manager.clone();
-        tokio::spawn(async move {watcher_manager.watch_runtime_dir().await});
+        tokio::spawn(async move { watcher_manager.watch_runtime_dir().await });
 
         // Load all the runtimes already in the runtime directory
         let initial_runtimes = get_jupyter_runtime_instances().await;
@@ -85,8 +86,8 @@ impl RuntimeManager {
     /// 2. Start a task to watch all messages from the runtime and insert them into the database
     /// 3. Start a task to recieve messages and send time to the runtime
     async fn insert(&self, runtime: JupyterRuntime) {
-        let (mpsc_tx, mut mpsc_rx) = mpsc::channel::<JupyterMessage>(1);
-        let (broadcast_tx, _) = broadcast::channel::<JupyterMessage>(1);
+        let (mpsc_tx, mut mpsc_rx) = mpsc::channel::<Message>(1);
+        let (broadcast_tx, _) = broadcast::channel::<Message>(1);
 
         // Inser the runtime into the runtime collection
         self.lock.write().await.insert(
