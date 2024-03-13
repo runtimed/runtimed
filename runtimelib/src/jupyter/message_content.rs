@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
+use crate::media::MimeBundle;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum JupyterMessageContent {
@@ -209,13 +211,13 @@ pub struct StreamContent {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DisplayData {
-    pub data: HashMap<String, String>,
+    pub data: MimeBundle,
     pub metadata: HashMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UpdateDisplayData {
-    pub data: HashMap<String, String>,
+    pub data: MimeBundle,
     pub metadata: HashMap<String, String>,
 }
 

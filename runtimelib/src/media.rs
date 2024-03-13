@@ -155,7 +155,7 @@ impl From<String> for MimeType {
 /// }
 /// ```
 ///
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct MimeBundle {
     /// A map of MIME types to their corresponding data, represented as JSON `Value`.
     #[serde(flatten)]
