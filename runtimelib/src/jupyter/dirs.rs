@@ -1,8 +1,8 @@
-use tokio::process::Command;
-use std::path::PathBuf;
-use dirs::{home_dir, data_dir};
+use dirs::{data_dir, home_dir};
 use serde_json::Value;
 use std::env;
+use std::path::PathBuf;
+use tokio::process::Command;
 
 #[allow(dead_code)]
 pub async fn ask_jupyter() -> Result<Value, Box<dyn std::error::Error>> {
@@ -24,7 +24,10 @@ pub fn system_config_dirs() -> Vec<PathBuf> {
     if cfg!(windows) {
         vec![PathBuf::from(env::var("PROGRAMDATA").unwrap_or_default()).join("jupyter")]
     } else {
-        vec![PathBuf::from("/usr/local/etc/jupyter"), PathBuf::from("/etc/jupyter")]
+        vec![
+            PathBuf::from("/usr/local/etc/jupyter"),
+            PathBuf::from("/etc/jupyter"),
+        ]
     }
 }
 
@@ -48,7 +51,10 @@ pub fn system_data_dirs() -> Vec<PathBuf> {
     if cfg!(windows) {
         vec![PathBuf::from(env::var("PROGRAMDATA").unwrap_or_default()).join("jupyter")]
     } else {
-        vec![PathBuf::from("/usr/local/share/jupyter"), PathBuf::from("/usr/share/jupyter")]
+        vec![
+            PathBuf::from("/usr/local/share/jupyter"),
+            PathBuf::from("/usr/share/jupyter"),
+        ]
     }
 }
 
@@ -59,7 +65,9 @@ pub fn user_data_dir() -> PathBuf {
         PathBuf::from(env::var("APPDATA").unwrap_or_default()).join("jupyter")
     } else {
         // TODO: Respect XDG_DATA_HOME if set
-        data_dir().unwrap_or_else(|| home_dir().unwrap_or_default().join(".local/share")).join("jupyter")
+        data_dir()
+            .unwrap_or_else(|| home_dir().unwrap_or_default().join(".local/share"))
+            .join("jupyter")
     }
 }
 

@@ -7,7 +7,7 @@ use tokio::fs;
 use tokio::task::JoinSet;
 use uuid::Uuid;
 
-use anyhow::{anyhow, Error, Result, Context};
+use anyhow::{anyhow, Context, Error, Result};
 
 use crate::jupyter::client;
 
@@ -58,7 +58,8 @@ pub async fn load_connection_file(
             Ok(runtime)
         }
         err => err,
-    }.context("Failed to parse JupyterRuntime from file")
+    }
+    .context("Failed to parse JupyterRuntime from file")
 }
 
 pub async fn check_runtime_up(
