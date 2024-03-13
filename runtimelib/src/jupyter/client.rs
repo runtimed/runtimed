@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::jupyter::message_content::{ExecuteRequest, JupyterMessageContent};
+use crate::jupyter::message_content::ExecuteRequest;
 use crate::jupyter::messaging::{Connection, JupyterMessage};
 use tokio::time::{timeout, Duration};
 
@@ -163,7 +163,7 @@ impl JupyterClient {
             allow_stdin: false,
         };
 
-        let message = JupyterMessage::new(JupyterMessageContent::ExecuteRequest(execute_request));
+        let message: JupyterMessage = execute_request.into();
 
         message.send(&mut self.shell).await?;
         let response = JupyterMessage::read(&mut self.shell).await?;

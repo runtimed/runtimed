@@ -5,6 +5,8 @@ use std::collections::HashMap;
 
 use crate::media::MimeBundle;
 
+use crate::jupyter::messaging::JupyterMessage;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum JupyterMessageContent {
@@ -167,6 +169,12 @@ pub struct ExecuteRequest {
     pub allow_stdin: bool,
 }
 
+impl From<ExecuteRequest> for JupyterMessage {
+    fn from(req: ExecuteRequest) -> Self {
+        JupyterMessage::new(JupyterMessageContent::ExecuteRequest(req))
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteReply {
     pub status: String,
@@ -175,6 +183,12 @@ pub struct ExecuteReply {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KernelInfoRequest {}
+
+impl From<KernelInfoRequest> for JupyterMessage {
+    fn from(req: KernelInfoRequest) -> Self {
+        JupyterMessage::new(JupyterMessageContent::KernelInfoRequest(req))
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KernelInfoReply {

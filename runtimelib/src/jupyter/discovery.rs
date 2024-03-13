@@ -11,7 +11,7 @@ use anyhow::{anyhow, Context, Error, Result};
 use crate::jupyter::client;
 
 use crate::jupyter::message_content::{JupyterMessageContent, KernelInfoReply, KernelInfoRequest};
-use crate::jupyter::messaging;
+use crate::jupyter::messaging::JupyterMessage;
 
 pub fn is_connection_file(path: &std::path::Path) -> bool {
     path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json")
@@ -89,13 +89,11 @@ pub async fn check_kernel_info(runtime: client::JupyterRuntime) -> Result<Kernel
 
         let kernel_info_request = KernelInfoRequest {};
 
-        let message = messaging::JupyterMessage::new(JupyterMessageContent::KernelInfoRequest(
-            kernel_info_request,
-        ));
+        let message: JupyterMessage = kernel_info_request.into();
 
         message.send(&mut client.shell).await?;
 
-        let reply = messaging::JupyterMessage::read(&mut client.shell).await;
+        let reply = JupyterMessage::read(&mut client.shell).await;
 
         let result = match reply {
             Ok(msg) => {

@@ -13,7 +13,7 @@ use axum::{
     Json, Router,
 };
 use futures::stream::Stream;
-use runtimelib::jupyter::message_content::{ExecuteRequest, JupyterMessageContent};
+use runtimelib::jupyter::message_content::ExecuteRequest;
 use runtimelib::jupyter::messaging::JupyterMessage;
 
 use serde_json::Value;
@@ -67,8 +67,7 @@ async fn post_runtime_instance_run_code(
         user_expressions: Default::default(),
         allow_stdin: false,
     };
-
-    let message = JupyterMessage::new(JupyterMessageContent::ExecuteRequest(execute_request));
+    let message: JupyterMessage = execute_request.into();
 
     let response = message.header.clone();
 
