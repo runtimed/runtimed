@@ -12,8 +12,8 @@ const DB_STRING: &str = "sqlite:runtimed.db?mode=rwc";
 mod db;
 mod instance;
 mod routes;
-mod state;
 mod runtime_manager;
+mod state;
 
 fn init_logger() {
     let level = if cfg!(debug_assertions) {

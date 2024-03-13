@@ -60,7 +60,7 @@ impl RuntimeManager {
 
         // Watch the jupyter runtime directory
         let watcher_manager = manager.clone();
-        tokio::spawn(async move {watcher_manager.watch_runtime_dir().await});
+        tokio::spawn(async move { watcher_manager.watch_runtime_dir().await });
 
         // Load all the runtimes already in the runtime directory
         let initial_runtimes = get_jupyter_runtime_instances().await;
