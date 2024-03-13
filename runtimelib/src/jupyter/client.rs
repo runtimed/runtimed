@@ -1,9 +1,10 @@
-use crate::jupyter::messaging::{Connection, JupyterMessage};
+use std::collections::HashMap;
+
+use crate::messaging::{Connection, ExecuteRequest, JupyterMessage, KernelInfoReply};
 use tokio::time::{timeout, Duration};
 
 use serde::{Deserialize, Serialize};
-use serde_json::json;
-use serde_json::Value;
+
 use uuid::Uuid;
 use zeromq;
 use zeromq::Socket;
@@ -38,8 +39,7 @@ pub struct JupyterRuntime {
     pub connection_file: String,
     #[serde(default)]
     pub state: String, // TODO: Use an enum
-    #[serde(default)]
-    pub kernel_info: Value,
+    pub kernel_info: Option<KernelInfoReply>,
 }
 
 impl JupyterRuntime {
@@ -152,13 +152,15 @@ impl JupyterClient {
         &mut self,
         code: &str,
     ) -> Result<(JupyterMessage, JupyterMessage), Error> {
-        let message = JupyterMessage::new("execute_request").with_content(json!({
-            "code": code,
-            "silent": false,
-            "store_history": true,
-            "user_expressions": {},
-            "allow_stdin": false,
-        }));
+        let execute_request = ExecuteRequest {
+            code: code.to_string(),
+            silent: false,
+            store_history: true,
+            user_expressions: HashMap::new(),
+            allow_stdin: false,
+        };
+
+        let message: JupyterMessage = execute_request.into();
 
         message.send(&mut self.shell).await?;
         let response = JupyterMessage::read(&mut self.shell).await?;
@@ -167,30 +169,5 @@ impl JupyterClient {
 
     pub async fn next_io(&mut self) -> Result<JupyterMessage, Error> {
         JupyterMessage::read(&mut self.iopub).await
-    }
-
-    pub async fn listen(mut self) {
-        // Listen to all messages coming in from iopub, emit them as events
-        loop {
-            let message = JupyterMessage::read(&mut self.iopub).await;
-
-            match message {
-                Ok(message) => {
-                    println!("{:?}", message);
-
-                    // Check to see if the kernel has stopped
-                    if message.parent_header["msg_type"] == "shutdown_request"
-                        && message.content["execution_state"] == "idle"
-                    {
-                        break;
-                    }
-                }
-
-                Err(e) => {
-                    println!("Error reading message: {}", e);
-                    break;
-                }
-            }
-        }
     }
 }

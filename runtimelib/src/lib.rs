@@ -3,6 +3,8 @@ use crate::jupyter::client;
 use crate::jupyter::dirs;
 use crate::jupyter::discovery;
 
+pub mod messaging;
+
 pub mod media;
 
 use anyhow::anyhow;

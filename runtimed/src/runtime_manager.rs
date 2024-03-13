@@ -6,7 +6,7 @@ use runtimelib::jupyter::client::JupyterRuntime;
 use runtimelib::jupyter::discovery::{
     check_runtime_up, get_jupyter_runtime_instances, is_connection_file,
 };
-use runtimelib::jupyter::messaging::JupyterMessage;
+use runtimelib::messaging::JupyterMessage;
 use serde::Serialize;
 use sqlx::Pool;
 use sqlx::Sqlite;
@@ -127,15 +127,18 @@ impl RuntimeManager {
             // TODO: how should we handle an error here?
             if let Ok(mut client) = client {
                 loop {
-                    // As each message comes in on iopub, shove to database
-                    if let Ok(message) = client.next_io().await {
+                    let maybe_message = client.next_io().await;
+                    if let Ok(message) = maybe_message {
                         crate::db::insert_message(&db, id, &message).await;
 
                         // This should only fail if there are no receivers
                         let _ = broadcast_tx.send(message);
                     } else {
-                        // Log error
-                        log::error!("Failed to receive message from IOPub");
+                        // Log error with the actual error that occurred
+                        log::error!(
+                            "Failed to receive message from IOPub: {:?}",
+                            maybe_message.err()
+                        );
                     }
                 }
             }

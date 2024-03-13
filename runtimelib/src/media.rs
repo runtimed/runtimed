@@ -59,7 +59,7 @@ pub enum MimeType {
     WidgetState,
     /// VegaLite data in JSON format for version 2 visualizations.
     #[serde(rename = "application/vnd.vegalite.v2+json")]
-    VegaLite2,
+    VegaLiteV2,
     /// VegaLite data in JSON format for version 3 visualizations.
     #[serde(rename = "application/vnd.vegalite.v3+json")]
     VegaLiteV3,
@@ -86,8 +86,9 @@ pub enum MimeType {
     #[serde(rename = "application/vdom.v1+json")]
     Vdom,
 
-    /// Represents any other MIME type not listed above.
-    #[serde(other)]
+    // Catch all type for serde ease.
+    // TODO: Implement a custom deserializer so this extra type isn't in resulting serializations.
+    #[serde(other, rename = "application/vnd.runtimelib.unknown")]
     Other,
 }
 
@@ -113,7 +114,7 @@ impl From<String> for MimeType {
 
             "application/geo+json" => MimeType::GeoJson,
 
-            "application/vnd.vegalite.v2+json" => MimeType::VegaLite2,
+            "application/vnd.vegalite.v2+json" => MimeType::VegaLiteV2,
             "application/vnd.vegalite.v3+json" => MimeType::VegaLiteV3,
             "application/vnd.vegalite.v4+json" => MimeType::VegaLiteV4,
             "application/vnd.vegalite.v5+json" => MimeType::VegaLiteV5,
@@ -155,11 +156,14 @@ impl From<String> for MimeType {
 /// }
 /// ```
 ///
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct MimeBundle {
     /// A map of MIME types to their corresponding data, represented as JSON `Value`.
     #[serde(flatten)]
     pub content: HashMap<MimeType, Value>,
+
+    #[serde(flatten)]
+    pub unknown_content: HashMap<String, Value>,
 }
 
 impl MimeBundle {
@@ -273,7 +277,7 @@ mod test {
     #[test]
     fn find_nothing_and_be_happy() {
         let raw = r#"{
-            "application/octet-stream": "Binary data"
+            "application/fancy": "Too ✨ Fancy ✨ for you!"
         }"#;
 
         let bundle: MimeBundle = serde_json::from_str(raw).unwrap();
@@ -286,6 +290,12 @@ mod test {
             MimeType::Plain,
         ]);
 
+        let binary_data = bundle.unknown_content.get("application/fancy");
+        assert_eq!(
+            binary_data,
+            Some(&serde_json::json!("Too ✨ Fancy ✨ for you!"))
+        );
+
         assert_eq!(richest, None);
     }
 
@@ -293,12 +303,6 @@ mod test {
     fn from_string() {
         let mime_type: MimeType = "text/plain".to_string().into();
         assert_eq!(mime_type, MimeType::Plain);
-    }
-
-    #[test]
-    fn from_string_unknown() {
-        let mime_type: MimeType = "application/octet-stream".to_string().into();
-        assert_eq!(mime_type, MimeType::Other);
     }
 
     #[test]
