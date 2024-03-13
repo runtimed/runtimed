@@ -133,7 +133,6 @@ pub struct JupyterMessage {
 
 const DELIMITER: &[u8] = b"<IDS|MSG>";
 
-#[allow(dead_code)]
 impl JupyterMessage {
     pub(crate) async fn read<S: zeromq::SocketRecv>(
         connection: &mut Connection<S>,
