@@ -329,3 +329,21 @@ pub struct IsCompleteRequest {
 pub struct Status {
     pub execution_state: String,
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_execute_request() {
+        let request = ExecuteRequest {
+            code: "print('Hello, World!')".to_string(),
+            silent: false,
+            store_history: true,
+            user_expressions: HashMap::new(),
+            allow_stdin: false,
+        };
+        let request_json = serde_json::to_string(&request).unwrap();
+        let request2: ExecuteRequest = serde_json::from_str(&request_json).unwrap();
+    }
+}

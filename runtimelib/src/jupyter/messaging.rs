@@ -197,31 +197,6 @@ impl JupyterMessage {
         }
     }
 
-    // Creates a new child message of this message. ZMQ identities are not transferred.
-    pub(crate) fn child_message(&self, content: JupyterMessageContent) -> JupyterMessage {
-        let mut header = self.header.clone();
-        header["msg_type"] = serde_json::Value::String(content.message_type().to_owned());
-        header["username"] = serde_json::Value::String("kernel".to_owned());
-        header["msg_id"] = serde_json::Value::String(Uuid::new_v4().to_string());
-        header["date"] = serde_json::Value::String(Utc::now().to_rfc3339());
-
-        JupyterMessage {
-            zmq_identities: Vec::new(),
-            header,
-            parent_header: self.header.clone(),
-            metadata: json!({}),
-            content,
-            buffers: vec![],
-        }
-    }
-
-    // TODO REMOVE
-    pub fn with_content(mut self, content: JupyterMessageContent) -> JupyterMessage {
-        self.header["msg_type"] = serde_json::Value::String(content.message_type().to_owned());
-        self.content = content;
-        self
-    }
-
     pub(crate) async fn send<S: zeromq::SocketSend>(
         &self,
         connection: &mut Connection<S>,
