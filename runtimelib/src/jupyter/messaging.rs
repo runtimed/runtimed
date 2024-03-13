@@ -10,10 +10,13 @@ use bytes::Bytes;
 use chrono::Utc;
 use data_encoding::HEXLOWER;
 use ring::hmac;
+use serde::{de, Deserialize, Deserializer};
 use serde_json;
-use serde_json::json;
+use serde_json::{json, Map, Value};
 use std::fmt;
 use uuid::Uuid;
+
+use crate::jupyter::message_content::JupyterMessageContent;
 
 pub(crate) struct Connection<S> {
     pub(crate) socket: S,
@@ -122,7 +125,8 @@ pub struct JupyterMessage {
     pub header: serde_json::Value,
     pub parent_header: serde_json::Value,
     pub metadata: serde_json::Value,
-    pub content: serde_json::Value,
+    #[serde(deserialize_with = "deserialize_content")]
+    pub content: JupyterMessageContent,
     #[serde(skip_serializing)]
     pub buffers: Vec<Bytes>,
 }
@@ -142,12 +146,25 @@ impl JupyterMessage {
             bail!("Insufficient message parts {}", raw_message.jparts.len());
         }
 
+        let header: serde_json::Value = serde_json::from_slice(&raw_message.jparts[0])?;
+        let msg_type = header["msg_type"].as_str().unwrap_or("");
+        let content: serde_json::Value = serde_json::from_slice(&raw_message.jparts[3])?;
+
+        let content = JupyterMessageContent::from_type_and_content(msg_type, content);
+
+        let content = match content {
+            Ok(content) => content,
+            Err(err) => {
+                bail!("Error deserializing content: {}", err);
+            }
+        };
+
         Ok(JupyterMessage {
             zmq_identities: raw_message.zmq_identities,
-            header: serde_json::from_slice(&raw_message.jparts[0])?,
+            header,
             parent_header: serde_json::from_slice(&raw_message.jparts[1])?,
             metadata: serde_json::from_slice(&raw_message.jparts[2])?,
-            content: serde_json::from_slice(&raw_message.jparts[3])?,
+            content,
             buffers: if raw_message.jparts.len() > 4 {
                 raw_message.jparts[4..].to_vec()
             } else {
@@ -160,13 +177,13 @@ impl JupyterMessage {
         self.header["msg_type"].as_str().unwrap_or("")
     }
 
-    pub fn new(msg_type: &str) -> JupyterMessage {
+    pub fn new(content: JupyterMessageContent) -> JupyterMessage {
         let header = json!({
             "msg_id": Uuid::new_v4().to_string(),
             "username": "todo-user",
             "session": Uuid::new_v4().to_string(),
             "date": Utc::now().to_rfc3339(),
-            "msg_type": msg_type,
+            "msg_type": content.message_type(),
             "version": "5.3",
         });
 
@@ -175,15 +192,15 @@ impl JupyterMessage {
             header,
             parent_header: json!({}), // Empty for a new message
             metadata: json!({}),
-            content: json!({}),
+            content,
             buffers: Vec::new(),
         }
     }
 
     // Creates a new child message of this message. ZMQ identities are not transferred.
-    pub(crate) fn child_message(&self, msg_type: &str) -> JupyterMessage {
+    pub(crate) fn child_message(&self, content: JupyterMessageContent) -> JupyterMessage {
         let mut header = self.header.clone();
-        header["msg_type"] = serde_json::Value::String(msg_type.to_owned());
+        header["msg_type"] = serde_json::Value::String(content.message_type().to_owned());
         header["username"] = serde_json::Value::String("kernel".to_owned());
         header["msg_id"] = serde_json::Value::String(Uuid::new_v4().to_string());
         header["date"] = serde_json::Value::String(Utc::now().to_rfc3339());
@@ -193,42 +210,15 @@ impl JupyterMessage {
             header,
             parent_header: self.header.clone(),
             metadata: json!({}),
-            content: json!({}),
+            content,
             buffers: vec![],
         }
     }
 
-    // Creates a reply to this message. This is a child with the message type determined
-    // automatically by replacing "request" with "reply". ZMQ identities are transferred.
-    pub(crate) fn new_reply(&self) -> JupyterMessage {
-        let mut reply = self.child_message(&self.message_type().replace("_request", "_reply"));
-        reply.zmq_identities = self.zmq_identities.clone();
-        reply
-    }
-
-    pub(crate) fn comm_id(&self) -> &str {
-        self.content["comm_id"].as_str().unwrap_or("")
-    }
-
-    #[must_use = "Need to send this message for it to have any effect"]
-    pub(crate) fn comm_close_message(&self) -> JupyterMessage {
-        self.child_message("comm_close").with_content(json!({
-          "comm_id": self.comm_id()
-        }))
-    }
-
-    pub fn with_content(mut self, content: serde_json::Value) -> JupyterMessage {
+    // TODO REMOVE
+    pub fn with_content(mut self, content: JupyterMessageContent) -> JupyterMessage {
+        self.header["msg_type"] = serde_json::Value::String(content.message_type().to_owned());
         self.content = content;
-        self
-    }
-
-    pub(crate) fn with_metadata(mut self, metadata: serde_json::Value) -> JupyterMessage {
-        self.metadata = metadata;
-        self
-    }
-
-    pub(crate) fn with_buffers(mut self, buffers: Vec<Bytes>) -> JupyterMessage {
-        self.buffers = buffers;
         self
     }
 
@@ -266,6 +256,35 @@ impl JupyterMessage {
             jparts,
         };
         raw_message.send(connection).await
+    }
+}
+
+// Dead because we never deserialize JupyterMessage directly (at the moment). It happens in
+// slices
+#[allow(dead_code)]
+fn deserialize_content<'de, D>(deserializer: D) -> Result<JupyterMessageContent, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value: Value = Deserialize::deserialize(deserializer)?;
+    let header: &Map<String, Value> = value
+        .get("header")
+        .and_then(Value::as_object)
+        .ok_or(de::Error::custom("header is missing"))?;
+    let msg_type: &str = header
+        .get("msg_type")
+        .and_then(Value::as_str)
+        .ok_or(de::Error::custom("msg_type is missing"))?;
+    let content_value = value
+        .get("content")
+        .ok_or(de::Error::custom("content is missing"))?
+        .clone();
+
+    let content = JupyterMessageContent::from_type_and_content(msg_type, content_value);
+    if let Ok(content) = content {
+        Ok(content)
+    } else {
+        Err(de::Error::custom("Unknown message type"))
     }
 }
 

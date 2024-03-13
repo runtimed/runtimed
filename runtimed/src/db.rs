@@ -13,6 +13,8 @@ pub async fn insert_message(dbpool: &Pool<Sqlite>, runtime_id: Uuid, message: &J
     let msg_id = message.header["msg_id"].as_str();
     let msg_type = message.header["msg_type"].as_str();
 
+    let content_json = serde_json::to_string(&message.content).unwrap();
+
     let result = sqlx::query!(
         r#"INSERT INTO disorganized_messages
             (id, msg_id, msg_type, content, metadata, runtime_id, parent_msg_id, parent_msg_type, created_at)
@@ -20,7 +22,7 @@ pub async fn insert_message(dbpool: &Pool<Sqlite>, runtime_id: Uuid, message: &J
         id,
         msg_id,
         msg_type,
-        message.content,
+        content_json,
         message.metadata,
         runtime_id,
         parent_msg_id,

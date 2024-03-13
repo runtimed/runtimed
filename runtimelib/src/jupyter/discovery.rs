@@ -1,8 +1,7 @@
 use crate::jupyter::dirs;
 use serde_json;
 use serde_json::from_str;
-use serde_json::json;
-use serde_json::Value;
+
 use tokio::fs;
 use tokio::task::JoinSet;
 use uuid::Uuid;
@@ -11,6 +10,7 @@ use anyhow::{anyhow, Context, Error, Result};
 
 use crate::jupyter::client;
 
+use crate::jupyter::message_content::{JupyterMessageContent, KernelInfoReply, KernelInfoRequest};
 use crate::jupyter::messaging;
 
 pub fn is_connection_file(path: &std::path::Path) -> bool {
@@ -69,7 +69,7 @@ pub async fn check_runtime_up(
 
     match check_kernel_info(runtime.clone()).await {
         Ok(kernel_info) => {
-            runtime.kernel_info = kernel_info;
+            runtime.kernel_info = Some(kernel_info);
             runtime.state = "alive".to_string();
             Ok(runtime)
         }
@@ -80,14 +80,18 @@ pub async fn check_runtime_up(
     }
 }
 
-pub async fn check_kernel_info(runtime: client::JupyterRuntime) -> Result<Value, Error> {
+pub async fn check_kernel_info(runtime: client::JupyterRuntime) -> Result<KernelInfoReply, Error> {
     let res = tokio::time::timeout(std::time::Duration::from_secs(1), async {
         let mut client = match runtime.attach().await {
             Ok(client) => client,
             Err(e) => return Err(anyhow::anyhow!("Failed to attach to runtime: {}", e)),
         };
 
-        let message = messaging::JupyterMessage::new("kernel_info_request").with_content(json!({}));
+        let kernel_info_request = KernelInfoRequest {};
+
+        let message = messaging::JupyterMessage::new(JupyterMessageContent::KernelInfoRequest(
+            kernel_info_request,
+        ));
 
         message.send(&mut client.shell).await?;
 
@@ -95,8 +99,9 @@ pub async fn check_kernel_info(runtime: client::JupyterRuntime) -> Result<Value,
 
         let result = match reply {
             Ok(msg) => {
-                if msg.message_type() == "kernel_info_reply" {
-                    Ok(msg.content)
+                // Check that msg is a kernel_info_reply using the JupyterMessageContent enum
+                if let JupyterMessageContent::KernelInfoReply(kernel_info_reply) = msg.content {
+                    Ok(kernel_info_reply)
                 } else {
                     Err(anyhow::anyhow!(
                         "Expected kernel_info_reply, got {}",
@@ -104,13 +109,7 @@ pub async fn check_kernel_info(runtime: client::JupyterRuntime) -> Result<Value,
                     ))
                 }
             }
-            Err(e) => {
-                println!("Failed to receive kernel info reply: {:?}", e);
-                Err(anyhow::anyhow!(
-                    "Failed to receive kernel info reply: {:?}",
-                    e
-                )) // Ensure this arm also returns a Result
-            }
+            Err(e) => Err(e),
         };
 
         if let Err(e) = client.detach().await {

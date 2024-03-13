@@ -103,10 +103,9 @@ async fn list_instances() -> Result<(), Error> {
             transport: runtime.transport,
             connection_file: runtime.connection_file,
             state: runtime.state,
-            language: runtime.kernel_info["language_info"]["name"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string(),
+            language: runtime
+                .kernel_info
+                .map_or("unknown".to_string(), |info| info.language_info.name),
         })
         .collect();
 
