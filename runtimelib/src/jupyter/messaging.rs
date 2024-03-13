@@ -180,7 +180,7 @@ impl JupyterMessage {
     pub fn new(content: JupyterMessageContent) -> JupyterMessage {
         let header = json!({
             "msg_id": Uuid::new_v4().to_string(),
-            "username": "todo-user",
+            "username": "runtimelib",
             "session": Uuid::new_v4().to_string(),
             "date": Utc::now().to_rfc3339(),
             "msg_type": content.message_type(),

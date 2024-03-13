@@ -335,7 +335,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_execute_request() {
+    fn test_execute_request_serialize() {
         let request = ExecuteRequest {
             code: "print('Hello, World!')".to_string(),
             silent: false,
@@ -343,7 +343,16 @@ mod test {
             user_expressions: HashMap::new(),
             allow_stdin: false,
         };
-        let request_json = serde_json::to_string(&request).unwrap();
-        let request2: ExecuteRequest = serde_json::from_str(&request_json).unwrap();
+        let request_value = serde_json::to_value(&request).unwrap();
+
+        let expected_request_value = serde_json::json!({
+            "code": "print('Hello, World!')",
+            "silent": false,
+            "store_history": true,
+            "user_expressions": {},
+            "allow_stdin": false
+        });
+
+        assert_eq!(request_value, expected_request_value);
     }
 }
