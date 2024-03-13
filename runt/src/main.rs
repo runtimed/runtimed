@@ -82,6 +82,7 @@ struct RuntimeDisplay {
     #[tabled(rename = "Transport")]
     transport: String,
     #[tabled(rename = "Connection File", skip)]
+    #[allow(dead_code)] // Reserved for later use
     connection_file: String,
     #[tabled(rename = "State")]
     state: String,

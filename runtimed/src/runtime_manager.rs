@@ -78,7 +78,7 @@ impl RuntimeManager {
 
     /// Get a single runtime by id
     pub async fn get(&self, id: Uuid) -> Option<RuntimeInstance> {
-        self.lock.read().await.get(&id).map(|state| state.clone())
+        self.lock.read().await.get(&id).cloned()
     }
 
     /// 1. Insert the runtime by id into the runtime map
