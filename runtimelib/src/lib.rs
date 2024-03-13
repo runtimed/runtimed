@@ -66,8 +66,8 @@ pub async fn attach(id: String) -> Result<client::JupyterClient, Error> {
     if found_files.is_empty() {
         return Err(anyhow!("No matching runtime files found"));
     } else {
-        for file_path in found_files {
-            // Example: Create a client from the first found file
+        // Just get the first entry without making a loop
+        if let Some(file_path) = found_files.into_iter().next() {
             println!("Found runtime file: {:?}", file_path);
 
             let runtime = discovery::load_connection_file(file_path).await?;
