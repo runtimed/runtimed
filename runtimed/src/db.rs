@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chrono::Utc;
-use runtimelib::jupyter::messaging::JupyterMessage;
+use runtimelib::messaging::JupyterMessage;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite};
 use uuid::Uuid;

@@ -15,7 +15,14 @@ use serde_json::{json, Value};
 use std::fmt;
 use uuid::Uuid;
 
-use crate::jupyter::message_content::JupyterMessageContent;
+mod content;
+
+pub use content::JupyterMessageContent;
+
+pub use content::{
+    CompleteReply, CompleteRequest, ExecuteReply, ExecuteRequest, KernelInfoReply,
+    KernelInfoRequest,
+};
 
 pub(crate) struct Connection<S> {
     pub(crate) socket: S,

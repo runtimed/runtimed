@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use crate::media::MimeBundle;
 
-use crate::jupyter::messaging::JupyterMessage;
+use super::JupyterMessage;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]

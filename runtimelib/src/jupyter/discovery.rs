@@ -10,8 +10,7 @@ use anyhow::{anyhow, Context, Error, Result};
 
 use crate::jupyter::client;
 
-use crate::jupyter::message_content::{JupyterMessageContent, KernelInfoReply, KernelInfoRequest};
-use crate::jupyter::messaging::JupyterMessage;
+use crate::messaging::{JupyterMessage, JupyterMessageContent, KernelInfoReply, KernelInfoRequest};
 
 pub fn is_connection_file(path: &std::path::Path) -> bool {
     path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json")

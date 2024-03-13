@@ -6,7 +6,7 @@ use runtimelib::jupyter::client::JupyterRuntime;
 use runtimelib::jupyter::discovery::{
     check_runtime_up, get_jupyter_runtime_instances, is_connection_file,
 };
-use runtimelib::jupyter::messaging::JupyterMessage;
+use runtimelib::messaging::JupyterMessage;
 use serde::Serialize;
 use sqlx::Pool;
 use sqlx::Sqlite;
