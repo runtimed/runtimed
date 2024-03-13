@@ -7,7 +7,7 @@ use tokio::process::Command;
 #[allow(dead_code)]
 pub async fn ask_jupyter() -> Result<Value, Box<dyn std::error::Error>> {
     let output = Command::new("jupyter")
-        .args(&["--paths", "--json"])
+        .args(["--paths", "--json"])
         .output()
         .await?;
 

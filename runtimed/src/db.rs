@@ -30,7 +30,7 @@ pub async fn insert_message(dbpool: &Pool<Sqlite>, runtime_id: Uuid, message: &J
     .execute(dbpool)
     .await;
 
-    if let Ok(_) = result {
+    if result.is_ok() {
         // Log success
         log::debug!("Message saved to database: {:?}", message.header["msg_id"]);
     } else {
