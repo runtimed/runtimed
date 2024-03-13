@@ -10,9 +10,8 @@ use bytes::Bytes;
 use chrono::Utc;
 use data_encoding::HEXLOWER;
 use ring::hmac;
-use serde::{de, Deserialize, Deserializer};
 use serde_json;
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 use std::fmt;
 use uuid::Uuid;
 
@@ -122,10 +121,9 @@ impl RawMessage {
 pub struct JupyterMessage {
     #[serde(skip_serializing)]
     zmq_identities: Vec<Bytes>,
-    pub header: serde_json::Value,
-    pub parent_header: serde_json::Value,
-    pub metadata: serde_json::Value,
-    #[serde(deserialize_with = "deserialize_content")]
+    pub header: Value,
+    pub parent_header: Value,
+    pub metadata: Value,
     pub content: JupyterMessageContent,
     #[serde(skip_serializing)]
     pub buffers: Vec<Bytes>,
@@ -145,9 +143,9 @@ impl JupyterMessage {
             bail!("Insufficient message parts {}", raw_message.jparts.len());
         }
 
-        let header: serde_json::Value = serde_json::from_slice(&raw_message.jparts[0])?;
+        let header: Value = serde_json::from_slice(&raw_message.jparts[0])?;
         let msg_type = header["msg_type"].as_str().unwrap_or("");
-        let content: serde_json::Value = serde_json::from_slice(&raw_message.jparts[3])?;
+        let content: Value = serde_json::from_slice(&raw_message.jparts[3])?;
 
         let content = JupyterMessageContent::from_type_and_content(msg_type, content);
 
@@ -230,35 +228,6 @@ impl JupyterMessage {
             jparts,
         };
         raw_message.send(connection).await
-    }
-}
-
-// Dead because we never deserialize JupyterMessage directly (at the moment). It happens in
-// slices
-#[allow(dead_code)]
-fn deserialize_content<'de, D>(deserializer: D) -> Result<JupyterMessageContent, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let value: Value = Deserialize::deserialize(deserializer)?;
-    let header: &Map<String, Value> = value
-        .get("header")
-        .and_then(Value::as_object)
-        .ok_or(de::Error::custom("header is missing"))?;
-    let msg_type: &str = header
-        .get("msg_type")
-        .and_then(Value::as_str)
-        .ok_or(de::Error::custom("msg_type is missing"))?;
-    let content_value = value
-        .get("content")
-        .ok_or(de::Error::custom("content is missing"))?
-        .clone();
-
-    let content = JupyterMessageContent::from_type_and_content(msg_type, content_value);
-    if let Ok(content) = content {
-        Ok(content)
-    } else {
-        Err(de::Error::custom("Unknown message type"))
     }
 }
 
