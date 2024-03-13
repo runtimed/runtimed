@@ -86,8 +86,9 @@ pub enum MimeType {
     #[serde(rename = "application/vdom.v1+json")]
     Vdom,
 
-    // Process any other MIME types as a string.
-    #[serde(skip_serializing, other)]
+    // Catch all type for serde ease.
+    // TODO: Implement a custom deserializer so this extra type isn't in resulting serializations.
+    #[serde(other, rename = "application/vnd.runtimelib.unknown")]
     Other,
 }
 
