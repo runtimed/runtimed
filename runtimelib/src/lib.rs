@@ -43,9 +43,9 @@ use crate::jupyter::client;
 use crate::jupyter::dirs;
 use crate::jupyter::discovery;
 
-pub mod messaging;
-
+pub mod environment;
 pub mod media;
+pub mod messaging;
 
 use anyhow::anyhow;
 use anyhow::Error;

@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use crate::messaging::{Connection, ExecuteRequest, JupyterMessage, KernelInfoReply};
+use crate::messaging::{Connection, JupyterMessage, KernelInfoReply};
 use tokio::time::{timeout, Duration};
 
 use serde::{Deserialize, Serialize};
@@ -11,14 +9,6 @@ use zeromq::Socket;
 
 use anyhow::anyhow;
 use anyhow::Error;
-
-#[derive(Serialize, Clone)]
-pub struct JupyterEnvironment {
-    process: String,
-    argv: Vec<String>,
-    display_name: String,
-    language: String,
-}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct JupyterRuntime {
