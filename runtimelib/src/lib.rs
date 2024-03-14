@@ -1,3 +1,43 @@
+//! `runtimelib` - Runtime Discovery and Management for Jupyter Environments
+//!
+//! This module provides functionality to discover, list, and attach to Jupyter runtime instances.
+//! It includes mechanisms to validate and locate Jupyter connection files, which are essential
+//! for establishing communication with running Jupyter kernels.
+//!
+//! # Examples
+//!
+//! Listing all available Jupyter runtime instances:
+//!
+//! ```no_run
+//! # use runtimed::list_instances;
+//! # async {
+//! let instances = list_instances().await;
+//! for instance in instances {
+//!     println!("Found Jupyter runtime: {:?}", instance);
+//! }
+//! # };
+//! ```
+//!
+//! Attaching to a specific Jupyter runtime instance by ID:
+//!
+//! ```no_run
+//! # use runtimed::attach;
+//! # use anyhow::Result;
+//! # async {
+//! let client: Result<_, _> = attach("some-runtime-id".to_string()).await;
+//! match client {
+//!     Ok(client) => println!("Attached to Jupyter runtime."),
+//!     Err(e) => println!("Failed to attach: {}", e),
+//! }
+//! # };
+//! ```
+//!
+//! # Note
+//!
+//! The `attach` function expects the ID to be a valid string containing only alphanumeric
+//! characters, hyphens, and underscores. It will return an error if the provided ID does not
+//! conform to this pattern.
+
 pub mod jupyter;
 use crate::jupyter::client;
 use crate::jupyter::dirs;
