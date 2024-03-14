@@ -148,25 +148,6 @@ impl JupyterClient {
         Ok(response)
     }
 
-    pub async fn run_code(
-        &mut self,
-        code: &str,
-    ) -> Result<(JupyterMessage, JupyterMessage), Error> {
-        let execute_request = ExecuteRequest {
-            code: code.to_string(),
-            silent: false,
-            store_history: true,
-            user_expressions: HashMap::new(),
-            allow_stdin: false,
-        };
-
-        let message: JupyterMessage = execute_request.into();
-
-        message.send(&mut self.shell).await?;
-        let response = JupyterMessage::read(&mut self.shell).await?;
-        Ok((message, response))
-    }
-
     pub async fn next_io(&mut self) -> Result<JupyterMessage, Error> {
         JupyterMessage::read(&mut self.iopub).await
     }
