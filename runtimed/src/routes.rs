@@ -13,9 +13,8 @@ use axum::{
     Json, Router,
 };
 use futures::stream::Stream;
-use runtimelib::messaging::{ExecuteRequest, JupyterMessage};
+use runtimelib::messaging::{ExecuteRequest, Header, JupyterMessage};
 
-use serde_json::Value;
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt;
 use uuid::Uuid;
@@ -55,7 +54,7 @@ async fn post_runtime_instance_run_code(
     Path(id): Path<Uuid>,
     State(state): AxumSharedState,
     Json(payload): Json<RuntimeInstanceRunCode>,
-) -> Result<Json<Value>, StatusCode> {
+) -> Result<Json<Header>, StatusCode> {
     let instance = state.runtimes.get(id).await.ok_or(StatusCode::NOT_FOUND)?;
     let sender = instance.get_sender().await;
 
