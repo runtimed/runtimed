@@ -7,9 +7,10 @@
 use anyhow::anyhow;
 use anyhow::bail;
 use bytes::Bytes;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use data_encoding::HEXLOWER;
 use ring::hmac;
+use serde::{Deserialize, Serialize};
 use serde_json;
 use serde_json::{json, Value};
 use std::fmt;
@@ -124,16 +125,26 @@ impl RawMessage {
     }
 }
 
-#[derive(serde::Serialize, Clone)]
+#[derive(Serialize, Clone)]
 pub struct JupyterMessage {
     #[serde(skip_serializing)]
     zmq_identities: Vec<Bytes>,
-    pub header: Value,
-    pub parent_header: Value,
+    pub header: Header,
+    pub parent_header: Option<Header>,
     pub metadata: Value,
     pub content: JupyterMessageContent,
     #[serde(skip_serializing)]
     pub buffers: Vec<Bytes>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Header {
+    pub msg_id: String,
+    pub username: String,
+    pub session: String,
+    pub date: DateTime<Utc>,
+    pub msg_type: String,
+    pub version: String,
 }
 
 const DELIMITER: &[u8] = b"<IDS|MSG>";
@@ -150,11 +161,10 @@ impl JupyterMessage {
             bail!("Insufficient message parts {}", raw_message.jparts.len());
         }
 
-        let header: Value = serde_json::from_slice(&raw_message.jparts[0])?;
-        let msg_type = header["msg_type"].as_str().unwrap_or("");
+        let header: Header = serde_json::from_slice(&raw_message.jparts[0])?;
         let content: Value = serde_json::from_slice(&raw_message.jparts[3])?;
 
-        let content = JupyterMessageContent::from_type_and_content(msg_type, content);
+        let content = JupyterMessageContent::from_type_and_content(&header.msg_type, content);
 
         let content = match content {
             Ok(content) => content,
@@ -178,23 +188,23 @@ impl JupyterMessage {
     }
 
     pub(crate) fn message_type(&self) -> &str {
-        self.header["msg_type"].as_str().unwrap_or("")
+        &self.header.msg_type
     }
 
     pub fn new(content: JupyterMessageContent) -> JupyterMessage {
-        let header = json!({
-            "msg_id": Uuid::new_v4().to_string(),
-            "username": "runtimelib",
-            "session": Uuid::new_v4().to_string(),
-            "date": Utc::now().to_rfc3339(),
-            "msg_type": content.message_type(),
-            "version": "5.3",
-        });
+        let header = Header {
+            msg_id: Uuid::new_v4().to_string(),
+            username: "runtimelib".to_string(),
+            session: Uuid::new_v4().to_string(),
+            date: Utc::now(),
+            msg_type: content.message_type().to_owned(),
+            version: "5.3".to_string(),
+        };
 
         JupyterMessage {
             zmq_identities: Vec::new(),
             header,
-            parent_header: json!({}), // Empty for a new message
+            parent_header: None, // Empty for a new message
             metadata: json!({}),
             content,
             buffers: Vec::new(),

@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use crate::messaging::{Connection, ExecuteRequest, JupyterMessage, KernelInfoReply};
+use crate::messaging::{Connection, JupyterMessage, KernelInfoReply};
 use tokio::time::{timeout, Duration};
 
 use serde::{Deserialize, Serialize};

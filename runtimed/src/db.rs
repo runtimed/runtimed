@@ -8,10 +8,12 @@ use uuid::Uuid;
 pub async fn insert_message(dbpool: &Pool<Sqlite>, runtime_id: Uuid, message: &JupyterMessage) {
     let id = Uuid::new_v4();
     let created_at = Utc::now();
-    let parent_msg_id = message.parent_header["msg_id"].as_str();
-    let parent_msg_type = message.parent_header["msg_type"].as_str();
-    let msg_id = message.header["msg_id"].as_str();
-    let msg_type = message.header["msg_type"].as_str();
+
+    let parent_header = message.parent_header.as_ref();
+    let parent_msg_id = parent_header.map(|s| s.msg_id.clone());
+    let parent_msg_type = parent_header.map(|s| s.msg_type.clone());
+    let msg_id = message.header.msg_id.clone();
+    let msg_type = message.header.msg_type.clone();
 
     let content_json = serde_json::to_string(&message.content).unwrap();
 
@@ -34,12 +36,12 @@ pub async fn insert_message(dbpool: &Pool<Sqlite>, runtime_id: Uuid, message: &J
 
     if result.is_ok() {
         // Log success
-        log::debug!("Message saved to database: {:?}", message.header["msg_id"]);
+        log::debug!("Message saved to database: {:?}", message.header.msg_id);
     } else {
         // Log error
         log::error!(
             "Failed to log message to database: {:?}",
-            message.header["msg_id"]
+            message.header.msg_id
         );
     }
 }
