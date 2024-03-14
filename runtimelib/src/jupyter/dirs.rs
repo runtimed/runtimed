@@ -4,7 +4,6 @@ use std::env;
 use std::path::PathBuf;
 use tokio::process::Command;
 
-#[allow(dead_code)]
 pub async fn ask_jupyter() -> Result<Value, Box<dyn std::error::Error>> {
     let output = Command::new("jupyter")
         .args(["--paths", "--json"])
@@ -19,7 +18,6 @@ pub async fn ask_jupyter() -> Result<Value, Box<dyn std::error::Error>> {
     }
 }
 
-#[allow(dead_code)]
 pub fn system_config_dirs() -> Vec<PathBuf> {
     if cfg!(windows) {
         vec![PathBuf::from(env::var("PROGRAMDATA").unwrap_or_default()).join("jupyter")]
@@ -31,7 +29,6 @@ pub fn system_config_dirs() -> Vec<PathBuf> {
     }
 }
 
-#[allow(dead_code)]
 pub fn config_dirs() -> Vec<PathBuf> {
     let mut paths = vec![];
 
@@ -46,7 +43,6 @@ pub fn config_dirs() -> Vec<PathBuf> {
     paths
 }
 
-#[allow(dead_code)]
 pub fn system_data_dirs() -> Vec<PathBuf> {
     if cfg!(windows) {
         vec![PathBuf::from(env::var("PROGRAMDATA").unwrap_or_default()).join("jupyter")]
@@ -71,7 +67,6 @@ pub fn user_data_dir() -> PathBuf {
     }
 }
 
-#[allow(dead_code)]
 pub fn data_dirs() -> Vec<PathBuf> {
     let mut paths = vec![];
 
