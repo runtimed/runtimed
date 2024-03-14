@@ -4,6 +4,11 @@ use std::env;
 use std::path::PathBuf;
 use tokio::process::Command;
 
+/// Asynchronously queries Jupyter for its paths.
+///
+/// # Errors
+///
+/// Returns an error if the `jupyter` command fails or the output cannot be parsed as JSON.
 pub async fn ask_jupyter() -> Result<Value, Box<dyn std::error::Error>> {
     let output = Command::new("jupyter")
         .args(["--paths", "--json"])
@@ -18,6 +23,10 @@ pub async fn ask_jupyter() -> Result<Value, Box<dyn std::error::Error>> {
     }
 }
 
+/// Returns the system-wide configuration directories for Jupyter.
+///
+/// On Windows, it returns the `PROGRAMDATA` environment variable path appended with `jupyter`.
+/// On Unix-like systems, it returns the common system-wide configuration paths for Jupyter.
 pub fn system_config_dirs() -> Vec<PathBuf> {
     if cfg!(windows) {
         vec![PathBuf::from(env::var("PROGRAMDATA").unwrap_or_default()).join("jupyter")]
@@ -29,6 +38,10 @@ pub fn system_config_dirs() -> Vec<PathBuf> {
     }
 }
 
+/// Returns the user and system-wide configuration directories for Jupyter.
+///
+/// It includes the user-specific configuration directory, the `JUPYTER_CONFIG_DIR` environment
+/// variable path if set, and the system-wide configuration directories.
 pub fn config_dirs() -> Vec<PathBuf> {
     let mut paths = vec![];
 
@@ -43,6 +56,10 @@ pub fn config_dirs() -> Vec<PathBuf> {
     paths
 }
 
+/// Returns the system-wide data directories for Jupyter.
+///
+/// On Windows, it returns the `PROGRAMDATA` environment variable path appended with `jupyter`.
+/// On Unix-like systems, it returns the common system-wide data paths for Jupyter.
 pub fn system_data_dirs() -> Vec<PathBuf> {
     if cfg!(windows) {
         vec![PathBuf::from(env::var("PROGRAMDATA").unwrap_or_default()).join("jupyter")]
@@ -54,6 +71,12 @@ pub fn system_data_dirs() -> Vec<PathBuf> {
     }
 }
 
+/// Returns the user-specific data directory for Jupyter.
+///
+/// On macOS, it returns the `Library/Jupyter` directory inside the user's home directory.
+/// On Windows, it returns the `APPDATA` environment variable path appended with `jupyter`.
+/// On other Unix-like systems, it respects the `XDG_DATA_HOME` environment variable if set,
+/// or defaults to `.local/share/jupyter` inside the user's home directory.
 pub fn user_data_dir() -> PathBuf {
     if cfg!(target_os = "macos") {
         home_dir().unwrap_or_default().join("Library/Jupyter")
@@ -67,6 +90,10 @@ pub fn user_data_dir() -> PathBuf {
     }
 }
 
+/// Returns the user-specific and system-wide data directories for Jupyter.
+///
+/// It includes the user-specific data directory, the `JUPYTER_PATH` environment variable path if
+/// set, and the system-wide data directories.
 pub fn data_dirs() -> Vec<PathBuf> {
     let mut paths = vec![];
 
@@ -81,6 +108,11 @@ pub fn data_dirs() -> Vec<PathBuf> {
     paths
 }
 
+/// Returns the runtime directory for Jupyter.
+///
+/// It respects the `JUPYTER_RUNTIME_DIR` environment variable if set, otherwise it falls back
+/// to the `XDG_RUNTIME_DIR` environment variable appended with `jupyter`, or defaults to
+/// the user data directory appended with `runtime`.
 pub fn runtime_dir() -> PathBuf {
     if let Ok(jupyter_runtime_dir) = env::var("JUPYTER_RUNTIME_DIR") {
         PathBuf::from(jupyter_runtime_dir)
