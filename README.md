@@ -29,11 +29,13 @@ cd runtimed
 cargo install --path runt
 # Install the CLI for the `runtimed` daemon.
 cargo install --path runtimed
+# Start the daemon
+runtimed
 ```
 
 ### Usage
 
-Start the `runtimed` daemon.
+If you haven't already, start the `runtimed` daemon.
 
 ```
 $ runtimed
