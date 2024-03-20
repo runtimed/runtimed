@@ -1,3 +1,5 @@
+//! Jupyter protocol implementation.
+
 // This file is forked/ported from <https://github.com/denoland/deno> which was
 // originally forked from <https://github.com/evcxr/evcxr>
 

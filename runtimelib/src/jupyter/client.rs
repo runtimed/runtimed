@@ -10,14 +10,6 @@ use zeromq::Socket;
 use anyhow::anyhow;
 use anyhow::Error;
 
-#[derive(Serialize, Clone)]
-pub struct JupyterEnvironment {
-    process: String,
-    argv: Vec<String>,
-    display_name: String,
-    language: String,
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct JupyterRuntime {
     #[serde(default)]

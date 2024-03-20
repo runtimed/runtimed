@@ -1,5 +1,4 @@
 use crate::jupyter::dirs;
-use serde_json;
 use serde_json::from_str;
 
 use tokio::fs;
@@ -12,10 +11,29 @@ use crate::jupyter::client;
 
 use crate::messaging::{JupyterMessage, JupyterMessageContent, KernelInfoReply, KernelInfoRequest};
 
+/// Checks if the given path points to a Jupyter connection file.
+///
+/// A connection file is identified by having a `.json` file extension.
+///
+/// # Arguments
+///
+/// * `path` - A reference to the `Path` that is being checked.
+///
+/// # Returns
+///
+/// Returns `true` if the path is a file with a `.json` extension, otherwise `false`.
 pub fn is_connection_file(path: &std::path::Path) -> bool {
     path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json")
 }
 
+/// Retrieves a list of Jupyter runtime instances from the Jupyter runtime directory.
+///
+/// Asynchronously reads the runtime directory and checks each connection file to determine
+/// if the corresponding runtime is up. Runtimes that are up are collected and returned.
+///
+/// # Returns
+///
+/// Returns a `Vec` of `JupyterRuntime` instances that are currently running.
 pub async fn get_jupyter_runtime_instances() -> Vec<client::JupyterRuntime> {
     let runtime_dir = dirs::runtime_dir();
 
@@ -41,26 +59,45 @@ pub async fn get_jupyter_runtime_instances() -> Vec<client::JupyterRuntime> {
     runtimes
 }
 
+/// Loads a Jupyter connection file and constructs a `JupyterRuntime` instance from it.
+///
+/// # Arguments
+///
+/// * `connection_file_path` - The path to the Jupyter connection file.
+///
+/// # Returns
+///
+/// Returns a `Result` which is either a `JupyterRuntime` instance or an `Error` if the file
+/// could not be read or parsed.
 pub async fn load_connection_file(
     connection_file_path: std::path::PathBuf,
 ) -> Result<client::JupyterRuntime, Error> {
     let content = fs::read_to_string(&connection_file_path)
         .await
         .unwrap_or_default();
-    match from_str::<client::JupyterRuntime>(&content) {
-        Ok(mut runtime) => {
+    from_str::<client::JupyterRuntime>(&content)
+        .map_err(Error::from)
+        .and_then(|mut runtime| {
             runtime.connection_file = connection_file_path
                 .to_str()
-                .ok_or(anyhow!("Non-unicode runtime file name"))?
+                .ok_or_else(|| anyhow!("Non-unicode runtime file name"))?
                 .to_string();
             runtime.id = Uuid::new_v5(&Uuid::NAMESPACE_URL, runtime.connection_file.as_bytes());
             Ok(runtime)
-        }
-        err => err,
-    }
-    .context("Failed to parse JupyterRuntime from file")
+        })
+        .context("Failed to parse JupyterRuntime from file")
 }
 
+/// Checks if the Jupyter runtime corresponding to the connection file is up and updates its state.
+///
+/// # Arguments
+///
+/// * `connection_file_path` - The path to the Jupyter connection file.
+///
+/// # Returns
+///
+/// Returns a `Result` which is either a `JupyterRuntime` instance with updated state or an `Error`
+/// if the file could not be read or the runtime is unresponsive.
 pub async fn check_runtime_up(
     connection_file_path: std::path::PathBuf,
 ) -> Result<client::JupyterRuntime, Error> {
@@ -79,6 +116,16 @@ pub async fn check_runtime_up(
     }
 }
 
+/// Sends a kernel info request to the Jupyter runtime and awaits the reply.
+///
+/// # Arguments
+///
+/// * `runtime` - A `JupyterRuntime` instance to send the request to.
+///
+/// # Returns
+///
+/// Returns a `Result` which is either a `KernelInfoReply` or an `Error` if the request
+/// fails or the runtime does not respond in time.
 pub async fn check_kernel_info(runtime: client::JupyterRuntime) -> Result<KernelInfoReply, Error> {
     let res = tokio::time::timeout(std::time::Duration::from_secs(1), async {
         let mut client = match runtime.attach().await {
@@ -96,7 +143,6 @@ pub async fn check_kernel_info(runtime: client::JupyterRuntime) -> Result<Kernel
 
         let result = match reply {
             Ok(msg) => {
-                // Check that msg is a kernel_info_reply using the JupyterMessageContent enum
                 if let JupyterMessageContent::KernelInfoReply(kernel_info_reply) = msg.content {
                     Ok(kernel_info_reply)
                 } else {
