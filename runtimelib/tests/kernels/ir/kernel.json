@@ -1,0 +1,13 @@
+{
+  "argv": [
+    "/Library/Frameworks/R.framework/Resources/bin/R",
+    "--slave",
+    "-e",
+    "IRkernel::main()",
+    "--args",
+    "{connection_file}"
+  ],
+  "display_name": "R",
+  "language": "R",
+  "interrupt_mode": "signal"
+}

@@ -5,6 +5,7 @@ use reqwest_eventsource::{Event, EventSource};
 use std::collections::HashMap;
 
 use runtimelib::jupyter::client::JupyterRuntime;
+use runtimelib::jupyter::kernelspec::kernelspecs;
 
 use anyhow::Error;
 
@@ -38,6 +39,8 @@ enum Commands {
     Exec { id: String, code: String },
     /// Get results from a previous execution
     GetResults { id: String },
+    /// List available kernelspecs
+    Kernelspecs,
 }
 
 #[tokio::main]
@@ -56,6 +59,9 @@ async fn main() -> Result<(), Error> {
         }
         Commands::GetResults { id } => {
             execution(id).await?;
+        }
+        Commands::Kernelspecs => {
+            list_kernelspecs()?;
         } //
           // TODO:
           // Commands::Kill { id } => {
@@ -228,6 +234,14 @@ async fn execution(id: String) -> Result<(), Error> {
 
     println!("{}", table);
 
+    Ok(())
+}
+
+fn list_kernelspecs() -> Result<(), Error> {
+    for kernelspec in kernelspecs() {
+        println!("{:?}", kernelspec);
+        println!("{:>12} {}", kernelspec.display_name, kernelspec.language)
+    }
     Ok(())
 }
 

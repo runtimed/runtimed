@@ -1,0 +1,10 @@
+{
+  "argv": [
+    "/Users/cvaske/.cargo/bin/evcxr_jupyter",
+    "--control_file",
+    "{connection_file}"
+  ],
+  "display_name": "Rust",
+  "language": "rust",
+  "interrupt_mode": "message"
+}
