@@ -239,8 +239,7 @@ async fn execution(id: String) -> Result<(), Error> {
 
 fn list_kernelspecs() -> Result<(), Error> {
     for kernelspec in kernelspecs() {
-        println!("{:?}", kernelspec);
-        println!("{:>12} {}", kernelspec.display_name, kernelspec.language)
+        println!("  {:10} {}", kernelspec.name, kernelspec.path.display());
     }
     Ok(())
 }

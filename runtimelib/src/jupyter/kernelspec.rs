@@ -1,10 +1,18 @@
 use std::fs::{read_dir, File};
-use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+// A pointer to a kernelspec directory, with the parsed JSON struct and the name
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct KernelspecDir {
+    pub name: String,
+    pub path: PathBuf,
+    pub kernelspec: JupyterKernelspec,
+}
+
+// Struct for the contents of a kernel.json file
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct JupyterKernelspec {
     #[serde(default)]
@@ -13,18 +21,15 @@ pub struct JupyterKernelspec {
     pub language: String,
     pub metadata: Option<Value>,
     pub interrupt_mode: Option<String>,
-    pub env: Option<Value>, // TODO: env vars are not yet supported
+    pub env: Option<Value>,
 }
 
-// # Finding all kernelspecs
-// The locations for all possible kernelspecs are in the `kernel` subdirectories of the
-// Jupyter data directory, as obtained from `dirs::ask_jupyter()["data"]`.
 // We look for files of the sort:
 //    `<datadir>/kernels/<kernel_name>/kernel.json`
 // But we must check through all the possible <datadir> to figure that out.
 //
 // For now, just use a combination of the standard system and user data directories.
-pub fn kernelspecs() -> Vec<JupyterKernelspec> {
+pub fn kernelspecs() -> Vec<KernelspecDir> {
     let mut kernelspecs = Vec::new();
     let data_dirs = crate::dirs::data_dirs();
     for data_dir in data_dirs {
@@ -35,7 +40,7 @@ pub fn kernelspecs() -> Vec<JupyterKernelspec> {
 
 // Design choice here is to not report any errors, keep going if possible,
 // and skip any paths that don't have a kernels subdirectory.
-pub fn list_kernelspec_dirs_at(data_dir: &PathBuf) -> Vec<String> {
+pub fn list_kernelspec_names_at(data_dir: &Path) -> Vec<String> {
     let mut kernelspecs = Vec::new();
     let kernels_dir = data_dir.join("kernels");
     if let Ok(entries) = read_dir(kernels_dir) {
@@ -52,26 +57,26 @@ pub fn list_kernelspec_dirs_at(data_dir: &PathBuf) -> Vec<String> {
     kernelspecs
 }
 
-pub fn read_kernelspec_jsons(data_dir: &PathBuf) -> Vec<JupyterKernelspec> {
+// For a given data directory, return all the parsed kernelspecs and corresponding directories
+pub fn read_kernelspec_jsons(data_dir: &Path) -> Vec<KernelspecDir> {
     let mut kernelspecs = Vec::new();
-    let kernelspecs_dirs = list_kernelspec_dirs_at(data_dir);
-    for kernelspec_dir in kernelspecs_dirs {
-        let mut kernel_path = data_dir.join("kernels");
-        kernel_path.push(kernelspec_dir);
-        kernel_path.push("kernel.json");
-        if let Ok(jupyter_runtime) = read_jupyter_runtime_config(kernel_path.to_str().unwrap()) {
-            kernelspecs.push(jupyter_runtime);
+    let kernel_names = list_kernelspec_names_at(data_dir);
+    for kernel_name in kernel_names {
+        let kernel_path = data_dir.join("kernels").join(&kernel_name);
+        if let Ok(jupyter_runtime) = read_kernelspec_json(&kernel_path.join("kernel.json")) {
+            kernelspecs.push(KernelspecDir {
+                name: kernel_name,
+                path: kernel_path,
+                kernelspec: jupyter_runtime,
+            });
         }
     }
     kernelspecs
 }
 
-fn read_jupyter_runtime_config(file_path: &str) -> anyhow::Result<JupyterKernelspec> {
-    let mut file = File::open(file_path)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    // TODO replace with serde_json::from_reader()
-    let jupyter_runtime: JupyterKernelspec = serde_json::from_str(&contents)?;
+fn read_kernelspec_json(json_file_path: &Path) -> anyhow::Result<JupyterKernelspec> {
+    let file = File::open(json_file_path)?;
+    let jupyter_runtime: JupyterKernelspec = serde_json::from_reader(&file)?;
     Ok(jupyter_runtime)
 }
 
@@ -83,8 +88,7 @@ mod tests {
     fn test_read_jupyter_runtime_config() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("tests/kernels/ir/kernel.json");
-        let file_path = d.to_str().expect("PathBuf to &str conversion failed");
-        let jupyter_runtime = read_jupyter_runtime_config(file_path).unwrap();
+        let jupyter_runtime = read_kernelspec_json(&d).unwrap();
         assert_eq!(jupyter_runtime.display_name, "R");
         assert_eq!(jupyter_runtime.language, "R");
         assert!(jupyter_runtime.env.is_none());
@@ -97,8 +101,7 @@ mod tests {
     fn test_read_missing_config() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("tests/kernels/NONEXISTENT/kernel.json");
-        let file_path = d.to_str().expect("PathBuf to &str conversion failed");
-        let jupyter_runtime = read_jupyter_runtime_config(file_path);
+        let jupyter_runtime = read_kernelspec_json(&d);
         assert!(jupyter_runtime.is_err());
     }
 
@@ -106,7 +109,7 @@ mod tests {
     fn test_list_kernelspec_jsons() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("tests");
-        let kernelspecs = list_kernelspec_dirs_at(&d);
+        let kernelspecs = list_kernelspec_names_at(&d);
         assert_eq!(kernelspecs.len(), 3);
         assert!(kernelspecs.contains(&"ir".to_string()));
         assert!(kernelspecs.contains(&"python3".to_string()));
@@ -122,7 +125,8 @@ mod tests {
         let mut r_count = 0;
         let mut python_count = 0;
         let mut rust_count = 0;
-        for kernelspec in kernels {
+        for kerneldir in kernels {
+            let kernelspec = &kerneldir.kernelspec;
             match kernelspec.display_name.as_str() {
                 "R" => {
                     assert_eq!(kernelspec.language, "R");
@@ -154,7 +158,7 @@ mod tests {
     fn list_nonexistent_kernelspec_datadir() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("tests/NOTHINGHERE");
-        let kernels = list_kernelspec_dirs_at(&d);
+        let kernels = list_kernelspec_names_at(&d);
         assert_eq!(kernels.len(), 0);
     }
 }
