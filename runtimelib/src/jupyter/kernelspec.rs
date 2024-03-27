@@ -1,8 +1,8 @@
-use std::fs::{read_dir, File};
-use std::path::{Path, PathBuf};
-
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::path::{Path, PathBuf};
+use tokio::{fs::File, io::AsyncReadExt};
 
 // A pointer to a kernelspec directory, with the parsed JSON struct and the name
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -29,27 +29,26 @@ pub struct JupyterKernelspec {
 // But we must check through all the possible <datadir> to figure that out.
 //
 // For now, just use a combination of the standard system and user data directories.
-pub fn kernelspecs() -> Vec<KernelspecDir> {
+pub async fn list_kernelspecs() -> Vec<KernelspecDir> {
     let mut kernelspecs = Vec::new();
     let data_dirs = crate::dirs::data_dirs();
     for data_dir in data_dirs {
-        kernelspecs.append(&mut read_kernelspec_jsons(&data_dir));
+        let mut specs = read_kernelspec_jsons(&data_dir).await;
+        kernelspecs.append(&mut specs);
     }
     kernelspecs
 }
 
 // Design choice here is to not report any errors, keep going if possible,
 // and skip any paths that don't have a kernels subdirectory.
-pub fn list_kernelspec_names_at(data_dir: &Path) -> Vec<String> {
+pub async fn list_kernelspec_names_at(data_dir: &Path) -> Vec<String> {
     let mut kernelspecs = Vec::new();
     let kernels_dir = data_dir.join("kernels");
-    if let Ok(entries) = read_dir(kernels_dir) {
-        for entry in entries {
-            if let Ok(entry) = entry {
-                if entry.path().is_dir() {
-                    if let Some(kernel_name) = entry.file_name().to_str() {
-                        kernelspecs.push(kernel_name.to_string());
-                    }
+    if let Ok(mut entries) = tokio::fs::read_dir(kernels_dir).await {
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            if entry.path().is_dir() {
+                if let Some(kernel_name) = entry.file_name().to_str() {
+                    kernelspecs.push(kernel_name.to_string());
                 }
             }
         }
@@ -58,12 +57,12 @@ pub fn list_kernelspec_names_at(data_dir: &Path) -> Vec<String> {
 }
 
 // For a given data directory, return all the parsed kernelspecs and corresponding directories
-pub fn read_kernelspec_jsons(data_dir: &Path) -> Vec<KernelspecDir> {
+pub async fn read_kernelspec_jsons(data_dir: &Path) -> Vec<KernelspecDir> {
     let mut kernelspecs = Vec::new();
-    let kernel_names = list_kernelspec_names_at(data_dir);
+    let kernel_names = list_kernelspec_names_at(data_dir).await;
     for kernel_name in kernel_names {
         let kernel_path = data_dir.join("kernels").join(&kernel_name);
-        if let Ok(jupyter_runtime) = read_kernelspec_json(&kernel_path.join("kernel.json")) {
+        if let Ok(jupyter_runtime) = read_kernelspec_json(&kernel_path.join("kernel.json")).await {
             kernelspecs.push(KernelspecDir {
                 name: kernel_name,
                 path: kernel_path,
@@ -74,9 +73,12 @@ pub fn read_kernelspec_jsons(data_dir: &Path) -> Vec<KernelspecDir> {
     kernelspecs
 }
 
-fn read_kernelspec_json(json_file_path: &Path) -> anyhow::Result<JupyterKernelspec> {
-    let file = File::open(json_file_path)?;
-    let jupyter_runtime: JupyterKernelspec = serde_json::from_reader(&file)?;
+async fn read_kernelspec_json(json_file_path: &Path) -> Result<JupyterKernelspec> {
+    let mut file = File::open(json_file_path).await?;
+    let mut contents = vec![];
+
+    file.read_to_end(&mut contents).await?;
+    let jupyter_runtime: JupyterKernelspec = serde_json::from_slice(&contents)?;
     Ok(jupyter_runtime)
 }
 
@@ -84,11 +86,11 @@ fn read_kernelspec_json(json_file_path: &Path) -> anyhow::Result<JupyterKernelsp
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_read_jupyter_runtime_config() {
+    #[tokio::test]
+    async fn test_read_jupyter_runtime_config() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("tests/kernels/ir/kernel.json");
-        let jupyter_runtime = read_kernelspec_json(&d).unwrap();
+        let jupyter_runtime = read_kernelspec_json(&d).await.unwrap();
         assert_eq!(jupyter_runtime.display_name, "R");
         assert_eq!(jupyter_runtime.language, "R");
         assert!(jupyter_runtime.env.is_none());
@@ -97,30 +99,30 @@ mod tests {
         assert_eq!(jupyter_runtime.interrupt_mode, Some("signal".to_string()));
     }
 
-    #[test]
-    fn test_read_missing_config() {
+    #[tokio::test]
+    async fn test_read_missing_config() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("tests/kernels/NONEXISTENT/kernel.json");
-        let jupyter_runtime = read_kernelspec_json(&d);
+        let jupyter_runtime = read_kernelspec_json(&d).await;
         assert!(jupyter_runtime.is_err());
     }
 
-    #[test]
-    fn test_list_kernelspec_jsons() {
+    #[tokio::test]
+    async fn test_list_kernelspec_jsons() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("tests");
-        let kernelspecs = list_kernelspec_names_at(&d);
+        let kernelspecs = list_kernelspec_names_at(&d).await;
         assert_eq!(kernelspecs.len(), 3);
         assert!(kernelspecs.contains(&"ir".to_string()));
         assert!(kernelspecs.contains(&"python3".to_string()));
         assert!(kernelspecs.contains(&"rust".to_string()));
     }
 
-    #[test]
-    fn test_read_kernelspec_jsons() {
+    #[tokio::test]
+    async fn test_read_kernelspec_jsons() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("tests");
-        let kernels = read_kernelspec_jsons(&d);
+        let kernels = read_kernelspec_jsons(&d).await;
         assert_eq!(kernels.len(), 3);
         let mut r_count = 0;
         let mut python_count = 0;
@@ -154,11 +156,11 @@ mod tests {
         assert_eq!(rust_count, 1);
     }
 
-    #[test]
-    fn list_nonexistent_kernelspec_datadir() {
+    #[tokio::test]
+    async fn list_nonexistent_kernelspec_datadir() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("tests/NOTHINGHERE");
-        let kernels = list_kernelspec_names_at(&d);
+        let kernels = list_kernelspec_names_at(&d).await;
         assert_eq!(kernels.len(), 0);
     }
 }

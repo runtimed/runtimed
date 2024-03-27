@@ -4,8 +4,8 @@ use futures::stream::StreamExt;
 use reqwest_eventsource::{Event, EventSource};
 use std::collections::HashMap;
 
+use runtimelib::jupyter;
 use runtimelib::jupyter::client::JupyterRuntime;
-use runtimelib::jupyter::kernelspec::kernelspecs;
 
 use anyhow::Error;
 
@@ -39,8 +39,8 @@ enum Commands {
     Exec { id: String, code: String },
     /// Get results from a previous execution
     GetResults { id: String },
-    /// List available kernelspecs
-    Kernelspecs,
+    /// List available environments (Jupyter kernelspecs)
+    Environments,
 }
 
 #[tokio::main]
@@ -60,8 +60,8 @@ async fn main() -> Result<(), Error> {
         Commands::GetResults { id } => {
             execution(id).await?;
         }
-        Commands::Kernelspecs => {
-            list_kernelspecs()?;
+        Commands::Environments => {
+            list_environments().await?;
         } //
           // TODO:
           // Commands::Kill { id } => {
@@ -237,8 +237,10 @@ async fn execution(id: String) -> Result<(), Error> {
     Ok(())
 }
 
-fn list_kernelspecs() -> Result<(), Error> {
-    for kernelspec in kernelspecs() {
+async fn list_environments() -> Result<(), Error> {
+    // For now we're just transparently passing through the jupyter kernelspecs without regard for the python environments
+    // and possible divergence
+    for kernelspec in jupyter::list_kernelspecs().await {
         println!("  {:10} {}", kernelspec.name, kernelspec.path.display());
     }
     Ok(())
