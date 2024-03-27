@@ -13,6 +13,7 @@ use axum::{
     Json, Router,
 };
 use futures::stream::Stream;
+use runtimelib::jupyter::JupyterKernelspecDir;
 use runtimelib::messaging::{ExecuteRequest, Header, JupyterMessage};
 
 use tokio_stream::wrappers::BroadcastStream;
@@ -32,6 +33,7 @@ pub fn instance_routes() -> Router<AppState> {
             post(post_runtime_instance_run_code),
         )
         .route("/v0/executions/:msg_id", get(get_executions))
+        .route("/v0/environments", get(get_environments))
 }
 
 async fn get_runtime_instances(
@@ -103,4 +105,9 @@ async fn get_runtime_instance_attach(
     });
 
     Ok(Sse::new(sse_stream).keep_alive(KeepAlive::default()))
+}
+
+async fn get_environments() -> Result<Json<Vec<JupyterKernelspecDir>>, StatusCode> {
+    let kernelspecs = runtimelib::jupyter::list_kernelspecs().await;
+    Ok(Json(kernelspecs))
 }

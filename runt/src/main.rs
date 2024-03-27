@@ -2,10 +2,9 @@ use clap::Parser;
 use clap::Subcommand;
 use futures::stream::StreamExt;
 use reqwest_eventsource::{Event, EventSource};
-use std::collections::HashMap;
-
-use runtimelib::jupyter;
 use runtimelib::jupyter::client::JupyterRuntime;
+use runtimelib::jupyter::JupyterKernelspecDir;
+use std::collections::HashMap;
 
 use anyhow::Error;
 
@@ -237,12 +236,43 @@ async fn execution(id: String) -> Result<(), Error> {
     Ok(())
 }
 
+#[derive(Tabled)]
+struct EnvironmentDisplay {
+    #[tabled(rename = "Kernel Name")]
+    kernel_name: String,
+    #[tabled(rename = "Language")]
+    language: String,
+    #[tabled(rename = "Path")]
+    path: String,
+}
+
 async fn list_environments() -> Result<(), Error> {
     // For now we're just transparently passing through the jupyter kernelspecs without regard for the python environments
     // and possible divergence
-    for kernelspec in jupyter::list_kernelspecs().await {
-        println!("  {:10} {}", kernelspec.name, kernelspec.path.display());
+    let kernelspecs = reqwest::get("http://127.0.0.1:12397/v0/environments")
+        .await?
+        .json::<Vec<JupyterKernelspecDir>>()
+        .await?;
+
+    let displays: Vec<EnvironmentDisplay> = kernelspecs
+        .iter()
+        .map(|kernelspecdir| EnvironmentDisplay {
+            kernel_name: kernelspecdir.name.clone(),
+            language: kernelspecdir.kernelspec.language.clone(),
+            path: kernelspecdir.path.display().to_string(),
+        })
+        .collect();
+
+    if !displays.is_empty() {
+        let table = Table::new(displays)
+            .with(Style::rounded())
+            .with(Colorization::exact([Color::BOLD], Rows::first()))
+            .to_string();
+        println!("{}", table);
+    } else {
+        println!("No Jupyter environments found.");
     }
+
     Ok(())
 }
 
