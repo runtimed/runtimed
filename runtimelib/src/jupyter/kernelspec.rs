@@ -1,13 +1,18 @@
-use anyhow::Result;
+use crate::client::JupyterRuntime;
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
-use tokio::{fs::File, io::AsyncReadExt};
+use std::process::{ExitStatus, Stdio};
+use tokio::fs;
+use tokio::io::AsyncReadExt;
+use tokio::process::Command;
+use tokio::task::JoinHandle;
 
 // A pointer to a kernelspec directory, with the parsed JSON struct and the name
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct JupyterKernelspecDir {
-    pub name: String,
+pub struct KernelspecDir {
+    pub kernel_name: String,
     pub path: PathBuf,
     pub kernelspec: JupyterKernelspec,
 }
@@ -24,12 +29,96 @@ pub struct JupyterKernelspec {
     pub env: Option<Value>,
 }
 
+type KernelProcHnd = JoinHandle<Result<ExitStatus, std::io::Error>>;
+
+impl KernelspecDir {
+    pub async fn new(kernel_name: &String) -> Result<KernelspecDir> {
+        let kernelspec_dirs = list_kernelspecs().await;
+        let spec = kernelspec_dirs
+            .iter()
+            .find(|k| k.kernel_name.eq(kernel_name))
+            .ok_or(anyhow!("Kernelspec not found: {}", kernel_name))?;
+        Ok(spec.clone())
+    }
+
+    pub async fn run(
+        self,
+        connection_file_path: &String,
+    ) -> Result<(KernelProcHnd, JupyterRuntime)> {
+        let connection_file_content = fs::read_to_string(connection_file_path)
+            .await
+            .unwrap_or_default();
+        let rt: JupyterRuntime = serde_json::from_str(&connection_file_content)?;
+        let kernel_name = &self.kernel_name;
+
+        let argv = self.kernelspec.argv;
+        if argv.is_empty() {
+            return Err(anyhow!("Empty argv in kernelspec {}", kernel_name));
+        }
+
+        let mut cmd_builder = Command::new(&argv[0]);
+        cmd_builder
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+
+        // Set kill_on_drop during dev, because if we accidentally drop
+        // without first wait()ing on the child process and reaping it,
+        // we would leave a zombie process.
+        //
+        // TODO remove this line later on when we understand more about
+        // how kernels are spawned in practice and if runtimed will be able
+        // to wait on child processe.
+        //
+        // Another route is to do the Rust equivalent of C `signal(SIGCHLD, SIG_IGN);`
+        // to automatically reap child processes even when the parent has not exited.
+        // However this is generally considered bad practice because it is not well
+        // documented behavior and likely unportable
+        cmd_builder.kill_on_drop(true);
+        for arg in &argv[1..] {
+            cmd_builder.arg(if arg == "{connection_file}" {
+                connection_file_path
+            } else {
+                arg
+            });
+        }
+        // TODO add environment variables from kernelspec to cmd_bulider
+
+        // Question: should the spawn happen outside the closure?
+        let join_handle: JoinHandle<Result<ExitStatus, std::io::Error>> =
+            tokio::spawn(async move {
+                let mut child = cmd_builder.spawn()?;
+                // TODO: do we need to take the stdin/stdout/stderr here?
+                // wait() might close them early, otherwise, but need to
+                // check tokio source code or docs to be sure.
+                let stdin = child.stdin.take();
+                let stdout = child.stdout.take();
+                let stderr = child.stderr.take();
+                let exit_code = child.wait().await;
+
+                // close the file descriptors by dropping
+                drop(stdin);
+                drop(stdout);
+                drop(stderr);
+
+                exit_code
+            });
+
+        Ok((join_handle, rt))
+    }
+
+    // pub async fn new_client(self, connection_file_path: &String) -> Result<JupyterClient> {
+    //     let (child, runtime) = self.run(connection_file_path).await?;
+    //     Ok(runtime.attach().await?)
+    // }
+}
+
 // We look for files of the sort:
 //    `<datadir>/kernels/<kernel_name>/kernel.json`
 // But we must check through all the possible <datadir> to figure that out.
 //
 // For now, just use a combination of the standard system and user data directories.
-pub async fn list_kernelspecs() -> Vec<JupyterKernelspecDir> {
+pub async fn list_kernelspecs() -> Vec<KernelspecDir> {
     let mut kernelspecs = Vec::new();
     let data_dirs = crate::dirs::data_dirs();
     for data_dir in data_dirs {
@@ -44,7 +133,7 @@ pub async fn list_kernelspecs() -> Vec<JupyterKernelspecDir> {
 pub async fn list_kernelspec_names_at(data_dir: &Path) -> Vec<String> {
     let mut kernelspecs = Vec::new();
     let kernels_dir = data_dir.join("kernels");
-    if let Ok(mut entries) = tokio::fs::read_dir(kernels_dir).await {
+    if let Ok(mut entries) = fs::read_dir(kernels_dir).await {
         while let Ok(Some(entry)) = entries.next_entry().await {
             if entry.path().is_dir() {
                 if let Some(kernel_name) = entry.file_name().to_str() {
@@ -57,14 +146,14 @@ pub async fn list_kernelspec_names_at(data_dir: &Path) -> Vec<String> {
 }
 
 // For a given data directory, return all the parsed kernelspecs and corresponding directories
-pub async fn read_kernelspec_jsons(data_dir: &Path) -> Vec<JupyterKernelspecDir> {
+pub async fn read_kernelspec_jsons(data_dir: &Path) -> Vec<KernelspecDir> {
     let mut kernelspecs = Vec::new();
     let kernel_names = list_kernelspec_names_at(data_dir).await;
     for kernel_name in kernel_names {
         let kernel_path = data_dir.join("kernels").join(&kernel_name);
         if let Ok(jupyter_runtime) = read_kernelspec_json(&kernel_path.join("kernel.json")).await {
-            kernelspecs.push(JupyterKernelspecDir {
-                name: kernel_name,
+            kernelspecs.push(KernelspecDir {
+                kernel_name,
                 path: kernel_path,
                 kernelspec: jupyter_runtime,
             });
@@ -74,7 +163,7 @@ pub async fn read_kernelspec_jsons(data_dir: &Path) -> Vec<JupyterKernelspecDir>
 }
 
 async fn read_kernelspec_json(json_file_path: &Path) -> Result<JupyterKernelspec> {
-    let mut file = File::open(json_file_path).await?;
+    let mut file = fs::File::open(json_file_path).await?;
     let mut contents = vec![];
 
     file.read_to_end(&mut contents).await?;

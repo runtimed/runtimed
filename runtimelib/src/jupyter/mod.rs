@@ -4,8 +4,7 @@ pub mod discovery;
 pub mod kernelspec;
 
 pub use kernelspec::list_kernelspecs;
-pub use kernelspec::JupyterKernelspec;
-pub use kernelspec::JupyterKernelspecDir;
+pub use kernelspec::KernelspecDir;
 
 #[cfg(test)]
 mod tests {
