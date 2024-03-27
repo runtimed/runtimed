@@ -6,7 +6,7 @@ use tokio::{fs::File, io::AsyncReadExt};
 
 // A pointer to a kernelspec directory, with the parsed JSON struct and the name
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct KernelspecDir {
+pub struct JupyterKernelspecDir {
     pub name: String,
     pub path: PathBuf,
     pub kernelspec: JupyterKernelspec,
@@ -29,7 +29,7 @@ pub struct JupyterKernelspec {
 // But we must check through all the possible <datadir> to figure that out.
 //
 // For now, just use a combination of the standard system and user data directories.
-pub async fn list_kernelspecs() -> Vec<KernelspecDir> {
+pub async fn list_kernelspecs() -> Vec<JupyterKernelspecDir> {
     let mut kernelspecs = Vec::new();
     let data_dirs = crate::dirs::data_dirs();
     for data_dir in data_dirs {
@@ -57,13 +57,13 @@ pub async fn list_kernelspec_names_at(data_dir: &Path) -> Vec<String> {
 }
 
 // For a given data directory, return all the parsed kernelspecs and corresponding directories
-pub async fn read_kernelspec_jsons(data_dir: &Path) -> Vec<KernelspecDir> {
+pub async fn read_kernelspec_jsons(data_dir: &Path) -> Vec<JupyterKernelspecDir> {
     let mut kernelspecs = Vec::new();
     let kernel_names = list_kernelspec_names_at(data_dir).await;
     for kernel_name in kernel_names {
         let kernel_path = data_dir.join("kernels").join(&kernel_name);
         if let Ok(jupyter_runtime) = read_kernelspec_json(&kernel_path.join("kernel.json")).await {
-            kernelspecs.push(KernelspecDir {
+            kernelspecs.push(JupyterKernelspecDir {
                 name: kernel_name,
                 path: kernel_path,
                 kernelspec: jupyter_runtime,
