@@ -3,9 +3,7 @@ use notify::{
     event::CreateKind, Config, EventKind::Create, RecommendedWatcher, RecursiveMode, Watcher,
 };
 use runtimelib::jupyter::client::JupyterRuntime;
-use runtimelib::jupyter::discovery::{
-    check_runtime_up, get_jupyter_runtime_instances, is_connection_file,
-};
+use runtimelib::jupyter::discovery::{get_jupyter_runtime_instances, is_connection_file};
 use runtimelib::messaging::JupyterMessage;
 use serde::Serialize;
 use sqlx::Pool;
@@ -172,7 +170,8 @@ impl RuntimeManager {
                             for path in event.paths {
                                 if is_connection_file(&path) {
                                     log::debug!("New runtime file found {:?}", path);
-                                    let runtime = check_runtime_up(path.clone()).await;
+                                    let runtime =
+                                        JupyterRuntime::from_path_set_state(path.clone()).await;
 
                                     match runtime {
                                         Ok(runtime) => {
