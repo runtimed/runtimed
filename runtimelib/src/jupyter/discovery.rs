@@ -1,3 +1,5 @@
+//! Methods for discovering Jupyter runtimes on the local machine.
+
 use crate::jupyter::dirs;
 use tokio::fs;
 use tokio::task::JoinSet;
@@ -8,12 +10,16 @@ use crate::jupyter::client::JupyterRuntime;
 
 use crate::messaging::{JupyterMessage, JupyterMessageContent, KernelInfoReply, KernelInfoRequest};
 
-use super::client::{self};
-
+/// Check if a path looks like a connection file.
+///
+/// Currently this only checks that it is both a file and has a `.json` extension.
 pub fn is_connection_file(path: &std::path::Path) -> bool {
     path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json")
 }
 
+/// Get a list of all Jupyter runtimes on the local machine.
+///
+/// This reads connection files from Jupyter runtime directories from the `dirs` module.
 pub async fn get_jupyter_runtime_instances() -> Vec<JupyterRuntime> {
     let runtime_dir = dirs::runtime_dir();
 
@@ -24,7 +30,7 @@ pub async fn get_jupyter_runtime_instances() -> Vec<JupyterRuntime> {
             let connection_file_path = entry.path();
             if is_connection_file(&connection_file_path) {
                 join_set.spawn(async move {
-                    client::JupyterRuntime::from_path_set_state(connection_file_path).await
+                    JupyterRuntime::from_path_set_state(connection_file_path).await
                 });
             }
         }
@@ -41,15 +47,18 @@ pub async fn get_jupyter_runtime_instances() -> Vec<JupyterRuntime> {
     runtimes
 }
 
-impl client::JupyterRuntime {
+impl JupyterRuntime {
+    /// Read a connection file from disk and parse it into a JupyterRuntime object,
+    /// and set the state of the runtime by attempting to connect to the underlying kernel.
     pub async fn from_path_set_state(
         connection_file_path: std::path::PathBuf,
-    ) -> Result<client::JupyterRuntime, Error> {
+    ) -> Result<JupyterRuntime, Error> {
         let mut runtime = JupyterRuntime::from_path(connection_file_path).await?;
         runtime.set_state().await?;
         Ok(runtime)
     }
 
+    /// Update the state of the runtime by attempting to connect to the underlying kernel.
     pub async fn set_state(&mut self) -> Result<(), Error> {
         match self.check_kernel_info().await {
             Ok(kernel_info) => {
@@ -64,6 +73,7 @@ impl client::JupyterRuntime {
         }
     }
 
+    /// Send a message to the kernel to check its status.
     pub async fn check_kernel_info(&self) -> Result<KernelInfoReply, Error> {
         let res = tokio::time::timeout(std::time::Duration::from_secs(1), async {
             let mut client = match self.attach().await {
