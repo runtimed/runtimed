@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::fs;
@@ -40,7 +41,7 @@ impl KernelspecDir {
         Ok(spec.clone())
     }
 
-    pub fn command(self, connection_file_path: &String) -> Result<Command> {
+    pub fn command(self, connection_file_path: &PathBuf) -> Result<Command> {
         let kernel_name = &self.kernel_name;
 
         let argv = self.kernelspec.argv;
@@ -69,9 +70,9 @@ impl KernelspecDir {
         cmd_builder.kill_on_drop(true);
         for arg in &argv[1..] {
             cmd_builder.arg(if arg == "{connection_file}" {
-                connection_file_path
+                connection_file_path.as_os_str()
             } else {
-                arg
+                OsStr::new(arg)
             });
         }
         // TODO add environment variables from kernelspec to cmd_bulider

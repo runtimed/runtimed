@@ -4,6 +4,7 @@
 //! existing jupyter runtimes, and a client with zeroMQ sockets to
 //! communicate with the kernels.
 
+use crate::jupyter::dirs;
 use crate::messaging::{Connection, JupyterMessage, KernelInfoReply};
 use tokio::fs;
 use tokio::time::{timeout, Duration};
@@ -18,7 +19,7 @@ use zeromq::Socket;
 
 use anyhow::anyhow;
 use anyhow::{Context, Result};
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
 
@@ -41,11 +42,11 @@ pub struct ConnectionInfo {
 impl ConnectionInfo {
     pub async fn new(ip: &str, kernel_name: &String) -> Result<Self> {
         let ip = ip.to_string();
-        let addr: SocketAddr = ip.parse()?;
+        let addr: IpAddr = ip.parse()?;
         let transport: String = "tcp".into(); // TODO: make this configurable?
         let key: String = Self::jupyter_style_key();
         let signature_scheme: String = "hmac-sha256".into();
-        let ports = Self::peek_ports(&addr, 5).await?;
+        let ports = Self::peek_ports(addr, 5).await?;
         let kernel_name = kernel_name.clone();
         Ok(Self {
             ip,
@@ -83,8 +84,8 @@ impl ConnectionInfo {
     ///
     /// This of course opens a race condition in between closing the port and usage by a kernel,
     /// but it is inherent to the design of the Jupyter protocol.
-    async fn peek_ports(addr: &SocketAddr, num: usize) -> Result<Vec<u16>> {
-        let mut addr_zeroport: SocketAddr = addr.clone();
+    async fn peek_ports(ip: IpAddr, num: usize) -> Result<Vec<u16>> {
+        let mut addr_zeroport: SocketAddr = SocketAddr::new(ip, 0);
         addr_zeroport.set_port(0);
 
         let mut ports: Vec<u16> = Vec::new();
@@ -100,7 +101,8 @@ impl ConnectionInfo {
     /// TODO: move to the data directory
     pub async fn write(self: &Self) -> Result<PathBuf> {
         let kernel_fs_uuid = Uuid::new_v4();
-        let connection_file_path = format!("/tmp/kernel-{}.json", kernel_fs_uuid.to_string());
+        let connection_file_path: PathBuf =
+            dirs::runtime_dir().join(format!("kernel-{}.json", kernel_fs_uuid.to_string()));
         let content = serde_json::to_string_pretty(&self)?;
         fs::write(&connection_file_path, content).await?;
         Ok(PathBuf::from(connection_file_path))

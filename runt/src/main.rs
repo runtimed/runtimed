@@ -27,10 +27,7 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum Commands {
     /// Start a new runtime
-    Run {
-        kernel_name: String,
-        connection_file: String,
-    },
+    Run { kernel_name: String },
     /// List running runtimes
     Ps,
     /// Attach and stream messages from runtime
@@ -63,11 +60,8 @@ async fn main() -> Result<(), Error> {
         Commands::Environments => {
             list_environments().await?;
         }
-        Commands::Run {
-            kernel_name,
-            connection_file,
-        } => {
-            start_repl(&kernel_name, &connection_file).await?;
+        Commands::Run { kernel_name } => {
+            start_repl(&kernel_name).await?;
         } // TODO:
           // Commands::Kill { id } => {
           //     kill_instance(id).await?;
@@ -303,12 +297,13 @@ async fn attach(id: String) -> Result<(), Error> {
     Ok(())
 }
 
-async fn start_repl(kernel_name: &String, connection_file: &String) -> Result<(), Error> {
+async fn start_repl(kernel_name: &String) -> Result<(), Error> {
     let k = runtimelib::jupyter::KernelspecDir::new(kernel_name).await?;
-    let ci = ConnectionInfo::new("127.0.0.1:80", kernel_name).await?;
+    let ci = ConnectionInfo::new("127.0.0.1", kernel_name).await?;
     println!("Connection Info: {:?}", ci);
-    ci.write().await?;
-    let mut cmd = k.command(connection_file)?;
+    let connection_file_path = ci.write().await?;
+    println!("Connection file path: {}", connection_file_path.display());
+    let mut cmd = k.command(&connection_file_path)?;
     let exit_code = cmd.status().await?;
     println!("child exit code: {}", exit_code);
     Ok(())
