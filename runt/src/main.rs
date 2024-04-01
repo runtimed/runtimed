@@ -303,9 +303,13 @@ async fn attach(id: String) -> Result<(), Error> {
 
 async fn start_repl(kernel_name: &String, connection_file: &String) -> Result<(), Error> {
     let k = runtimelib::jupyter::KernelspecDir::new(kernel_name).await?;
-    let (child, _) = k.run(connection_file).await?;
-    // client.attach().await?;
-    let exit_code = child.await.unwrap()?;
+    let mut cmd = k.command(connection_file)?;
+    let exit_code = cmd
+        .spawn()
+        .expect("failed to execute kernel process")
+        .wait()
+        .await
+        .expect("kernel process failed to run");
     println!("child exit code: {}", exit_code);
     Ok(())
 }

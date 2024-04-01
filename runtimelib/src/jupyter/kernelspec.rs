@@ -1,15 +1,13 @@
-use crate::client::JupyterRuntime;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
-use std::process::{ExitStatus, Stdio};
+use std::process::Stdio;
 use tokio::fs;
 use tokio::io::AsyncReadExt;
 use tokio::process::Command;
-use tokio::task::JoinHandle;
 
-// A pointer to a kernelspec directory, with the parsed JSON struct and the name
+/// A pointer to a kernelspec directory, with name and fully deserialized specification
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct KernelspecDir {
     pub kernel_name: String,
@@ -17,7 +15,7 @@ pub struct KernelspecDir {
     pub kernelspec: JupyterKernelspec,
 }
 
-// Struct for the contents of a kernel.json file
+/// Contents of a Jupyter JSON kernelspec file
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct JupyterKernelspec {
     #[serde(default)]
@@ -29,7 +27,8 @@ pub struct JupyterKernelspec {
     pub env: Option<Value>,
 }
 
-type KernelProcHnd = JoinHandle<Result<ExitStatus, std::io::Error>>;
+///
+//type KernelProcHnd = JoinHandle<Result<ExitStatus, std::io::Error>>;
 
 impl KernelspecDir {
     pub async fn new(kernel_name: &String) -> Result<KernelspecDir> {
@@ -41,14 +40,7 @@ impl KernelspecDir {
         Ok(spec.clone())
     }
 
-    pub async fn run(
-        self,
-        connection_file_path: &String,
-    ) -> Result<(KernelProcHnd, JupyterRuntime)> {
-        let connection_file_content = fs::read_to_string(connection_file_path)
-            .await
-            .unwrap_or_default();
-        let rt: JupyterRuntime = serde_json::from_str(&connection_file_content)?;
+    pub fn command(self, connection_file_path: &String) -> Result<Command> {
         let kernel_name = &self.kernel_name;
 
         let argv = self.kernelspec.argv;
@@ -84,28 +76,31 @@ impl KernelspecDir {
         }
         // TODO add environment variables from kernelspec to cmd_bulider
 
-        // Question: should the spawn happen outside the closure?
-        let join_handle: JoinHandle<Result<ExitStatus, std::io::Error>> =
-            tokio::spawn(async move {
-                let mut child = cmd_builder.spawn()?;
-                // TODO: do we need to take the stdin/stdout/stderr here?
-                // wait() might close them early, otherwise, but need to
-                // check tokio source code or docs to be sure.
-                let stdin = child.stdin.take();
-                let stdout = child.stdout.take();
-                let stderr = child.stderr.take();
-                let exit_code = child.wait().await;
-
-                // close the file descriptors by dropping
-                drop(stdin);
-                drop(stdout);
-                drop(stderr);
-
-                exit_code
-            });
-
-        Ok((join_handle, rt))
+        Ok(cmd_builder)
     }
+
+    // Question: should the spawn happen outside the closure?
+    // let join_handle: JoinHandle<Result<ExitStatus, std::io::Error>> =
+    //     tokio::spawn(async move {
+    //         let mut child = cmd_builder.spawn()?;
+    //         // TODO: do we need to take the stdin/stdout/stderr here?
+    //         // wait() might close them early, otherwise, but need to
+    //         // check tokio source code or docs to be sure.
+    //         let stdin = child.stdin.take();
+    //         let stdout = child.stdout.take();
+    //         let stderr = child.stderr.take();
+    //         let exit_code = child.wait().await;
+
+    //         // close the file descriptors by dropping
+    //         drop(stdin);
+    //         drop(stdout);
+    //         drop(stderr);
+
+    //         exit_code
+    //     });
+
+    // Ok((join_handle, rt))
+    //}
 
     // pub async fn new_client(self, connection_file_path: &String) -> Result<JupyterClient> {
     //     let (child, runtime) = self.run(connection_file_path).await?;
