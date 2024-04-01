@@ -2,6 +2,7 @@ use clap::Parser;
 use clap::Subcommand;
 use futures::stream::StreamExt;
 use reqwest_eventsource::{Event, EventSource};
+use runtimelib::jupyter::client::ConnectionInfo;
 use runtimelib::jupyter::client::JupyterRuntime;
 use runtimelib::jupyter::KernelspecDir;
 use std::collections::HashMap;
@@ -148,6 +149,7 @@ async fn run_code(id: String, code: String) -> Result<(), Error> {
         .await?;
 
     // Deserialize the response
+    println!("DEBUG Response: `{}`", response);
     let response: serde_json::Value = serde_json::from_str(&response)?;
 
     println!("Execution {} submitted, run\n", response["msg_id"]);
@@ -303,13 +305,11 @@ async fn attach(id: String) -> Result<(), Error> {
 
 async fn start_repl(kernel_name: &String, connection_file: &String) -> Result<(), Error> {
     let k = runtimelib::jupyter::KernelspecDir::new(kernel_name).await?;
+    let ci = ConnectionInfo::new("127.0.0.1:80", kernel_name).await?;
+    println!("Connection Info: {:?}", ci);
+    ci.write().await?;
     let mut cmd = k.command(connection_file)?;
-    let exit_code = cmd
-        .spawn()
-        .expect("failed to execute kernel process")
-        .wait()
-        .await
-        .expect("kernel process failed to run");
+    let exit_code = cmd.status().await?;
     println!("child exit code: {}", exit_code);
     Ok(())
 }

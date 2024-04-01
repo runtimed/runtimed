@@ -11,12 +11,14 @@ use tokio::time::{timeout, Duration};
 use serde::{Deserialize, Serialize};
 use serde_json;
 
+use rand::{distributions::Alphanumeric, Rng};
 use uuid::Uuid;
 use zeromq;
 use zeromq::Socket;
 
 use anyhow::anyhow;
 use anyhow::{Context, Result};
+use std::net::SocketAddr;
 use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
 
@@ -37,6 +39,73 @@ pub struct ConnectionInfo {
 }
 
 impl ConnectionInfo {
+    pub async fn new(ip: &str, kernel_name: &String) -> Result<Self> {
+        let ip = ip.to_string();
+        let addr: SocketAddr = ip.parse()?;
+        let transport: String = "tcp".into(); // TODO: make this configurable?
+        let key: String = Self::jupyter_style_key();
+        let signature_scheme: String = "hmac-sha256".into();
+        let ports = Self::peek_ports(&addr, 5).await?;
+        let kernel_name = kernel_name.clone();
+        Ok(Self {
+            ip,
+            transport,
+            shell_port: ports[0],
+            iopub_port: ports[1],
+            stdin_port: ports[2],
+            control_port: ports[3],
+            hb_port: ports[4],
+            key,
+            signature_scheme,
+            kernel_name,
+        })
+    }
+
+    /// Generate a random key in the style of Jupyter: "AAAAAAAA-AAAAAAAAAAAAAAAAAAAAAAAA"
+    /// (A comment in the Python source indicates the author intended a dash
+    /// every 8 characters, but only actually does it for the first chunk)
+    fn jupyter_style_key() -> String {
+        let a: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(8)
+            .map(char::from)
+            .collect();
+        let b: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(24)
+            .map(char::from)
+            .collect();
+        format!("{}-{}", a, b,)
+    }
+
+    /// Private function for finding a set of open ports. This function creates a listener with the port set to 0.
+    /// The listener is closed at the end of the function when the listener goes out of scope.
+    ///
+    /// This of course opens a race condition in between closing the port and usage by a kernel,
+    /// but it is inherent to the design of the Jupyter protocol.
+    async fn peek_ports(addr: &SocketAddr, num: usize) -> Result<Vec<u16>> {
+        let mut addr_zeroport: SocketAddr = addr.clone();
+        addr_zeroport.set_port(0);
+
+        let mut ports: Vec<u16> = Vec::new();
+        for _ in 0..num {
+            let listener = tokio::net::TcpListener::bind(addr_zeroport).await?;
+            let bound_port = listener.local_addr()?.port();
+            ports.push(bound_port);
+        }
+        Ok(ports)
+    }
+
+    /// Write the connection info to a file on disk inside the /tmp directory
+    /// TODO: move to the data directory
+    pub async fn write(self: &Self) -> Result<PathBuf> {
+        let kernel_fs_uuid = Uuid::new_v4();
+        let connection_file_path = format!("/tmp/kernel-{}.json", kernel_fs_uuid.to_string());
+        let content = serde_json::to_string_pretty(&self)?;
+        fs::write(&connection_file_path, content).await?;
+        Ok(PathBuf::from(connection_file_path))
+    }
+
     /// Read a connection file from disk and parse it into a ConnectionInfo object
     pub async fn from_path(connection_file_path: &std::path::PathBuf) -> Result<ConnectionInfo> {
         let content = fs::read_to_string(&connection_file_path)
