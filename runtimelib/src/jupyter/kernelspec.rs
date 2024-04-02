@@ -79,34 +79,6 @@ impl KernelspecDir {
 
         Ok(cmd_builder)
     }
-
-    // Question: should the spawn happen outside the closure?
-    // let join_handle: JoinHandle<Result<ExitStatus, std::io::Error>> =
-    //     tokio::spawn(async move {
-    //         let mut child = cmd_builder.spawn()?;
-    //         // TODO: do we need to take the stdin/stdout/stderr here?
-    //         // wait() might close them early, otherwise, but need to
-    //         // check tokio source code or docs to be sure.
-    //         let stdin = child.stdin.take();
-    //         let stdout = child.stdout.take();
-    //         let stderr = child.stderr.take();
-    //         let exit_code = child.wait().await;
-
-    //         // close the file descriptors by dropping
-    //         drop(stdin);
-    //         drop(stdout);
-    //         drop(stderr);
-
-    //         exit_code
-    //     });
-
-    // Ok((join_handle, rt))
-    //}
-
-    // pub async fn new_client(self, connection_file_path: &String) -> Result<JupyterClient> {
-    //     let (child, runtime) = self.run(connection_file_path).await?;
-    //     Ok(runtime.attach().await?)
-    // }
 }
 
 // We look for files of the sort:
