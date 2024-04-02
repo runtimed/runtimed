@@ -61,7 +61,7 @@ async fn main() -> Result<(), Error> {
             list_environments().await?;
         }
         Commands::Run { kernel_name } => {
-            start_repl(&kernel_name).await?;
+            start_runtime(&kernel_name).await?;
         } // TODO:
           // Commands::Kill { id } => {
           //     kill_instance(id).await?;
@@ -143,7 +143,6 @@ async fn run_code(id: String, code: String) -> Result<(), Error> {
         .await?;
 
     // Deserialize the response
-    println!("DEBUG Response: `{}`", response);
     let response: serde_json::Value = serde_json::from_str(&response)?;
 
     println!("Execution {} submitted, run\n", response["msg_id"]);
@@ -297,7 +296,7 @@ async fn attach(id: String) -> Result<(), Error> {
     Ok(())
 }
 
-async fn start_repl(kernel_name: &String) -> Result<(), Error> {
+async fn start_runtime(kernel_name: &String) -> Result<(), Error> {
     let k = runtimelib::jupyter::KernelspecDir::new(kernel_name).await?;
     let ci = ConnectionInfo::new("127.0.0.1", kernel_name).await?;
     println!("Connection Info: {:?}", ci);
