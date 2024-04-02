@@ -1,22 +1,26 @@
-use crate::jupyter::dirs;
-use serde_json;
-use serde_json::from_str;
+//! Methods for discovering Jupyter runtimes on the local machine.
 
+use crate::jupyter::dirs;
 use tokio::fs;
 use tokio::task::JoinSet;
-use uuid::Uuid;
 
-use anyhow::{anyhow, Context, Error, Result};
+use anyhow::{Error, Result};
 
-use crate::jupyter::client;
+use crate::jupyter::client::JupyterRuntime;
 
 use crate::messaging::{JupyterMessage, JupyterMessageContent, KernelInfoReply, KernelInfoRequest};
 
+/// Check if a path looks like a connection file.
+///
+/// Currently this only checks that it is both a file and has a `.json` extension.
 pub fn is_connection_file(path: &std::path::Path) -> bool {
     path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json")
 }
 
-pub async fn get_jupyter_runtime_instances() -> Vec<client::JupyterRuntime> {
+/// Get a list of all Jupyter runtimes on the local machine.
+///
+/// This reads connection files from Jupyter runtime directories from the `dirs` module.
+pub async fn get_jupyter_runtime_instances() -> Vec<JupyterRuntime> {
     let runtime_dir = dirs::runtime_dir();
 
     let mut join_set = JoinSet::new();
@@ -25,12 +29,14 @@ pub async fn get_jupyter_runtime_instances() -> Vec<client::JupyterRuntime> {
         while let Ok(Some(entry)) = entries.next_entry().await {
             let connection_file_path = entry.path();
             if is_connection_file(&connection_file_path) {
-                join_set.spawn(async move { check_runtime_up(connection_file_path).await });
+                join_set.spawn(async move {
+                    JupyterRuntime::from_path_set_state(connection_file_path).await
+                });
             }
         }
     }
 
-    let mut runtimes: Vec<client::JupyterRuntime> = Vec::new();
+    let mut runtimes: Vec<JupyterRuntime> = Vec::new();
     while let Some(result) = join_set.join_next().await {
         match result {
             Ok(Ok(runtime)) => runtimes.push(runtime),
@@ -41,81 +47,71 @@ pub async fn get_jupyter_runtime_instances() -> Vec<client::JupyterRuntime> {
     runtimes
 }
 
-pub async fn load_connection_file(
-    connection_file_path: std::path::PathBuf,
-) -> Result<client::JupyterRuntime, Error> {
-    let content = fs::read_to_string(&connection_file_path)
-        .await
-        .unwrap_or_default();
-    match from_str::<client::JupyterRuntime>(&content) {
-        Ok(mut runtime) => {
-            runtime.connection_file = connection_file_path
-                .to_str()
-                .ok_or(anyhow!("Non-unicode runtime file name"))?
-                .to_string();
-            runtime.id = Uuid::new_v5(&Uuid::NAMESPACE_URL, runtime.connection_file.as_bytes());
-            Ok(runtime)
-        }
-        err => err,
+impl JupyterRuntime {
+    /// Read a connection file from disk and parse it into a JupyterRuntime object,
+    /// and set the state of the runtime by attempting to connect to the underlying kernel.
+    pub async fn from_path_set_state(
+        connection_file_path: std::path::PathBuf,
+    ) -> Result<JupyterRuntime, Error> {
+        let mut runtime = JupyterRuntime::from_path(connection_file_path).await?;
+        runtime.set_state().await?;
+        Ok(runtime)
     }
-    .context("Failed to parse JupyterRuntime from file")
-}
 
-pub async fn check_runtime_up(
-    connection_file_path: std::path::PathBuf,
-) -> Result<client::JupyterRuntime, Error> {
-    let mut runtime = load_connection_file(connection_file_path).await?;
-
-    match check_kernel_info(runtime.clone()).await {
-        Ok(kernel_info) => {
-            runtime.kernel_info = Some(kernel_info);
-            runtime.state = "alive".to_string();
-            Ok(runtime)
-        }
-        Err(_) => {
-            runtime.state = "unresponsive".to_string();
-            Ok(runtime)
-        }
-    }
-}
-
-pub async fn check_kernel_info(runtime: client::JupyterRuntime) -> Result<KernelInfoReply, Error> {
-    let res = tokio::time::timeout(std::time::Duration::from_secs(1), async {
-        let mut client = match runtime.attach().await {
-            Ok(client) => client,
-            Err(e) => return Err(anyhow::anyhow!("Failed to attach to runtime: {}", e)),
-        };
-
-        let kernel_info_request = KernelInfoRequest {};
-
-        let message: JupyterMessage = kernel_info_request.into();
-
-        message.send(&mut client.shell).await?;
-
-        let reply = JupyterMessage::read(&mut client.shell).await;
-
-        let result = match reply {
-            Ok(msg) => {
-                // Check that msg is a kernel_info_reply using the JupyterMessageContent enum
-                if let JupyterMessageContent::KernelInfoReply(kernel_info_reply) = msg.content {
-                    Ok(kernel_info_reply)
-                } else {
-                    Err(anyhow::anyhow!(
-                        "Expected kernel_info_reply, got {}",
-                        msg.message_type()
-                    ))
-                }
+    /// Update the state of the runtime by attempting to connect to the underlying kernel.
+    pub async fn set_state(&mut self) -> Result<(), Error> {
+        match self.check_kernel_info().await {
+            Ok(kernel_info) => {
+                self.kernel_info = Some(kernel_info);
+                self.state = "alive".to_string();
+                Ok(())
             }
-            Err(e) => Err(e),
-        };
-
-        if let Err(e) = client.detach().await {
-            println!("Failed to detach client: {:?}", e);
+            Err(_) => {
+                self.state = "unresponsive".to_string();
+                Ok(())
+            }
         }
+    }
 
-        result
-    })
-    .await;
+    /// Send a message to the kernel to check its status.
+    pub async fn check_kernel_info(&self) -> Result<KernelInfoReply, Error> {
+        let res = tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            let mut client = match self.attach().await {
+                Ok(client) => client,
+                Err(e) => return Err(anyhow::anyhow!("Failed to attach to runtime: {}", e)),
+            };
 
-    res?
+            let kernel_info_request = KernelInfoRequest {};
+
+            let message: JupyterMessage = kernel_info_request.into();
+
+            message.send(&mut client.shell).await?;
+
+            let reply = JupyterMessage::read(&mut client.shell).await;
+
+            let result = match reply {
+                Ok(msg) => {
+                    // Check that msg is a kernel_info_reply using the JupyterMessageContent enum
+                    if let JupyterMessageContent::KernelInfoReply(kernel_info_reply) = msg.content {
+                        Ok(kernel_info_reply)
+                    } else {
+                        Err(anyhow::anyhow!(
+                            "Expected kernel_info_reply, got {}",
+                            msg.message_type()
+                        ))
+                    }
+                }
+                Err(e) => Err(e),
+            };
+
+            if let Err(e) = client.detach().await {
+                println!("Failed to detach client: {:?}", e);
+            }
+
+            result
+        })
+        .await;
+
+        res?
+    }
 }

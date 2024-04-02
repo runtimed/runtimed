@@ -67,7 +67,7 @@ pub async fn attach(id: String) -> Result<client::JupyterClient, Error> {
     if let Some(file_path) = found_files.into_iter().next() {
         println!("Found runtime file: {:?}", file_path);
 
-        let runtime = discovery::load_connection_file(file_path).await?;
+        let runtime = client::JupyterRuntime::from_path(file_path).await?;
 
         return runtime.attach().await;
     }

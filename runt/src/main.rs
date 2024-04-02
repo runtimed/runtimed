@@ -102,11 +102,16 @@ async fn list_instances() -> Result<(), Error> {
     let displays: Vec<RuntimeDisplay> = runtimes
         .into_iter()
         .map(|runtime| RuntimeDisplay {
-            kernel_name: runtime.kernel_name.chars().take(15).collect(),
+            kernel_name: runtime
+                .connection_info
+                .kernel_name
+                .chars()
+                .take(15)
+                .collect(),
             id: runtime.id,
-            ip: runtime.ip,
-            transport: runtime.transport,
-            connection_file: runtime.connection_file,
+            ip: runtime.connection_info.ip,
+            transport: runtime.connection_info.transport,
+            connection_file: runtime.connection_file.display().to_string(),
             state: runtime.state,
             language: runtime
                 .kernel_info
