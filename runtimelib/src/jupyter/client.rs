@@ -20,7 +20,7 @@ use anyhow::{Context, Result};
 use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
 
-/// Connection information for a Jupyter kernel, as repsented in a
+/// Connection information for a Jupyter kernel, as represented in a
 /// JSON connection file.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ConnectionInfo {
@@ -105,7 +105,7 @@ impl JupyterRuntime {
         }
     }
 
-    /// Connect the zeroMQ sockets to a running kernel, and return
+    /// Connect the ZeroMQ sockets to a running kernel, and return
     /// a `JupyterClient` object that can be used to interact with the kernel.
     pub async fn attach(&self) -> Result<JupyterClient> {
         let mut iopub_socket = zeromq::SubSocket::new();
@@ -193,7 +193,8 @@ impl JupyterClient {
         }
     }
 
-    /// Send a message to the kernel, and return the response
+    /// Send a `*_request` message to the kernel, receive the corresponding
+    /// `*_reply` message, and return it. Output messages will end up on IOPub
     pub async fn send(&mut self, message: JupyterMessage) -> Result<JupyterMessage> {
         message.send(&mut self.shell).await?;
         let response = JupyterMessage::read(&mut self.shell).await?;
