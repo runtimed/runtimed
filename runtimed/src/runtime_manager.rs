@@ -1,6 +1,6 @@
 use anyhow::Error;
 use notify::{
-    event::CreateKind, Config, EventKind::Create, RecommendedWatcher, RecursiveMode, Watcher,
+    event::CreateKind, Config, Event, EventKind::Create, RecommendedWatcher, RecursiveMode, Watcher,
 };
 use runtimelib::jupyter::client::JupyterRuntime;
 use runtimelib::jupyter::discovery::{get_jupyter_runtime_instances, is_connection_file};
@@ -26,6 +26,9 @@ pub struct RuntimeInstance {
     /// To follow all messages from the runtime
     #[serde(skip)]
     pub broadcast_tx: broadcast::Sender<JupyterMessage>,
+    /// For child process runtimes
+    #[serde(skip)]
+    pub child: Option<Arc<tokio::process::Child>>,
 }
 
 impl RuntimeInstance {
@@ -82,19 +85,28 @@ impl RuntimeManager {
     /// 1. Insert the runtime by id into the runtime map
     /// 2. Start a task to watch all messages from the runtime and insert them into the database
     /// 3. Start a task to recieve messages and send time to the runtime
-    async fn insert(&self, runtime: JupyterRuntime) {
+    ///
+    /// Returns true if the runtime was inserted, false if the runtime was already present
+    async fn insert(&self, runtime: JupyterRuntime) -> bool {
         let (mpsc_tx, mut mpsc_rx) = mpsc::channel::<JupyterMessage>(1);
         let (broadcast_tx, _) = broadcast::channel::<JupyterMessage>(1);
 
-        // Inser the runtime into the runtime collection
-        self.lock.write().await.insert(
-            runtime.id,
-            RuntimeInstance {
-                runtime: runtime.clone(),
-                send_tx: mpsc_tx,
-                broadcast_tx: broadcast_tx.clone(),
-            },
-        );
+        // Insert the runtime into the runtime collection if not present
+        {
+            let mut map = self.lock.write().await;
+            if map.contains_key(&runtime.id) {
+                return false;
+            }
+            map.insert(
+                runtime.id,
+                RuntimeInstance {
+                    runtime: runtime.clone(),
+                    send_tx: mpsc_tx,
+                    broadcast_tx: broadcast_tx.clone(),
+                    child: None,
+                },
+            );
+        }
 
         // Spawn the task to send messages to the runtime client
         let id = runtime.id;
@@ -141,6 +153,7 @@ impl RuntimeManager {
                 }
             }
         });
+        true
     }
 
     /// Watch the jupyter runtimes directory and insert new runtimes into the runtimes manager
@@ -163,32 +176,39 @@ impl RuntimeManager {
         )?;
 
         loop {
-            if let Some(res) = rx.recv().await {
-                match res {
-                    Ok(event) => {
-                        if let Create(CreateKind::File) = event.kind {
-                            for path in event.paths {
-                                if is_connection_file(&path) {
-                                    log::debug!("New runtime file found {:?}", path);
-                                    let runtime =
-                                        JupyterRuntime::from_path_set_state(path.clone()).await;
+            let res = match rx.recv().await {
+                Some(res) => res,
+                None => continue,
+            };
 
-                                    match runtime {
-                                        Ok(runtime) => {
-                                            self.insert(runtime).await;
-                                            log::debug!("Connected to runtime {:?}", path);
-                                        }
-                                        Err(err) => log::error!("Could not load runtime {:?}", err),
-                                    };
-                                }
-                            }
-                        }
-                    }
-                    Err(error) => {
-                        log::error!("Error: {error:?}");
+            match res {
+                Ok(event) => {
+                    if let Create(CreateKind::File) = event.kind {
+                        self.process_runtime_dir_create_event(event).await;
                     }
                 }
+                Err(error) => log::error!("Error: {error:?}"),
             }
+        }
+    }
+
+    async fn process_runtime_dir_create_event(&self, event: Event) {
+        for path in event.paths {
+            if !is_connection_file(&path) {
+                continue;
+            }
+
+            log::debug!("New runtime file found {:?}", path);
+            match JupyterRuntime::from_path_set_state(path.clone()).await {
+                Ok(runtime) => {
+                    if self.insert(runtime).await {
+                        log::debug!("Connected to runtime {:?}", path);
+                    } else {
+                        log::debug!("Runtime already exists {:?}", path);
+                    }
+                }
+                Err(err) => log::error!("Could not load runtime {:?}", err),
+            };
         }
     }
 }
