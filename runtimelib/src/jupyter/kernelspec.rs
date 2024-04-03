@@ -1,18 +1,23 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
-use tokio::{fs::File, io::AsyncReadExt};
+use std::process::Stdio;
+use tokio::fs;
+use tokio::io::AsyncReadExt;
+use tokio::process::Command;
 
-// A pointer to a kernelspec directory, with the parsed JSON struct and the name
+/// A pointer to a kernelspec directory, with name and fully deserialized specification
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct JupyterKernelspecDir {
-    pub name: String,
+pub struct KernelspecDir {
+    pub kernel_name: String,
     pub path: PathBuf,
     pub kernelspec: JupyterKernelspec,
 }
 
-// Struct for the contents of a kernel.json file
+/// Contents of a Jupyter JSON kernelspec file
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct JupyterKernelspec {
     #[serde(default)]
@@ -21,7 +26,64 @@ pub struct JupyterKernelspec {
     pub language: String,
     pub metadata: Option<Value>,
     pub interrupt_mode: Option<String>,
-    pub env: Option<Value>,
+    pub env: Option<HashMap<String, String>>,
+}
+
+///
+//type KernelProcHnd = JoinHandle<Result<ExitStatus, std::io::Error>>;
+
+impl KernelspecDir {
+    pub async fn new(kernel_name: &String) -> Result<KernelspecDir> {
+        let kernelspec_dirs = list_kernelspecs().await;
+        let spec = kernelspec_dirs
+            .iter()
+            .find(|k| k.kernel_name.eq(kernel_name))
+            .ok_or(anyhow!("Kernelspec not found: {}", kernel_name))?;
+        Ok(spec.clone())
+    }
+
+    pub fn command(self, connection_file_path: &PathBuf) -> Result<Command> {
+        let kernel_name = &self.kernel_name;
+
+        let argv = self.kernelspec.argv;
+        if argv.is_empty() {
+            return Err(anyhow!("Empty argv in kernelspec {}", kernel_name));
+        }
+
+        let mut cmd_builder = Command::new(&argv[0]);
+        cmd_builder
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+
+        // Set kill_on_drop during dev, because if we accidentally drop
+        // without first wait()ing on the child process and reaping it,
+        // we would leave a zombie process.
+        //
+        // TODO remove this line later on when we understand more about
+        // how kernels are spawned in practice and if runtimed will be able
+        // to wait on child processe.
+        //
+        // Another route is to do the Rust equivalent of C `signal(SIGCHLD, SIG_IGN);`
+        // to automatically reap child processes even when the parent has not exited.
+        // However this is generally considered bad practice because it is not well
+        // documented behavior and likely unportable
+        cmd_builder.kill_on_drop(true);
+        for arg in &argv[1..] {
+            cmd_builder.arg(if arg == "{connection_file}" {
+                connection_file_path.as_os_str()
+            } else {
+                OsStr::new(arg)
+            });
+        }
+        if let Some(env) = self.kernelspec.env {
+            cmd_builder.envs(env);
+        }
+
+        // TODO add environment variables from kernelspec to cmd_bulider
+
+        Ok(cmd_builder)
+    }
 }
 
 // We look for files of the sort:
@@ -29,7 +91,7 @@ pub struct JupyterKernelspec {
 // But we must check through all the possible <datadir> to figure that out.
 //
 // For now, just use a combination of the standard system and user data directories.
-pub async fn list_kernelspecs() -> Vec<JupyterKernelspecDir> {
+pub async fn list_kernelspecs() -> Vec<KernelspecDir> {
     let mut kernelspecs = Vec::new();
     let data_dirs = crate::dirs::data_dirs();
     for data_dir in data_dirs {
@@ -44,7 +106,7 @@ pub async fn list_kernelspecs() -> Vec<JupyterKernelspecDir> {
 pub async fn list_kernelspec_names_at(data_dir: &Path) -> Vec<String> {
     let mut kernelspecs = Vec::new();
     let kernels_dir = data_dir.join("kernels");
-    if let Ok(mut entries) = tokio::fs::read_dir(kernels_dir).await {
+    if let Ok(mut entries) = fs::read_dir(kernels_dir).await {
         while let Ok(Some(entry)) = entries.next_entry().await {
             if entry.path().is_dir() {
                 if let Some(kernel_name) = entry.file_name().to_str() {
@@ -57,14 +119,14 @@ pub async fn list_kernelspec_names_at(data_dir: &Path) -> Vec<String> {
 }
 
 // For a given data directory, return all the parsed kernelspecs and corresponding directories
-pub async fn read_kernelspec_jsons(data_dir: &Path) -> Vec<JupyterKernelspecDir> {
+pub async fn read_kernelspec_jsons(data_dir: &Path) -> Vec<KernelspecDir> {
     let mut kernelspecs = Vec::new();
     let kernel_names = list_kernelspec_names_at(data_dir).await;
     for kernel_name in kernel_names {
         let kernel_path = data_dir.join("kernels").join(&kernel_name);
         if let Ok(jupyter_runtime) = read_kernelspec_json(&kernel_path.join("kernel.json")).await {
-            kernelspecs.push(JupyterKernelspecDir {
-                name: kernel_name,
+            kernelspecs.push(KernelspecDir {
+                kernel_name,
                 path: kernel_path,
                 kernelspec: jupyter_runtime,
             });
@@ -74,7 +136,7 @@ pub async fn read_kernelspec_jsons(data_dir: &Path) -> Vec<JupyterKernelspecDir>
 }
 
 async fn read_kernelspec_json(json_file_path: &Path) -> Result<JupyterKernelspec> {
-    let mut file = File::open(json_file_path).await?;
+    let mut file = fs::File::open(json_file_path).await?;
     let mut contents = vec![];
 
     file.read_to_end(&mut contents).await?;
@@ -93,7 +155,12 @@ mod tests {
         let jupyter_runtime = read_kernelspec_json(&d).await.unwrap();
         assert_eq!(jupyter_runtime.display_name, "R");
         assert_eq!(jupyter_runtime.language, "R");
-        assert!(jupyter_runtime.env.is_none());
+        assert!(jupyter_runtime
+            .env
+            .as_ref()
+            .unwrap()
+            .contains_key("R_LIBS_USER"));
+        assert_eq!(jupyter_runtime.env.as_ref().unwrap().len(), 1);
         assert!(jupyter_runtime.metadata.is_none());
         assert_eq!(jupyter_runtime.argv.len(), 6);
         assert_eq!(jupyter_runtime.interrupt_mode, Some("signal".to_string()));

@@ -2,8 +2,9 @@ use clap::Parser;
 use clap::Subcommand;
 use futures::stream::StreamExt;
 use reqwest_eventsource::{Event, EventSource};
+use runtimelib::jupyter::client::ConnectionInfo;
 use runtimelib::jupyter::client::JupyterRuntime;
-use runtimelib::jupyter::JupyterKernelspecDir;
+use runtimelib::jupyter::KernelspecDir;
 use std::collections::HashMap;
 
 use anyhow::Error;
@@ -25,11 +26,8 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    // TODO: Implement
-    // Run {
-    //     name: String,
-    // },
-    //
+    /// Start a new runtime
+    Run { kernel_name: String },
     /// List running runtimes
     Ps,
     /// Attach and stream messages from runtime
@@ -61,13 +59,12 @@ async fn main() -> Result<(), Error> {
         }
         Commands::Environments => {
             list_environments().await?;
-        } //
-          // TODO:
+        }
+        Commands::Run { kernel_name } => {
+            start_runtime(&kernel_name).await?;
+        } // TODO:
           // Commands::Kill { id } => {
           //     kill_instance(id).await?;
-          // }
-          // Commands::Run { repl } => {
-          //     start_repl(repl).await?;
           // }
     }
 
@@ -256,13 +253,13 @@ async fn list_environments() -> Result<(), Error> {
     // and possible divergence
     let kernelspecs = reqwest::get("http://127.0.0.1:12397/v0/environments")
         .await?
-        .json::<Vec<JupyterKernelspecDir>>()
+        .json::<Vec<KernelspecDir>>()
         .await?;
 
     let displays: Vec<EnvironmentDisplay> = kernelspecs
         .iter()
         .map(|kernelspecdir| EnvironmentDisplay {
-            kernel_name: kernelspecdir.name.clone(),
+            kernel_name: kernelspecdir.kernel_name.clone(),
             language: kernelspecdir.kernelspec.language.clone(),
             path: kernelspecdir.path.display().to_string(),
         })
@@ -296,5 +293,17 @@ async fn attach(id: String) -> Result<(), Error> {
             }
         }
     }
+    Ok(())
+}
+
+async fn start_runtime(kernel_name: &String) -> Result<(), Error> {
+    let k = runtimelib::jupyter::KernelspecDir::new(kernel_name).await?;
+    let ci = ConnectionInfo::new("127.0.0.1", kernel_name).await?;
+    println!("Connection Info: {:?}", ci);
+    let connection_file_path = ci.write().await?;
+    println!("Connection file path: {}", connection_file_path.display());
+    let mut cmd = k.command(&connection_file_path)?;
+    let exit_code = cmd.status().await?;
+    println!("child exit code: {}", exit_code);
     Ok(())
 }
