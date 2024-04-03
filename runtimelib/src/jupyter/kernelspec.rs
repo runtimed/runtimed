@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -25,7 +26,7 @@ pub struct JupyterKernelspec {
     pub language: String,
     pub metadata: Option<Value>,
     pub interrupt_mode: Option<String>,
-    pub env: Option<Value>,
+    pub env: Option<HashMap<String, String>>,
 }
 
 ///
@@ -75,6 +76,10 @@ impl KernelspecDir {
                 OsStr::new(arg)
             });
         }
+        if let Some(env) = self.kernelspec.env {
+            cmd_builder.envs(env);
+        }
+
         // TODO add environment variables from kernelspec to cmd_bulider
 
         Ok(cmd_builder)
@@ -150,7 +155,12 @@ mod tests {
         let jupyter_runtime = read_kernelspec_json(&d).await.unwrap();
         assert_eq!(jupyter_runtime.display_name, "R");
         assert_eq!(jupyter_runtime.language, "R");
-        assert!(jupyter_runtime.env.is_none());
+        assert!(jupyter_runtime
+            .env
+            .as_ref()
+            .unwrap()
+            .contains_key("R_LIBS_USER"));
+        assert_eq!(jupyter_runtime.env.as_ref().unwrap().len(), 1);
         assert!(jupyter_runtime.metadata.is_none());
         assert_eq!(jupyter_runtime.argv.len(), 6);
         assert_eq!(jupyter_runtime.interrupt_mode, Some("signal".to_string()));
