@@ -1,8 +1,8 @@
-use crate::db::DbJupyterMessage;
 use crate::instance::RuntimeInstanceRunCode;
 use crate::runtime_manager::RuntimeInstance;
 use crate::state::AppState;
 use crate::AxumSharedState;
+use crate::{db::DbJupyterMessage, instance::NewRuntimeInstance};
 use axum::{
     extract::Path,
     extract::State,
@@ -28,6 +28,7 @@ pub fn instance_routes() -> Router<AppState> {
             get(get_runtime_instance_attach),
         )
         .route("/v0/runtime_instances", get(get_runtime_instances))
+        .route("/v0/runtime_instances", post(post_runtime_instance))
         .route(
             "/v0/runtime_instances/:id/run_code",
             post(post_runtime_instance_run_code),
@@ -50,6 +51,29 @@ async fn get_runtime_instance(
     let instance = state.runtimes.get(id).await.ok_or(StatusCode::NOT_FOUND)?;
 
     Ok(Json(instance))
+}
+
+async fn post_runtime_instance(
+    State(state): AxumSharedState,
+    Json(payload): Json<NewRuntimeInstance>,
+) -> Result<Json<RuntimeInstance>, StatusCode> {
+    log::info!("starting post runtime instance");
+    match state.runtimes.new_instance(&payload.environment).await {
+        Ok(id) => {
+            log::debug!("Created new instance: {}", id);
+            let instance = state
+                .runtimes
+                .get(id)
+                .await
+                .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+            log::debug!("Fetched the new instance: {}", instance.runtime.id);
+            Ok(Json(instance))
+        }
+        Err(_) => {
+            log::error!("Failed to create new instance");
+            Err(StatusCode::BAD_REQUEST)
+        }
+    }
 }
 
 async fn post_runtime_instance_run_code(

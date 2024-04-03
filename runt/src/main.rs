@@ -2,7 +2,6 @@ use clap::Parser;
 use clap::Subcommand;
 use futures::stream::StreamExt;
 use reqwest_eventsource::{Event, EventSource};
-use runtimelib::jupyter::client::ConnectionInfo;
 use runtimelib::jupyter::client::JupyterRuntime;
 use runtimelib::jupyter::KernelspecDir;
 use std::collections::HashMap;
@@ -297,13 +296,16 @@ async fn attach(id: String) -> Result<(), Error> {
 }
 
 async fn start_runtime(kernel_name: &String) -> Result<(), Error> {
-    let k = runtimelib::jupyter::KernelspecDir::new(kernel_name).await?;
-    let ci = ConnectionInfo::new("127.0.0.1", kernel_name).await?;
-    println!("Connection Info: {:?}", ci);
-    let connection_file_path = ci.write().await?;
-    println!("Connection file path: {}", connection_file_path.display());
-    let mut cmd = k.command(&connection_file_path)?;
-    let exit_code = cmd.status().await?;
-    println!("child exit code: {}", exit_code);
+    let client = reqwest::Client::new();
+    let response: JupyterRuntime = client
+        .post("http://127.0.0.1:12397/v0/runtime_instances")
+        .json(&HashMap::from([("environment", kernel_name)]))
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+
+    println!("New runtime instance: {}", response.id);
     Ok(())
 }

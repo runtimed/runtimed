@@ -1,4 +1,4 @@
-use anyhow::Error;
+use anyhow::{Error, Result};
 use notify::{
     event::CreateKind, Config, Event, EventKind::Create, RecommendedWatcher, RecursiveMode, Watcher,
 };
@@ -11,8 +11,8 @@ use sqlx::Sqlite;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::runtime::Handle;
-use tokio::sync::RwLock;
 use tokio::sync::{broadcast, mpsc};
+use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 
 /// State maintained for an individual runtime in the RuntimeManager
@@ -28,7 +28,7 @@ pub struct RuntimeInstance {
     pub broadcast_tx: broadcast::Sender<JupyterMessage>,
     /// For child process runtimes
     #[serde(skip)]
-    pub child: Option<Arc<tokio::process::Child>>,
+    pub child: Option<Arc<Mutex<tokio::process::Child>>>,
 }
 
 impl RuntimeInstance {
@@ -67,7 +67,7 @@ impl RuntimeManager {
         let initial_runtimes = get_jupyter_runtime_instances().await;
         for runtime in initial_runtimes {
             log::debug!("Gathering messages for runtime {}", runtime.id);
-            manager.insert(runtime).await;
+            manager.insert(&runtime).await;
         }
         manager
     }
@@ -82,12 +82,48 @@ impl RuntimeManager {
         self.lock.read().await.get(&id).cloned()
     }
 
+    pub async fn new_instance(&self, kernel_name: &String) -> Result<Uuid> {
+        let k = runtimelib::jupyter::KernelspecDir::new(kernel_name).await?;
+        let ci = runtimelib::jupyter::client::ConnectionInfo::new("127.0.0.1", kernel_name).await?;
+        let connection_file_path = ci.generate_file_path();
+        let runtime = JupyterRuntime::new(ci, connection_file_path);
+        let mut command = k.command(&runtime.connection_file)?;
+        let child = Arc::new(Mutex::new(command.spawn()?));
+
+        let async_child = child.clone();
+        tokio::spawn(async move {
+            let mut child_proc = async_child.lock().await;
+            match child_proc.wait().await {
+                Ok(status) => {
+                    log::info!("Runtime exited with status: {}", status);
+                }
+                Err(e) => {
+                    log::error!("Runtime exited with error: {}", e);
+                }
+            }
+        });
+
+        // insert the runtime into the runtime manager, otherwise
+        // the file watcher might not insert it before the client needs it
+        self.insert(&runtime).await;
+        runtime
+            .connection_info
+            .write(&runtime.connection_file)
+            .await?;
+        log::debug!(
+            "Launched new {} runtime with id: {}",
+            kernel_name,
+            runtime.id
+        );
+        Ok(runtime.id)
+    }
+
     /// 1. Insert the runtime by id into the runtime map
     /// 2. Start a task to watch all messages from the runtime and insert them into the database
     /// 3. Start a task to recieve messages and send time to the runtime
     ///
     /// Returns true if the runtime was inserted, false if the runtime was already present
-    async fn insert(&self, runtime: JupyterRuntime) -> bool {
+    async fn insert(&self, runtime: &JupyterRuntime) -> bool {
         let (mpsc_tx, mut mpsc_rx) = mpsc::channel::<JupyterMessage>(1);
         let (broadcast_tx, _) = broadcast::channel::<JupyterMessage>(1);
 
@@ -201,7 +237,7 @@ impl RuntimeManager {
             log::debug!("New runtime file found {:?}", path);
             match JupyterRuntime::from_path_set_state(path.clone()).await {
                 Ok(runtime) => {
-                    if self.insert(runtime).await {
+                    if self.insert(&runtime).await {
                         log::debug!("Connected to runtime {:?}", path);
                     } else {
                         log::debug!("Runtime already exists {:?}", path);

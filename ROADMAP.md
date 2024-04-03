@@ -18,7 +18,7 @@
   - [x] `POST /v0/runtime_instances/:id/run_code`
   - [ ] `POST /v0/runtime_instances`
 - [x] `GET /v0/executions/:msg_id`
-- [ ] `GET /v0/environment`
+- [x] `GET /v0/environments`
 
 ### Milestone 2: Document based access to runtimes
 
