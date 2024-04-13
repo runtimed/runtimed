@@ -42,7 +42,7 @@ impl KernelspecDir {
         Ok(spec.clone())
     }
 
-    pub fn command(self, connection_file_path: &PathBuf) -> Result<Command> {
+    pub async fn command(self, connection_path: &PathBuf) -> Result<Command> {
         let kernel_name = &self.kernel_name;
 
         let argv = self.kernelspec.argv;
@@ -51,27 +51,24 @@ impl KernelspecDir {
         }
 
         let mut cmd_builder = Command::new(&argv[0]);
+
+        let stdout = fs::File::create(connection_path.with_extension("stdout"))
+            .await?
+            .into_std()
+            .await;
+        let stderr = fs::File::create(connection_path.with_extension("stderr"))
+            .await?
+            .into_std()
+            .await;
+
         cmd_builder
             .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
+            .stdout(stdout)
+            .stderr(stderr);
 
-        // Set kill_on_drop during dev, because if we accidentally drop
-        // without first wait()ing on the child process and reaping it,
-        // we would leave a zombie process.
-        //
-        // TODO remove this line later on when we understand more about
-        // how kernels are spawned in practice and if runtimed will be able
-        // to wait on child processe.
-        //
-        // Another route is to do the Rust equivalent of C `signal(SIGCHLD, SIG_IGN);`
-        // to automatically reap child processes even when the parent has not exited.
-        // However this is generally considered bad practice because it is not well
-        // documented behavior and likely unportable
-        cmd_builder.kill_on_drop(true);
         for arg in &argv[1..] {
             cmd_builder.arg(if arg == "{connection_file}" {
-                connection_file_path.as_os_str()
+                connection_path.as_os_str()
             } else {
                 OsStr::new(arg)
             });
@@ -79,8 +76,6 @@ impl KernelspecDir {
         if let Some(env) = self.kernelspec.env {
             cmd_builder.envs(env);
         }
-
-        // TODO add environment variables from kernelspec to cmd_bulider
 
         Ok(cmd_builder)
     }

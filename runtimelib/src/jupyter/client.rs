@@ -179,6 +179,12 @@ impl JupyterRuntime {
         }
     }
 
+    pub async fn remove_connection_file(&self) -> Result<()> {
+        fs::remove_file(&self.connection_file)
+            .await
+            .context("Failed to remove connection file")
+    }
+
     /// Connect the ZeroMQ sockets to a running kernel, and return
     /// a `JupyterClient` object that can be used to interact with the kernel.
     pub async fn attach(&self) -> Result<JupyterClient> {

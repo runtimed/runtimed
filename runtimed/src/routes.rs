@@ -57,16 +57,19 @@ async fn post_runtime_instance(
     State(state): AxumSharedState,
     Json(payload): Json<NewRuntimeInstance>,
 ) -> Result<Json<RuntimeInstance>, StatusCode> {
-    log::info!("starting post runtime instance");
+    log::info!("Starting new runtime of type: {}", payload.environment);
     match state.runtimes.new_instance(&payload.environment).await {
         Ok(id) => {
-            log::debug!("Created new instance: {}", id);
             let instance = state
                 .runtimes
                 .get(id)
                 .await
                 .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
-            log::debug!("Fetched the new instance: {}", instance.runtime.id);
+            log::info!(
+                "Created new instance (environment {}): {}",
+                payload.environment,
+                instance.runtime.id
+            );
             Ok(Json(instance))
         }
         Err(_) => {

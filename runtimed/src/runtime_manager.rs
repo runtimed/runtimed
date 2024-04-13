@@ -9,6 +9,7 @@ use serde::Serialize;
 use sqlx::Pool;
 use sqlx::Sqlite;
 use std::collections::HashMap;
+use std::process::ExitStatus;
 use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::signal::unix::{signal, SignalKind};
@@ -16,6 +17,11 @@ use tokio::sync::oneshot::Sender;
 use tokio::sync::{broadcast, mpsc};
 use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
+
+pub struct ChildRuntime {
+    pub process: tokio::process::Child,
+    pub exit_status: Option<ExitStatus>,
+}
 
 /// State maintained for an individual runtime in the RuntimeManager
 #[derive(Serialize, Clone)]
@@ -30,7 +36,7 @@ pub struct RuntimeInstance {
     pub broadcast_tx: broadcast::Sender<JupyterMessage>,
     /// For child process runtimes
     #[serde(skip)]
-    pub child: Option<Arc<Mutex<tokio::process::Child>>>,
+    pub child: Option<Arc<Mutex<ChildRuntime>>>,
 }
 
 impl RuntimeInstance {
@@ -72,19 +78,19 @@ impl RuntimeManager {
             manager.insert(&runtime, None).await;
         }
 
-        manager.spawn_signal_handler(shutdown_tx).await?;
+        manager.spawn_daemon_signal_handler(shutdown_tx).await?;
 
         Ok(manager)
     }
 
     /// Establish a signal handler to send a signal to gracefully shutdown the runtimed web server.
     /// There is a 2 second delay to allow child runtimes to be killed and reaped.
-    async fn spawn_signal_handler(&self, shutdown_tx: Sender<()>) -> Result<()> {
+    async fn spawn_daemon_signal_handler(&self, shutdown_tx: Sender<()>) -> Result<()> {
         let mut stream = signal(SignalKind::interrupt())?;
 
         tokio::spawn(async move {
             stream.recv().await;
-            log::debug!("Recieved interrupt signal");
+            log::info!("Recieved interrupt signal, shutting down");
             tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
             // Using expect() as we want everything to die anyway
             shutdown_tx
@@ -104,25 +110,21 @@ impl RuntimeManager {
         self.lock.read().await.get(&id).cloned()
     }
 
-    pub async fn new_instance(&self, kernel_name: &String) -> Result<Uuid> {
-        let k = runtimelib::jupyter::KernelspecDir::new(kernel_name).await?;
-        let ci = runtimelib::jupyter::client::ConnectionInfo::new("127.0.0.1", kernel_name).await?;
-        let connection_file_path = ci.generate_file_path();
-        let runtime = JupyterRuntime::new(ci, connection_file_path);
-        let mut command = k.command(&runtime.connection_file)?;
-        let child = Arc::new(Mutex::new(command.spawn()?));
-
-        let async_child = child.clone();
+    fn spawn_child_reaper(&self, async_child: Arc<Mutex<ChildRuntime>>) {
         tokio::spawn(async move {
             loop {
                 tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
                 let mut child_proc = async_child.lock().await;
-                match child_proc.try_wait() {
+                match child_proc.process.try_wait() {
                     Ok(None) => {
-                        // Fall through to next loop iteration
+                        // child lives, fall through to next loop iteration
                     }
                     Ok(Some(status)) => {
-                        log::info!("Runtime exited with status: {}", status);
+                        log::info!("Runtime finished: {}", status);
+                        child_proc.exit_status = Some(status);
+                        // TODO need to remove ConnectionFile from runtime directory
+                        // TODO need to remove runtime from runtime manager
+                        // This could happen in whatever checks the runtime states
                         break;
                     }
                     Err(e) => {
@@ -132,23 +134,46 @@ impl RuntimeManager {
                 }
             }
         });
+    }
 
-        let mut stream = signal(SignalKind::interrupt())?;
+    fn spawn_child_signal_handler(&self, async_child: Arc<Mutex<ChildRuntime>>) {
+        let mut stream = signal(SignalKind::interrupt()).unwrap();
         tokio::spawn(async move {
             stream.recv().await;
-            log::debug!("CHILD PROCESS HANDLER Recieved interrupt signal");
-            // TODO is there a more concise, idiomatic way to disregard errors?
-            // Disregard the error
-            match child.lock().await.start_kill() {
-                Ok(_) => {}
-                Err(_) => {}
-            };
-            log::debug!("CHILD PROCESS HANDLER finished kill");
-        });
 
-        // insert the runtime into the runtime manager, otherwise
-        // the file watcher might not insert it before the client needs it
-        self.insert(&runtime, None).await;
+            let mut child = async_child.lock().await;
+            if let Some(exit_status) = child.exit_status {
+                log::debug!(
+                    "Child SIGINT handler: child previously finished: {}",
+                    exit_status
+                );
+                return;
+            }
+            log::debug!("Child SIGINT handler: sending SIGKILL to child process");
+
+            // No need to wait around to see if it worked or not
+            let _ = child.process.start_kill();
+        });
+    }
+
+    pub async fn new_instance(&self, kernel_name: &String) -> Result<Uuid> {
+        let k = runtimelib::jupyter::KernelspecDir::new(kernel_name).await?;
+        let ci = runtimelib::jupyter::client::ConnectionInfo::new("127.0.0.1", kernel_name).await?;
+        let connection_file_path = ci.generate_file_path();
+        let runtime = JupyterRuntime::new(ci, connection_file_path);
+        let mut command = k.command(&runtime.connection_file).await?;
+        let child = Arc::new(Mutex::new(ChildRuntime {
+            process: command.spawn()?,
+            exit_status: None,
+        }));
+
+        self.spawn_child_reaper(child.clone());
+        self.spawn_child_signal_handler(child.clone());
+
+        // Insert the runtime into the RuntimeManager before writing the connection file
+        // because the watcher will try to insert the runtime into the database, but will
+        // not have access to the ChildRuntime process handle
+        self.insert(&runtime, Some(child)).await;
         runtime
             .connection_info
             .write(&runtime.connection_file)
@@ -169,7 +194,7 @@ impl RuntimeManager {
     async fn insert(
         &self,
         runtime: &JupyterRuntime,
-        child: Option<Arc<Mutex<tokio::process::Child>>>,
+        child: Option<Arc<Mutex<ChildRuntime>>>,
     ) -> bool {
         let (mpsc_tx, mut mpsc_rx) = mpsc::channel::<JupyterMessage>(1);
         let (broadcast_tx, _) = broadcast::channel::<JupyterMessage>(1);
@@ -287,7 +312,7 @@ impl RuntimeManager {
                     if self.insert(&runtime, None).await {
                         log::debug!("Connected to runtime {:?}", path);
                     } else {
-                        log::debug!("Runtime already exists {:?}", path);
+                        log::debug!("Found connection file for existing runtime {:?}", path);
                     }
                 }
                 Err(err) => log::error!("Could not load runtime {:?}", err),
