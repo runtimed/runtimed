@@ -3,6 +3,7 @@ use clap::Subcommand;
 use futures::stream::StreamExt;
 use reqwest_eventsource::{Event, EventSource};
 use runtimelib::jupyter::client::JupyterRuntime;
+use runtimelib::jupyter::client::RuntimeId;
 use runtimelib::jupyter::KernelspecDir;
 use std::collections::HashMap;
 
@@ -77,7 +78,7 @@ struct RuntimeDisplay {
     #[tabled(rename = "Language")]
     language: String,
     #[tabled(rename = "ID")]
-    id: uuid::Uuid,
+    id: RuntimeId,
     #[tabled(rename = "IP")]
     ip: String,
     #[tabled(rename = "Transport")]

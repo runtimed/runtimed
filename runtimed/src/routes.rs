@@ -13,6 +13,7 @@ use axum::{
     Json, Router,
 };
 use futures::stream::Stream;
+use runtimelib::jupyter::client::RuntimeId;
 use runtimelib::jupyter::KernelspecDir;
 use runtimelib::messaging::{ExecuteRequest, Header, JupyterMessage};
 
@@ -45,7 +46,7 @@ async fn get_runtime_instances(
 }
 
 async fn get_runtime_instance(
-    Path(id): Path<Uuid>,
+    Path(id): Path<RuntimeId>,
     State(state): AxumSharedState,
 ) -> Result<Json<RuntimeInstance>, StatusCode> {
     let instance = state.runtimes.get(id).await.ok_or(StatusCode::NOT_FOUND)?;
@@ -80,7 +81,7 @@ async fn post_runtime_instance(
 }
 
 async fn post_runtime_instance_run_code(
-    Path(id): Path<Uuid>,
+    Path(id): Path<RuntimeId>,
     State(state): AxumSharedState,
     Json(payload): Json<RuntimeInstanceRunCode>,
 ) -> Result<Json<Header>, StatusCode> {
@@ -118,7 +119,7 @@ async fn get_executions(
 }
 
 async fn get_runtime_instance_attach(
-    Path(id): Path<Uuid>,
+    Path(id): Path<RuntimeId>,
     State(state): AxumSharedState,
 ) -> Result<Sse<impl Stream<Item = Result<Event, anyhow::Error>>>, StatusCode> {
     let instance = state.runtimes.get(id).await.ok_or(StatusCode::NOT_FOUND)?;
