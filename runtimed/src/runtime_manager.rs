@@ -161,34 +161,49 @@ impl RuntimeManager {
         });
     }
 
+    // RuntimeManager --> listens to runtime directory for new runtimes
     pub async fn new_instance(&self, kernel_name: &String) -> Result<RuntimeId> {
         let k = runtimelib::jupyter::KernelspecDir::new(kernel_name).await?;
         let ci = runtimelib::jupyter::client::ConnectionInfo::new("127.0.0.1", kernel_name).await?;
         let connection_file_path = ci.generate_file_path();
         let runtime = JupyterRuntime::new(ci, connection_file_path);
         let mut command = k.command(&runtime.connection_file).await?;
-        let child = Arc::new(Mutex::new(ChildRuntime {
-            process: command.spawn()?,
-            exit_status: None,
-        }));
-
-        self.spawn_child_reaper(child.clone());
-        self.spawn_child_signal_handler(child.clone());
 
         // Insert the runtime into the RuntimeManager before writing the connection file
-        // because the watcher will try to insert the runtime into the database, but will
+        // because the watcher will try to insert the runtime into the hashmap, but will
         // not have access to the ChildRuntime process handle
-        self.insert(&runtime, Some(child)).await?;
+        //self.insert(&runtime, None).await?;
         runtime
             .connection_info
             .write(&runtime.connection_file)
             .await?;
+
+        let child = Arc::new(Mutex::new(ChildRuntime {
+            process: command.spawn()?,
+            exit_status: None,
+        }));
+        self.update_runtime(runtime.id.clone(), child.clone())
+            .await?;
+
+        self.spawn_child_reaper(child.clone());
+        self.spawn_child_signal_handler(child.clone());
+
         log::debug!(
             "Launched new {} runtime with id: {}",
             kernel_name,
             runtime.id
         );
         Ok(runtime.id)
+    }
+
+    async fn update_runtime(&self, id: RuntimeId, child: Arc<Mutex<ChildRuntime>>) -> Result<()> {
+        let mut map = self.lock.write().await;
+        if let Some(runtime) = map.get_mut(&id) {
+            runtime.child = Some(child);
+            Ok(())
+        } else {
+            Err(anyhow!("Runtime not found: {}", id))
+        }
     }
 
     /// 1. Insert the runtime by id into the runtime map
