@@ -38,6 +38,8 @@ enum Commands {
     GetResults { id: String },
     /// List available environments (Jupyter kernelspecs)
     Environments,
+    /// Shutdown a runtime
+    Stop { id: String },
 }
 
 #[tokio::main]
@@ -62,10 +64,10 @@ async fn main() -> Result<(), Error> {
         }
         Commands::Run { kernel_name } => {
             start_runtime(&kernel_name).await?;
-        } // TODO:
-          // Commands::Kill { id } => {
-          //     kill_instance(id).await?;
-          // }
+        }
+        Commands::Stop { id } => {
+            stop_runtime(&id).await?;
+        }
     }
 
     Ok(())
@@ -308,5 +310,16 @@ async fn start_runtime(kernel_name: &String) -> Result<(), Error> {
         .await?;
 
     println!("New runtime instance: {}", response.id);
+    Ok(())
+}
+
+async fn stop_runtime(id: &String) -> Result<(), Error> {
+    let client = reqwest::Client::new();
+    client
+        .delete(format!("http://127.0.0.1:12397/v0/runtime_instances/{id}"))
+        .send()
+        .await?
+        .error_for_status()?;
+
     Ok(())
 }

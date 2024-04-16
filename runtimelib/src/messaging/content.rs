@@ -283,6 +283,7 @@ pub struct ShutdownRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShutdownReply {
     pub restart: bool,
+    pub status: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

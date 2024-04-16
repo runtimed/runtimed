@@ -4,7 +4,7 @@ use notify::{
 };
 use runtimelib::jupyter::client::{JupyterRuntime, RuntimeId};
 use runtimelib::jupyter::discovery::{get_jupyter_runtime_instances, is_connection_file};
-use runtimelib::messaging::JupyterMessage;
+use runtimelib::messaging::{JupyterMessage, JupyterMessageContent, ShutdownRequest};
 use serde::Serialize;
 use sqlx::Pool;
 use sqlx::Sqlite;
@@ -45,6 +45,31 @@ impl RuntimeInstance {
 
     pub async fn get_sender(&self) -> mpsc::Sender<JupyterMessage> {
         self.send_tx.clone()
+    }
+
+    pub async fn stop(&self) -> Result<()> {
+        log::debug!("Starting a stop request");
+
+        let mut client = self.runtime.attach().await?;
+        log::debug!("Attached to the client");
+
+        let message =
+            JupyterMessage::new(JupyterMessageContent::ShutdownRequest(ShutdownRequest {
+                restart: false,
+            }));
+        log::debug!("Made a message");
+
+        let reply = client.send_control(message).await?;
+
+        let JupyterMessageContent::ShutdownReply(reply) = reply.content else {
+            return Err(anyhow!("Unexpected reply to shutdown request: {:?}", reply));
+        };
+
+        if reply.status.as_str() == "ok" {
+            Ok(())
+        } else {
+            Err(anyhow!("Unexpected reply to shutdown request: {:?}", reply))
+        }
     }
 }
 
@@ -172,7 +197,7 @@ impl RuntimeManager {
         // Insert the runtime into the RuntimeManager before writing the connection file
         // because the watcher will try to insert the runtime into the hashmap, but will
         // not have access to the ChildRuntime process handle
-        //self.insert(&runtime, None).await?;
+        self.insert(&runtime, None).await?;
         runtime
             .connection_info
             .write(&runtime.connection_file)

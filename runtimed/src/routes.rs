@@ -23,13 +23,18 @@ use uuid::Uuid;
 
 pub fn instance_routes() -> Router<AppState> {
     Router::new()
-        .route("/v0/runtime_instances/:id", get(get_runtime_instance))
+        .route(
+            "/v0/runtime_instances/:id",
+            get(get_runtime_instance).delete(delete_runtime_instance),
+        )
         .route(
             "/v0/runtime_instances/:id/attach",
             get(get_runtime_instance_attach),
         )
-        .route("/v0/runtime_instances", get(get_runtime_instances))
-        .route("/v0/runtime_instances", post(post_runtime_instance))
+        .route(
+            "/v0/runtime_instances",
+            get(get_runtime_instances).post(post_runtime_instance),
+        )
         .route(
             "/v0/runtime_instances/:id/run_code",
             post(post_runtime_instance_run_code),
@@ -54,6 +59,26 @@ async fn get_runtime_instance(
     Ok(Json(instance))
 }
 
+async fn delete_runtime_instance(
+    Path(id): Path<RuntimeId>,
+    State(state): AxumSharedState,
+) -> Result<(), StatusCode> {
+    log::info!("Deleting runtime: {id}");
+    let runtime = state.runtimes.get(id).await;
+    log::debug!("During delete: got runtime result");
+    if let Some(runtime) = runtime {
+        log::debug!("Got some runtime");
+        runtime
+            .stop()
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        Ok(())
+    } else {
+        log::debug!("Got None runtime");
+        Err(StatusCode::NOT_FOUND)
+    }
+}
+
 async fn post_runtime_instance(
     State(state): AxumSharedState,
     Json(payload): Json<NewRuntimeInstance>,
@@ -73,8 +98,8 @@ async fn post_runtime_instance(
             );
             Ok(Json(instance))
         }
-        Err(_) => {
-            log::error!("Failed to create new instance");
+        Err(error) => {
+            log::error!("Failed to create new instance - {error}");
             Err(StatusCode::BAD_REQUEST)
         }
     }
