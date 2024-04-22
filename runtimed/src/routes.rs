@@ -15,7 +15,7 @@ use axum::{
 use futures::stream::Stream;
 use runtimelib::jupyter::client::RuntimeId;
 use runtimelib::jupyter::KernelspecDir;
-use runtimelib::messaging::{ExecuteRequest, Header, JupyterMessage};
+use runtimelib::messaging::{CodeExecutionOutput, ExecuteRequest, Header, JupyterMessage};
 
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt;
@@ -38,6 +38,10 @@ pub fn instance_routes() -> Router<AppState> {
         .route(
             "/v0/runtime_instances/:id/run_code",
             post(post_runtime_instance_run_code),
+        )
+        .route(
+            "/v0/runtime_instances/:id/eval_code",
+            post(post_runtime_instance_eval_code),
         )
         .route("/v0/executions/:msg_id", get(get_executions))
         .route("/v0/environments", get(get_environments))
@@ -128,6 +132,52 @@ async fn post_runtime_instance_run_code(
         .send(message)
         .await
         .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+
+    Ok(axum::Json(response))
+}
+
+/// Return a struct of all the results of a code execution. Since this is a
+/// structured response, it is not streamed.
+async fn post_runtime_instance_eval_code(
+    Path(id): Path<RuntimeId>,
+    State(state): AxumSharedState,
+    Json(payload): Json<RuntimeInstanceRunCode>,
+) -> Result<Json<CodeExecutionOutput>, StatusCode> {
+    let instance = state.runtimes.get(id).await.ok_or(StatusCode::NOT_FOUND)?;
+    let sender = instance.get_sender().await;
+    let mut broadcaster = instance.get_receiver().await;
+
+    let execute_request = ExecuteRequest {
+        code: payload.code,
+        silent: false,
+        store_history: true,
+        user_expressions: Default::default(),
+        allow_stdin: false,
+    };
+    let message: JupyterMessage = execute_request.into();
+
+    let mut response = CodeExecutionOutput::new(message.header.clone());
+
+    sender
+        .send(message)
+        .await
+        .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+
+    loop {
+        match broadcaster.recv().await {
+            Ok(output_msg) => {
+                log::debug!("Got output message: {:?}", output_msg);
+                response.add_message(output_msg);
+                if response.is_complete() {
+                    break;
+                }
+            }
+            _ => {
+                log::debug!("Got None");
+                break;
+            }
+        }
+    }
 
     Ok(axum::Json(response))
 }
