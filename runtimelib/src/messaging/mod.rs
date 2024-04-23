@@ -22,7 +22,7 @@ pub use content::JupyterMessageContent;
 
 pub use content::{
     CompleteReply, CompleteRequest, ExecuteReply, ExecuteRequest, KernelInfoReply,
-    KernelInfoRequest,
+    KernelInfoRequest, ShutdownRequest,
 };
 
 pub(crate) struct Connection<S> {

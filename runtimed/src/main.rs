@@ -43,7 +43,10 @@ async fn main() -> Result<(), Error> {
 
     log::debug!("Database connected and migrations run");
 
-    let runtimes = runtime_manager::RuntimeManager::new(&dbpool).await;
+    // Channel for graceful shutdown of the server
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+
+    let runtimes = runtime_manager::RuntimeManager::new(&dbpool, shutdown_tx).await?;
 
     log::debug!("Runtimes initialized");
     let shared_state = state::AppState { dbpool, runtimes };
@@ -55,9 +58,10 @@ async fn main() -> Result<(), Error> {
     let listener = tokio::net::TcpListener::bind(addr).await?;
     log::info!("Listening on {}:{}", IP, PORT);
 
-    axum::serve(listener, app).await?;
-
-    Ok(())
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async { shutdown_rx.await.expect("Err: shutdown_tx was dropped") })
+        .await
+        .map_err(|e| e.into())
 }
 
 async fn get_root() -> &'static str {

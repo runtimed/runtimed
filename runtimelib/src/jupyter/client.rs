@@ -19,6 +19,7 @@ use zeromq::Socket;
 
 use anyhow::anyhow;
 use anyhow::{Context, Result};
+use std::fmt::{Display, Formatter};
 use std::net::{IpAddr, SocketAddr};
 use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
@@ -97,12 +98,15 @@ impl ConnectionInfo {
         Ok(ports)
     }
 
-    /// Write the connection info to a file on disk inside the /tmp directory
-    /// TODO: move to the data directory
-    pub async fn write(self: &Self) -> Result<PathBuf> {
+    pub fn generate_file_path(self: &Self) -> PathBuf {
         let kernel_fs_uuid = Uuid::new_v4();
         let connection_file_path: PathBuf =
             dirs::runtime_dir().join(format!("kernel-{}.json", kernel_fs_uuid.to_string()));
+        connection_file_path
+    }
+
+    /// Write the connection info to a file on disk inside dirs::runtime_dir()
+    pub async fn write(self: &Self, connection_file_path: &PathBuf) -> Result<PathBuf> {
         let content = serde_json::to_string_pretty(&self)?;
         fs::write(&connection_file_path, content).await?;
         Ok(PathBuf::from(connection_file_path))
@@ -143,12 +147,30 @@ impl ConnectionInfo {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
+pub struct RuntimeId(pub Uuid);
+
+impl RuntimeId {
+    pub fn new(connection_file: PathBuf) -> Self {
+        Self(Uuid::new_v5(
+            &Uuid::NAMESPACE_URL,
+            connection_file.as_os_str().as_bytes(),
+        ))
+    }
+}
+
+impl Display for RuntimeId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
 /// A Jupyter runtime, representing the state of a running kernel
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct JupyterRuntime {
     pub connection_info: ConnectionInfo,
     pub connection_file: PathBuf,
-    pub id: Uuid,
+    pub id: RuntimeId,
     // TODO: create an enum for activity state
     pub state: String,
     pub kernel_info: Option<KernelInfoReply>,
@@ -165,8 +187,7 @@ impl JupyterRuntime {
     /// This does not read from the connection_file path, but assumes that the ConnectionInfo
     /// object was read from it already.
     pub fn new(connection_info: ConnectionInfo, connection_file: PathBuf) -> Self {
-        // TODO evaluate UUID generation, should we also use connection info contents?
-        let id = Uuid::new_v5(&Uuid::NAMESPACE_URL, connection_file.as_os_str().as_bytes());
+        let id = RuntimeId::new(connection_file.clone());
         Self {
             connection_info,
             connection_file,
@@ -174,6 +195,12 @@ impl JupyterRuntime {
             state: "idle".to_string(),
             kernel_info: None,
         }
+    }
+
+    pub async fn remove_connection_file(&self) -> Result<()> {
+        fs::remove_file(&self.connection_file)
+            .await
+            .context("Failed to remove connection file")
     }
 
     /// Connect the ZeroMQ sockets to a running kernel, and return
@@ -269,6 +296,14 @@ impl JupyterClient {
     pub async fn send(&mut self, message: JupyterMessage) -> Result<JupyterMessage> {
         message.send(&mut self.shell).await?;
         let response = JupyterMessage::read(&mut self.shell).await?;
+        Ok(response)
+    }
+
+    /// Send a `*_request` message to the kernel, receive the corresponding
+    /// `*_reply` message, and return it. Output messages will end up on IOPub
+    pub async fn send_control(&mut self, message: JupyterMessage) -> Result<JupyterMessage> {
+        message.send(&mut self.control).await?;
+        let response = JupyterMessage::read(&mut self.control).await?;
         Ok(response)
     }
 

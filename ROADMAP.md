@@ -3,25 +3,25 @@
 ### Milestone 1: Basic runtime management
 
 - [x] List running runtimes (`runt ps`)
-- [ ] Start a new runtime (`runt start`)
+- [x] Start a new runtime (`runt start`)
 - [ ] Stop a running runtime (`runt stop`)
 - [x] Store client messages into a SQL DB
 
 - [x] Add a `runt exec` command to submit code to a runtime
 - [x] Add a `runt get-results` command to get the results of an execution
-- [ ] Add a `runt export` command to export a runtime session to a notebook
 
 #### REST API
 
 - [x] `GET /v0/runtime_instances/`
   - [x] `GET /v0/runtime_instances/:id`
   - [x] `POST /v0/runtime_instances/:id/run_code`
-  - [ ] `POST /v0/runtime_instances`
+  - [x] `POST /v0/runtime_instances`
 - [x] `GET /v0/executions/:msg_id`
-- [ ] `GET /v0/environment`
+- [x] `GET /v0/environments`
 
 ### Milestone 2: Document based access to runtimes
 
+- [ ] Add a `runt export` command to export a runtime session to a notebook
 - [ ] `/v0/notebook` APIs
   - [ ] `POST /v0/notebook`
   - [ ] `GET /v0/notebook/:id`

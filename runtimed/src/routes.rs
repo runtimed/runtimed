@@ -1,8 +1,8 @@
-use crate::db::DbJupyterMessage;
 use crate::instance::RuntimeInstanceRunCode;
 use crate::runtime_manager::RuntimeInstance;
 use crate::state::AppState;
 use crate::AxumSharedState;
+use crate::{db::DbJupyterMessage, instance::NewRuntimeInstance};
 use axum::{
     extract::Path,
     extract::State,
@@ -13,6 +13,7 @@ use axum::{
     Json, Router,
 };
 use futures::stream::Stream;
+use runtimelib::jupyter::client::RuntimeId;
 use runtimelib::jupyter::KernelspecDir;
 use runtimelib::messaging::{ExecuteRequest, Header, JupyterMessage};
 
@@ -22,12 +23,18 @@ use uuid::Uuid;
 
 pub fn instance_routes() -> Router<AppState> {
     Router::new()
-        .route("/v0/runtime_instances/:id", get(get_runtime_instance))
+        .route(
+            "/v0/runtime_instances/:id",
+            get(get_runtime_instance).delete(delete_runtime_instance),
+        )
         .route(
             "/v0/runtime_instances/:id/attach",
             get(get_runtime_instance_attach),
         )
-        .route("/v0/runtime_instances", get(get_runtime_instances))
+        .route(
+            "/v0/runtime_instances",
+            get(get_runtime_instances).post(post_runtime_instance),
+        )
         .route(
             "/v0/runtime_instances/:id/run_code",
             post(post_runtime_instance_run_code),
@@ -44,7 +51,7 @@ async fn get_runtime_instances(
 }
 
 async fn get_runtime_instance(
-    Path(id): Path<Uuid>,
+    Path(id): Path<RuntimeId>,
     State(state): AxumSharedState,
 ) -> Result<Json<RuntimeInstance>, StatusCode> {
     let instance = state.runtimes.get(id).await.ok_or(StatusCode::NOT_FOUND)?;
@@ -52,8 +59,54 @@ async fn get_runtime_instance(
     Ok(Json(instance))
 }
 
+async fn delete_runtime_instance(
+    Path(id): Path<RuntimeId>,
+    State(state): AxumSharedState,
+) -> Result<(), StatusCode> {
+    log::info!("Deleting runtime: {id}");
+    let runtime = state.runtimes.get(id).await;
+    log::debug!("During delete: got runtime result");
+    if let Some(runtime) = runtime {
+        log::debug!("Got some runtime");
+        runtime
+            .stop()
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        Ok(())
+    } else {
+        log::debug!("Got None runtime");
+        Err(StatusCode::NOT_FOUND)
+    }
+}
+
+async fn post_runtime_instance(
+    State(state): AxumSharedState,
+    Json(payload): Json<NewRuntimeInstance>,
+) -> Result<Json<RuntimeInstance>, StatusCode> {
+    log::info!("Starting new runtime of type: {}", payload.environment);
+    match state.runtimes.new_instance(&payload.environment).await {
+        Ok(id) => {
+            let instance = state
+                .runtimes
+                .get(id)
+                .await
+                .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+            log::info!(
+                "Created new instance (environment {}): {}",
+                payload.environment,
+                instance.runtime.id
+            );
+            Ok(Json(instance))
+        }
+        Err(error) => {
+            log::error!("Failed to create new instance - {error}");
+            Err(StatusCode::BAD_REQUEST)
+        }
+    }
+}
+
 async fn post_runtime_instance_run_code(
-    Path(id): Path<Uuid>,
+    Path(id): Path<RuntimeId>,
     State(state): AxumSharedState,
     Json(payload): Json<RuntimeInstanceRunCode>,
 ) -> Result<Json<Header>, StatusCode> {
@@ -91,7 +144,7 @@ async fn get_executions(
 }
 
 async fn get_runtime_instance_attach(
-    Path(id): Path<Uuid>,
+    Path(id): Path<RuntimeId>,
     State(state): AxumSharedState,
 ) -> Result<Sse<impl Stream<Item = Result<Event, anyhow::Error>>>, StatusCode> {
     let instance = state.runtimes.get(id).await.ok_or(StatusCode::NOT_FOUND)?;
