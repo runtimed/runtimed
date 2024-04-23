@@ -1,12 +1,12 @@
-use crate::messaging::{Header, JupyterMessage, JupyterMessageContent};
+use crate::messaging::{content::ErrorReply, Header, JupyterMessage, JupyterMessageContent};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, serde:: Serialize, serde::Deserialize)]
 pub struct CodeExecutionOutput {
     pub stdout: String,
     pub stderr: String,
-    // TODO: this could be a map from content type to data. Right
-    // now we only support text/plain
-    pub data: String,
+    pub result: HashMap<String, String>,
+    pub error: Option<ErrorReply>,
     pub header: Header,
     pub start_time: String,
     pub end_time: String,
@@ -17,7 +17,8 @@ impl CodeExecutionOutput {
         Self {
             stdout: "".to_string(),
             stderr: "".to_string(),
-            data: "".to_string(),
+            result: HashMap::new(),
+            error: None,
             header,
             start_time: "".to_string(),
             end_time: "".to_string(),
@@ -41,7 +42,10 @@ impl CodeExecutionOutput {
                 }
             }
             JupyterMessageContent::ExecuteResult(execute_result) => {
-                self.data = execute_result.data["text/plain"].to_string();
+                self.result = execute_result.data.clone();
+            }
+            JupyterMessageContent::ErrorReply(error) => {
+                self.error = Some(error);
             }
             _ => {}
         }
@@ -56,8 +60,13 @@ impl std::fmt::Display for CodeExecutionOutput {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
-            "CodeExecutionOutput\nexecution id: {}\nstart_time: {}\nend_time: {}\nstdout: {}\nstderr: {}\ndata: {}, ",
-            self.header.msg_id, self.start_time, self.end_time, self.stdout, self.stderr, self.data
-        )
+            "CodeExecutionOutput\nexecution id: {}\nstart_time: {}\nend_time: {}\nstdout: {}\nstderr: {}\nresult: {}",
+            self.header.msg_id, self.start_time, self.end_time, self.stdout, self.stderr,
+            self.result.get("text/plain").unwrap_or(&"".to_string()),
+        )?;
+        match &self.error {
+            Some(e) => write!(f, "\nerror: {:#?}", e),
+            _ => Ok(()),
+        }
     }
 }
