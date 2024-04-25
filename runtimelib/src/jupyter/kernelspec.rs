@@ -42,7 +42,12 @@ impl KernelspecDir {
         Ok(spec.clone())
     }
 
-    pub async fn command(self, connection_path: &PathBuf) -> Result<Command> {
+    pub async fn command(
+        self,
+        connection_path: &PathBuf,
+        stderr: Option<Stdio>,
+        stdout: Option<Stdio>,
+    ) -> Result<Command> {
         let kernel_name = &self.kernel_name;
 
         let argv = self.kernelspec.argv;
@@ -52,15 +57,8 @@ impl KernelspecDir {
 
         let mut cmd_builder = Command::new(&argv[0]);
 
-        let stdout = fs::File::create(connection_path.with_extension("stdout"))
-            .await?
-            .into_std()
-            .await;
-        let stderr = fs::File::create(connection_path.with_extension("stderr"))
-            .await?
-            .into_std()
-            .await;
-
+        let stdout = stdout.unwrap_or(Stdio::null());
+        let stderr = stderr.unwrap_or(Stdio::null());
         cmd_builder
             .stdin(Stdio::null())
             .stdout(stdout)

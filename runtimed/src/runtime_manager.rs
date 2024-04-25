@@ -1,4 +1,4 @@
-use crate::child_runtime::ChildRuntimeLock;
+use crate::child_runtime::ChildRuntime;
 use runtimelib::jupyter::client::{ConnectionInfo, JupyterRuntime, RuntimeId};
 use runtimelib::jupyter::discovery::{get_jupyter_runtime_instances, is_connection_file};
 use runtimelib::messaging::{JupyterMessage, JupyterMessageContent, ShutdownRequest};
@@ -31,7 +31,7 @@ pub struct RuntimeInstance {
     pub broadcast_tx: broadcast::Sender<JupyterMessage>,
     /// For child process runtimes
     #[serde(skip)]
-    pub child: Option<ChildRuntimeLock>,
+    pub child: Option<ChildRuntime>,
 }
 
 impl RuntimeInstance {
@@ -136,13 +136,11 @@ impl RuntimeManager {
         self.lock.read().await.get(&id).cloned()
     }
 
-    // RuntimeManager --> listens to runtime directory for new runtimes
     pub async fn new_instance(&self, kernel_name: &String) -> Result<RuntimeId> {
         let k = runtimelib::jupyter::KernelspecDir::new(kernel_name).await?;
         let ci = ConnectionInfo::new("127.0.0.1", kernel_name).await?;
         let connection_file_path = ci.generate_file_path();
-        let runtime = JupyterRuntime::new(ci, connection_file_path);
-        let mut command = k.command(&runtime.connection_file).await?;
+        let runtime = JupyterRuntime::new(ci, connection_file_path.clone());
 
         // Get the runtime into the map, so that the NotifyWatcher doesn't
         // conflict on insertion
@@ -153,7 +151,7 @@ impl RuntimeManager {
             .write(&runtime.connection_file)
             .await?;
 
-        let child = ChildRuntimeLock::new(command.spawn()?, runtime.id.clone(), self.lock.clone());
+        let child = ChildRuntime::new(k, &runtime, self.lock.clone()).await?;
         self.update_runtime(runtime.id.clone(), child.clone())
             .await?;
 
@@ -161,7 +159,7 @@ impl RuntimeManager {
         Ok(runtime.id)
     }
 
-    async fn update_runtime(&self, id: RuntimeId, child: ChildRuntimeLock) -> Result<()> {
+    async fn update_runtime(&self, id: RuntimeId, child: ChildRuntime) -> Result<()> {
         let mut map = self.lock.write().await;
         if let Some(runtime) = map.get_mut(&id) {
             runtime.child = Some(child);
@@ -176,11 +174,7 @@ impl RuntimeManager {
     /// 3. Start a task to recieve messages and send time to the runtime
     ///
     /// Returns true if the runtime was inserted, false if the runtime was already present
-    async fn insert(
-        &self,
-        runtime: &JupyterRuntime,
-        child: Option<ChildRuntimeLock>,
-    ) -> Result<()> {
+    async fn insert(&self, runtime: &JupyterRuntime, child: Option<ChildRuntime>) -> Result<()> {
         let (mpsc_tx, mut mpsc_rx) = mpsc::channel::<JupyterMessage>(1);
         let (broadcast_tx, _) = broadcast::channel::<JupyterMessage>(1);
 
