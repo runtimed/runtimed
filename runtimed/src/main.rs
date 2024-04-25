@@ -9,6 +9,7 @@ const PORT: u16 = 12397;
 // TODO: Instead of the rwc flag. Actually test if db exists and log if new db is created
 const DB_STRING: &str = "sqlite:runtimed.db?mode=rwc";
 
+mod child_runtime;
 mod db;
 mod instance;
 mod routes;

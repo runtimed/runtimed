@@ -95,11 +95,6 @@ async fn post_runtime_instance(
                 .get(id)
                 .await
                 .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
-            log::info!(
-                "Created new instance (environment {}): {}",
-                payload.environment,
-                instance.runtime.id
-            );
             Ok(Json(instance))
         }
         Err(error) => {
