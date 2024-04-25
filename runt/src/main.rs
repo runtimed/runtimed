@@ -5,6 +5,7 @@ use reqwest_eventsource::{Event, EventSource};
 use runtimelib::jupyter::client::JupyterRuntime;
 use runtimelib::jupyter::client::RuntimeId;
 use runtimelib::jupyter::KernelspecDir;
+use runtimelib::messaging::CodeExecutionOutput;
 use std::collections::HashMap;
 
 use anyhow::Error;
@@ -34,6 +35,8 @@ enum Commands {
     Attach { id: String },
     /// Run code on a specific runtime
     Exec { id: String, code: String },
+    /// Evaluate code on a specific runtime and return output
+    Eval { id: String, code: String },
     /// Get results from a previous execution
     GetResults { id: String },
     /// List available environments (Jupyter kernelspecs)
@@ -55,6 +58,9 @@ async fn main() -> Result<(), Error> {
         }
         Commands::Exec { id, code } => {
             run_code(id, code).await?;
+        }
+        Commands::Eval { id, code } => {
+            eval_code(id, code).await?;
         }
         Commands::GetResults { id } => {
             execution(id).await?;
@@ -151,6 +157,26 @@ async fn run_code(id: String, code: String) -> Result<(), Error> {
     println!("runt get-results {}", response["msg_id"]);
     println!("\nto get the results of the execution.");
 
+    Ok(())
+}
+
+async fn eval_code(id: String, code: String) -> Result<(), Error> {
+    let client = reqwest::Client::new();
+    let response = client
+        .post(format!(
+            "http://127.0.0.1:12397/v0/runtime_instances/{}/eval_code",
+            id,
+        ))
+        .json(&HashMap::from([("code", code)]))
+        .send()
+        .await?
+        .text()
+        .await?;
+
+    // Deserialize the response
+    let response: CodeExecutionOutput = serde_json::from_str(&response)?;
+
+    println!("Execution: {response}\n");
     Ok(())
 }
 

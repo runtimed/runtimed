@@ -20,6 +20,10 @@ mod content;
 
 pub use content::JupyterMessageContent;
 
+mod execution;
+
+pub use execution::CodeExecutionOutput;
+
 pub use content::{
     CompleteReply, CompleteRequest, ExecuteReply, ExecuteRequest, KernelInfoReply,
     KernelInfoRequest, ShutdownRequest,
