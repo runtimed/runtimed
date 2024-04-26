@@ -81,7 +81,7 @@ impl RuntimeManager {
     /// 1. Initializes a `RuntimeManager` with all the runtimes found in the jupyter runtime folder
     /// 2. Sets up a notify watcher of the jupyter runtime diretory to automatically insert new
     ///    runtimes
-    pub async fn new(db: &Pool<Sqlite>, shutdown_tx: Sender<()>) -> Result<RuntimeManager> {
+    pub async fn new(db: &Pool<Sqlite>, shutdown_tx: Option<Sender<()>>) -> Result<RuntimeManager> {
         let manager = RuntimeManager {
             lock: Arc::new(RwLock::new(HashMap::<RuntimeId, RuntimeInstance>::new())),
             db: db.clone(),
@@ -111,17 +111,19 @@ impl RuntimeManager {
 
     /// Establish a signal handler to send a signal to gracefully shutdown the runtimed web server.
     /// There is a 2 second delay to allow child runtimes to be killed and reaped.
-    async fn spawn_daemon_signal_handler(&self, shutdown_tx: Sender<()>) -> Result<()> {
+    async fn spawn_daemon_signal_handler(&self, shutdown_tx: Option<Sender<()>>) -> Result<()> {
         let mut stream = signal(SignalKind::interrupt())?;
 
         tokio::spawn(async move {
             stream.recv().await;
             log::info!("Recieved interrupt signal, shutting down");
             tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-            // Using expect() as we want everything to die anyway
-            shutdown_tx
-                .send(())
-                .expect("Failed to send shutdown signal");
+            if let Some(shutdown_tx) = shutdown_tx {
+                // Using expect() as we want everything to die anyway
+                shutdown_tx
+                    .send(())
+                    .expect("Failed to send shutdown signal");
+            }
         });
         Ok(())
     }
@@ -138,7 +140,7 @@ impl RuntimeManager {
 
     pub async fn new_instance(&self, kernel_name: &String) -> Result<RuntimeId> {
         let k = runtimelib::jupyter::KernelspecDir::new(kernel_name).await?;
-        let ci = ConnectionInfo::new("127.0.0.1", kernel_name).await?;
+        let ci = ConnectionInfo::from_peeking_ports("127.0.0.1", kernel_name).await?;
         let connection_file_path = ci.generate_file_path();
         let runtime = JupyterRuntime::new(ci, connection_file_path.clone());
 
@@ -311,5 +313,41 @@ impl RuntimeManager {
                 Err(err) => log::error!("Could not load runtime {:?}", err),
             };
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    use sqlx::sqlite::SqlitePoolOptions;
+
+    const TESTING_DATABASE_URL: &str = "sqlite:TESTING-runtimed.db?mode=rwc";
+
+    #[tokio::test]
+    async fn hello_world() -> Result<(), Error> {
+        assert_eq!(1, 1);
+
+        let dbpool = SqlitePoolOptions::new()
+            .max_connections(5)
+            .connect(TESTING_DATABASE_URL)
+            .await?;
+
+        let manager = RuntimeManager::new(&dbpool, None).await?;
+
+        let runtime = JupyterRuntime {
+            connection_info: ConnectionInfo::from_peeking_ports("127.0.0.1", "testing").await?,
+            state: "testing".to_string(),
+            id: RuntimeId::new(PathBuf::from("test")),
+            connection_file: PathBuf::from("test"),
+            kernel_info: None,
+        };
+
+        manager.insert(&runtime, None).await.unwrap();
+
+        let fetched_runtime = manager.get(runtime.id).await.unwrap();
+        assert_eq!(fetched_runtime.runtime.id, runtime.id);
+        Ok(())
     }
 }

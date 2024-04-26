@@ -47,7 +47,7 @@ async fn main() -> Result<(), Error> {
     // Channel for graceful shutdown of the server
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
-    let runtimes = runtime_manager::RuntimeManager::new(&dbpool, shutdown_tx).await?;
+    let runtimes = runtime_manager::RuntimeManager::new(&dbpool, Some(shutdown_tx)).await?;
 
     log::debug!("Runtimes initialized");
     let shared_state = state::AppState { dbpool, runtimes };

@@ -41,14 +41,11 @@ pub struct ConnectionInfo {
 }
 
 impl ConnectionInfo {
-    pub async fn new(ip: &str, kernel_name: &String) -> Result<Self> {
+    pub async fn from_peeking_ports(ip: &str, kernel_name: &str) -> Result<Self> {
         let ip = ip.to_string();
         let addr: IpAddr = ip.parse()?;
         let transport: String = "tcp".into(); // TODO: make this configurable?
-        let key: String = Self::jupyter_style_key();
-        let signature_scheme: String = "hmac-sha256".into();
         let ports = Self::peek_ports(addr, 5).await?;
-        let kernel_name = kernel_name.clone();
         Ok(Self {
             ip,
             transport,
@@ -57,9 +54,9 @@ impl ConnectionInfo {
             stdin_port: ports[2],
             control_port: ports[3],
             hb_port: ports[4],
-            key,
-            signature_scheme,
-            kernel_name,
+            key: Self::jupyter_style_key(),
+            signature_scheme: String::from("hmac-sha256"),
+            kernel_name: String::from(kernel_name),
         })
     }
 
@@ -147,7 +144,7 @@ impl ConnectionInfo {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash, Copy)]
 pub struct RuntimeId(pub Uuid);
 
 impl RuntimeId {
