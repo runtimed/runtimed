@@ -161,14 +161,12 @@ async fn post_runtime_instance_eval_code(
     loop {
         match broadcaster.recv().await {
             Ok(output_msg) => {
-                log::debug!("Got output message: {:?}", output_msg);
                 response.add_message(output_msg);
                 if response.is_complete() {
                     break;
                 }
             }
             _ => {
-                log::debug!("Got None");
                 break;
             }
         }
