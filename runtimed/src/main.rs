@@ -9,6 +9,7 @@ const PORT: u16 = 12397;
 // TODO: Instead of the rwc flag. Actually test if db exists and log if new db is created
 const DB_STRING: &str = "sqlite:runtimed.db?mode=rwc";
 
+mod child_runtime;
 mod db;
 mod instance;
 mod routes;
@@ -46,7 +47,7 @@ async fn main() -> Result<(), Error> {
     // Channel for graceful shutdown of the server
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
-    let runtimes = runtime_manager::RuntimeManager::new(&dbpool, shutdown_tx).await?;
+    let runtimes = runtime_manager::RuntimeManager::new(&dbpool, Some(shutdown_tx)).await?;
 
     log::debug!("Runtimes initialized");
     let shared_state = state::AppState { dbpool, runtimes };
