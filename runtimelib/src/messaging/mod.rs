@@ -16,7 +16,7 @@ use serde_json::{json, Value};
 use std::fmt;
 use uuid::Uuid;
 
-mod content;
+pub mod content;
 
 pub use content::JupyterMessageContent;
 
@@ -26,23 +26,46 @@ pub use execution::CodeExecutionOutput;
 
 pub use content::{
     CompleteReply, CompleteRequest, ExecuteReply, ExecuteRequest, KernelInfoReply,
-    KernelInfoRequest, ShutdownRequest,
+    KernelInfoRequest, ShutdownRequest, Status, StdioMsg, StreamContent,
 };
 
-pub(crate) struct Connection<S> {
-    pub(crate) socket: S,
+pub struct Connection<S> {
+    pub socket: S,
     /// Will be None if our key was empty (digest authentication disabled).
-    pub(crate) mac: Option<hmac::Key>,
+    pub mac: Option<hmac::Key>,
 }
 
 impl<S: zeromq::Socket> Connection<S> {
-    pub(crate) fn new(socket: S, key: &str) -> Self {
+    pub fn new(socket: S, key: &str) -> Self {
         let mac = if key.is_empty() {
             None
         } else {
             Some(hmac::Key::new(hmac::HMAC_SHA256, key.as_bytes()))
         };
         Connection { socket, mac }
+    }
+}
+
+impl<S: zeromq::SocketSend> Connection<S> {
+    pub async fn send(&mut self, message: JupyterMessage) -> Result<(), anyhow::Error> {
+        message.send(self).await?;
+        Ok(())
+    }
+}
+
+impl<S: zeromq::SocketRecv> Connection<S> {
+    pub async fn read(&mut self) -> Result<JupyterMessage, anyhow::Error> {
+        JupyterMessage::read(self).await
+    }
+}
+
+impl<S: zeromq::SocketSend + zeromq::SocketRecv> Connection<S> {
+    pub async fn single_hearbeat(&mut self) -> Result<(), anyhow::Error> {
+        self.socket.recv().await?;
+        self.socket
+            .send(zeromq::ZmqMessage::from(b"ping".to_vec()))
+            .await?;
+        Ok(())
     }
 }
 
@@ -215,7 +238,11 @@ impl JupyterMessage {
         }
     }
 
-    pub(crate) async fn send<S: zeromq::SocketSend>(
+    pub fn set_parent(&mut self, parent: JupyterMessage) {
+        self.parent_header = Some(parent.header.clone());
+    }
+
+    pub async fn send<S: zeromq::SocketSend>(
         &self,
         connection: &mut Connection<S>,
     ) -> Result<(), anyhow::Error> {

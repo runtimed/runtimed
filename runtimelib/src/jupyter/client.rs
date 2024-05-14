@@ -1,7 +1,7 @@
 //! Interfacing and connecting with Jupyter kernels
 //!
 //! This module provides structures for understanding the connection information,
-//! existing jupyter runtimes, and a client with zeroMQ sockets to
+//! existing jupyter runtimes, and a client with ZeroMQ sockets to
 //! communicate with the kernels.
 
 use crate::jupyter::dirs;

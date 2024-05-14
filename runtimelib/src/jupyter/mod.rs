@@ -26,9 +26,6 @@ mod tests {
 
             let data_dirs = dirs::data_dirs();
             assert!(!data_dirs.is_empty(), "Data dirs should not be empty");
-
-            // TODO: Test the runtime directory behavior
-            // let runtime_dir = jupyter_dirs::runtime_dir();
         });
     }
 
