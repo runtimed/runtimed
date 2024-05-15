@@ -20,11 +20,11 @@ pub mod content;
 pub use content::JupyterMessageContent;
 // All the content types, which can be turned into a JupyterMessage
 pub use content::{
-    CommClose, CommMsg, CommOpen, CompleteReply, CompleteRequest, DisplayData, ErrorOutput,
-    ExecuteInput, ExecuteReply, ExecuteRequest, ExecuteResult, HistoryReply, HistoryRequest,
-    InputReply, InputRequest, InterruptReply, InterruptRequest, IsCompleteReply, IsCompleteRequest,
-    KernelInfoReply, KernelInfoRequest, ShutdownReply, ShutdownRequest, Status, StreamContent,
-    UpdateDisplayData,
+    CommClose, CommInfoReply, CommInfoRequest, CommMsg, CommOpen, CompleteReply, CompleteRequest,
+    DisplayData, ErrorOutput, ExecuteInput, ExecuteReply, ExecuteRequest, ExecuteResult,
+    HistoryReply, HistoryRequest, InputReply, InputRequest, InterruptReply, InterruptRequest,
+    IsCompleteReply, IsCompleteRequest, KernelInfoReply, KernelInfoRequest, ShutdownReply,
+    ShutdownRequest, Status, StreamContent, UpdateDisplayData,
 };
 
 pub struct Connection<S> {
