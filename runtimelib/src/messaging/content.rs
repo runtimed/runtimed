@@ -300,7 +300,6 @@ pub struct CommOpen {
     pub comm_id: String,
     pub target_name: String,
     pub data: HashMap<String, String>,
-    pub target_module: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
