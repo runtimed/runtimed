@@ -176,13 +176,13 @@ pub struct ExecuteRequest {
 }
 
 pub trait AsChildOf {
-    fn as_child_of(self, parent: JupyterMessage) -> JupyterMessage;
+    fn as_child_of(self, parent: &JupyterMessage) -> JupyterMessage;
 }
 
 macro_rules! impl_as_child_of {
     ($content_type:path, $variant:ident) => {
         impl AsChildOf for $content_type {
-            fn as_child_of(self, parent: JupyterMessage) -> JupyterMessage {
+            fn as_child_of(self, parent: &JupyterMessage) -> JupyterMessage {
                 let mut message = JupyterMessage::new(JupyterMessageContent::$variant(self));
                 message.parent_header = Some(parent.header.clone());
                 message
