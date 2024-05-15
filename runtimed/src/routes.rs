@@ -119,6 +119,7 @@ async fn post_runtime_instance_run_code(
         store_history: true,
         user_expressions: Default::default(),
         allow_stdin: false,
+        stop_on_error: true,
     };
     let message: JupyterMessage = execute_request.into();
 
@@ -149,6 +150,7 @@ async fn post_runtime_instance_eval_code(
         store_history: true,
         user_expressions: Default::default(),
         allow_stdin: false,
+        stop_on_error: true,
     };
     let message: JupyterMessage = execute_request.into();
 

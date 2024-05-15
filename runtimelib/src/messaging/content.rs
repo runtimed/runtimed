@@ -179,9 +179,19 @@ pub struct ExecuteRequest {
     pub code: String,
     pub silent: bool,
     pub store_history: bool,
-    pub user_expressions: HashMap<String, String>,
+    pub user_expressions: Option<HashMap<String, String>>,
+    #[serde(default = "default_allow_stdin")]
     pub allow_stdin: bool,
+    #[serde(default = "default_stop_on_error")]
     pub stop_on_error: bool,
+}
+
+fn default_allow_stdin() -> bool {
+    false
+}
+
+fn default_stop_on_error() -> bool {
+    true
 }
 
 pub trait AsChildOf {
@@ -288,15 +298,22 @@ pub struct StreamContent {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Transient {
+    pub display_id: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DisplayData {
     pub data: MimeBundle,
     pub metadata: HashMap<String, String>,
+    pub transient: Option<Transient>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UpdateDisplayData {
     pub data: MimeBundle,
     pub metadata: HashMap<String, String>,
+    pub transient: Transient,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -310,6 +327,7 @@ pub struct ExecuteResult {
     pub execution_count: usize,
     pub data: MimeBundle,
     pub metadata: HashMap<String, String>,
+    pub transient: Option<Transient>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -464,7 +482,7 @@ mod test {
             code: "print('Hello, World!')".to_string(),
             silent: false,
             store_history: true,
-            user_expressions: HashMap::new(),
+            user_expressions: Some(HashMap::new()),
             allow_stdin: false,
             stop_on_error: true,
         };
@@ -475,7 +493,8 @@ mod test {
             "silent": false,
             "store_history": true,
             "user_expressions": {},
-            "allow_stdin": false
+            "allow_stdin": false,
+            "stop_on_error": true
         });
 
         assert_eq!(request_value, expected_request_value);
