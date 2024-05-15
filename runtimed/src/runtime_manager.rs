@@ -49,10 +49,10 @@ impl RuntimeInstance {
         let mut client = self.runtime.attach().await?;
         log::debug!("Attached to the client");
 
-        let message =
-            JupyterMessage::new(JupyterMessageContent::ShutdownRequest(ShutdownRequest {
-                restart: false,
-            }));
+        let message = JupyterMessage::new(
+            JupyterMessageContent::ShutdownRequest(ShutdownRequest { restart: false }),
+            None,
+        );
         log::debug!("Made a message");
 
         let reply = client.send_control(message).await?;
