@@ -212,8 +212,8 @@ impl JupyterMessage {
         })
     }
 
-    pub(crate) fn message_type(&self) -> &str {
-        &self.header.msg_type
+    pub fn message_type(&self) -> &str {
+        self.content.message_type()
     }
 
     pub fn new(content: JupyterMessageContent) -> JupyterMessage {
