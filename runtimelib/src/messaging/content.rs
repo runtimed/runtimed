@@ -215,7 +215,7 @@ impl_as_child_of!(CompleteReply, CompleteReply);
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteReply {
     pub status: String,
-    pub execution_count: i64,
+    pub execution_count: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -307,7 +307,7 @@ pub struct ExecuteInput {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteResult {
-    pub execution_count: i64,
+    pub execution_count: usize,
     pub data: HashMap<String, String>,
     pub metadata: HashMap<String, String>,
 }
@@ -396,10 +396,10 @@ pub struct HistoryRequest {
     pub output: bool,
     pub raw: bool,
     pub hist_access_type: String,
-    pub session: i64,
-    pub start: i64,
-    pub stop: i64,
-    pub n: i64,
+    pub session: usize,
+    pub start: usize,
+    pub stop: usize,
+    pub n: usize,
     pub pattern: String,
     pub unique: bool,
 }
