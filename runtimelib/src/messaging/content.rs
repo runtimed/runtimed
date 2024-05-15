@@ -20,7 +20,7 @@ pub enum JupyterMessageContent {
     UpdateDisplayData(UpdateDisplayData),
     ExecuteInput(ExecuteInput),
     ExecuteResult(ExecuteResult),
-    ErrorReply(ErrorReply),
+    ErrorOutput(ErrorOutput),
     CommOpen(CommOpen),
     CommMsg(CommMsg),
     CommClose(CommClose),
@@ -51,7 +51,7 @@ impl JupyterMessageContent {
             JupyterMessageContent::UpdateDisplayData(_) => "update_display_data",
             JupyterMessageContent::ExecuteInput(_) => "execute_input",
             JupyterMessageContent::ExecuteResult(_) => "execute_result",
-            JupyterMessageContent::ErrorReply(_) => "error",
+            JupyterMessageContent::ErrorOutput(_) => "error",
             JupyterMessageContent::CommOpen(_) => "comm_open",
             JupyterMessageContent::CommMsg(_) => "comm_msg",
             JupyterMessageContent::CommClose(_) => "comm_close",
@@ -102,7 +102,7 @@ impl JupyterMessageContent {
             "execute_result" => Ok(JupyterMessageContent::ExecuteResult(
                 serde_json::from_value(content)?,
             )),
-            "error" => Ok(JupyterMessageContent::ErrorReply(serde_json::from_value(
+            "error" => Ok(JupyterMessageContent::ErrorOutput(serde_json::from_value(
                 content,
             )?)),
             "comm_open" => Ok(JupyterMessageContent::CommOpen(serde_json::from_value(
@@ -176,13 +176,13 @@ pub struct ExecuteRequest {
 }
 
 pub trait AsChildOf {
-    fn as_child_of(self, parent: JupyterMessage) -> JupyterMessage;
+    fn as_child_of(self, parent: &JupyterMessage) -> JupyterMessage;
 }
 
 macro_rules! impl_as_child_of {
     ($content_type:path, $variant:ident) => {
         impl AsChildOf for $content_type {
-            fn as_child_of(self, parent: JupyterMessage) -> JupyterMessage {
+            fn as_child_of(self, parent: &JupyterMessage) -> JupyterMessage {
                 let mut message = JupyterMessage::new(JupyterMessageContent::$variant(self));
                 message.parent_header = Some(parent.header.clone());
                 message
@@ -206,11 +206,12 @@ impl_as_child_of!(DisplayData, DisplayData);
 impl_as_child_of!(UpdateDisplayData, UpdateDisplayData);
 impl_as_child_of!(ExecuteInput, ExecuteInput);
 impl_as_child_of!(ExecuteResult, ExecuteResult);
-impl_as_child_of!(ErrorReply, ErrorReply);
+impl_as_child_of!(ErrorOutput, ErrorOutput);
 impl_as_child_of!(CommOpen, CommOpen);
 impl_as_child_of!(CommMsg, CommMsg);
 impl_as_child_of!(CommClose, CommClose);
 impl_as_child_of!(CompleteReply, CompleteReply);
+impl_as_child_of!(IsCompleteReply, IsCompleteReply);
 impl_as_child_of!(Status, Status);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -314,7 +315,7 @@ pub struct ExecuteResult {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ErrorReply {
+pub struct ErrorOutput {
     pub ename: String,
     pub evalue: String,
     pub traceback: Vec<String>,

@@ -20,7 +20,7 @@ pub mod content;
 pub use content::JupyterMessageContent;
 // All the content types, which can be turned into a JupyterMessage
 pub use content::{
-    CommClose, CommMsg, CommOpen, CompleteReply, CompleteRequest, DisplayData, ErrorReply,
+    CommClose, CommMsg, CommOpen, CompleteReply, CompleteRequest, DisplayData, ErrorOutput,
     ExecuteInput, ExecuteReply, ExecuteRequest, ExecuteResult, HistoryReply, HistoryRequest,
     InputReply, InputRequest, InterruptReply, InterruptRequest, IsCompleteReply, IsCompleteRequest,
     KernelInfoReply, KernelInfoRequest, ShutdownReply, ShutdownRequest, Status, StreamContent,
@@ -212,8 +212,8 @@ impl JupyterMessage {
         })
     }
 
-    pub(crate) fn message_type(&self) -> &str {
-        &self.header.msg_type
+    pub fn message_type(&self) -> &str {
+        self.content.message_type()
     }
 
     pub fn new(content: JupyterMessageContent) -> JupyterMessage {

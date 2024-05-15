@@ -1,4 +1,4 @@
-use runtimelib::messaging::{ErrorReply, Header, JupyterMessage, JupyterMessageContent};
+use runtimelib::messaging::{ErrorOutput, Header, JupyterMessage, JupyterMessageContent};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, serde:: Serialize, serde::Deserialize)]
@@ -6,7 +6,7 @@ pub struct CodeExecutionOutput {
     pub stdout: String,
     pub stderr: String,
     pub result: HashMap<String, String>,
-    pub error: Option<ErrorReply>,
+    pub error: Option<ErrorOutput>,
     pub header: Header,
     pub start_time: String,
     pub end_time: String,
@@ -44,7 +44,7 @@ impl CodeExecutionOutput {
             JupyterMessageContent::ExecuteResult(execute_result) => {
                 self.result = execute_result.data.clone();
             }
-            JupyterMessageContent::ErrorReply(error) => {
+            JupyterMessageContent::ErrorOutput(error) => {
                 self.error = Some(error);
             }
             _ => {}
