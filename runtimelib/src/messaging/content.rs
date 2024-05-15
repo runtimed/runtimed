@@ -423,8 +423,19 @@ pub struct HistoryRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum HistoryEntry {
+    // When history_request.output is false
+    // (session, line_number, input)
+    Input(usize, usize, String),
+    // When history_request.output is true
+    // (session, line_number, (input, output))
+    InputOutput(usize, usize, (String, String)),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HistoryReply {
-    pub history: Vec<String>,
+    pub history: Vec<HistoryEntry>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
