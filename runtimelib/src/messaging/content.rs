@@ -23,6 +23,8 @@ pub enum JupyterMessageContent {
     CommOpen(CommOpen),
     CommMsg(CommMsg),
     CommClose(CommClose),
+    CommInfoRequest(CommInfoRequest),
+    CommInfoReply(CommInfoReply),
     ShutdownRequest(ShutdownRequest),
     ShutdownReply(ShutdownReply),
     InputRequest(InputRequest),
@@ -54,6 +56,8 @@ impl JupyterMessageContent {
             JupyterMessageContent::CommOpen(_) => "comm_open",
             JupyterMessageContent::CommMsg(_) => "comm_msg",
             JupyterMessageContent::CommClose(_) => "comm_close",
+            JupyterMessageContent::CommInfoRequest(_) => "comm_info_request",
+            JupyterMessageContent::CommInfoReply(_) => "comm_info_reply",
             JupyterMessageContent::ShutdownRequest(_) => "shutdown_request",
             JupyterMessageContent::ShutdownReply(_) => "shutdown_reply",
             JupyterMessageContent::InterruptRequest(_) => "interrupt_request",
@@ -113,7 +117,12 @@ impl JupyterMessageContent {
             "comm_close" => Ok(JupyterMessageContent::CommClose(serde_json::from_value(
                 content,
             )?)),
-
+            "comm_info_request" => Ok(JupyterMessageContent::CommInfoRequest(
+                serde_json::from_value(content)?,
+            )),
+            "comm_info_reply" => Ok(JupyterMessageContent::CommInfoReply(
+                serde_json::from_value(content)?,
+            )),
             "shutdown_request" => Ok(JupyterMessageContent::ShutdownRequest(
                 serde_json::from_value(content)?,
             )),
@@ -207,6 +216,8 @@ impl_as_child_of!(ErrorOutput, ErrorOutput);
 impl_as_child_of!(CommOpen, CommOpen);
 impl_as_child_of!(CommMsg, CommMsg);
 impl_as_child_of!(CommClose, CommClose);
+impl_as_child_of!(CommInfoRequest, CommInfoRequest);
+impl_as_child_of!(CommInfoReply, CommInfoReply);
 impl_as_child_of!(CompleteReply, CompleteReply);
 impl_as_child_of!(IsCompleteReply, IsCompleteReply);
 impl_as_child_of!(InputReply, InputReply);
@@ -306,6 +317,31 @@ pub struct CommOpen {
 pub struct CommMsg {
     pub comm_id: String,
     pub data: HashMap<String, String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CommInfoRequest {
+    pub target_name: String,
+}
+
+#[derive(Eq, Hash, PartialEq, Serialize, Deserialize, Debug, Clone)]
+pub struct CommId(String);
+
+impl From<CommId> for String {
+    fn from(comm_id: CommId) -> Self {
+        comm_id.0
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CommInfo {
+    pub target_name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CommInfoReply {
+    pub status: String,
+    pub comms: HashMap<CommId, CommInfo>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
