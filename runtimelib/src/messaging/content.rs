@@ -235,12 +235,18 @@ pub struct KernelInfoRequest {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KernelInfoReply {
+    #[serde(default = "default_status")]
+    pub status: String,
     pub protocol_version: String,
     pub implementation: String,
     pub implementation_version: String,
     pub language_info: LanguageInfo,
     pub banner: String,
     pub help_links: Vec<HelpLink>,
+}
+
+fn default_status() -> String {
+    "ok".to_string()
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
