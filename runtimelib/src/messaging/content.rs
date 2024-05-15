@@ -211,6 +211,7 @@ impl_as_child_of!(CommOpen, CommOpen);
 impl_as_child_of!(CommMsg, CommMsg);
 impl_as_child_of!(CommClose, CommClose);
 impl_as_child_of!(CompleteReply, CompleteReply);
+impl_as_child_of!(IsCompleteReply, IsCompleteReply);
 impl_as_child_of!(Status, Status);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
