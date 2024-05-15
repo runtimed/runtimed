@@ -295,7 +295,7 @@ pub struct ExecuteInput {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteResult {
     pub execution_count: usize,
-    pub data: HashMap<String, String>,
+    pub data: MimeBundle,
     pub metadata: HashMap<String, String>,
 }
 

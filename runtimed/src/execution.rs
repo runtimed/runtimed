@@ -1,13 +1,13 @@
-use runtimelib::messaging::{
-    content::StdioMsg, ErrorOutput, Header, JupyterMessage, JupyterMessageContent,
+use runtimelib::{
+    media::{MimeBundle, MimeType},
+    messaging::{content::StdioMsg, ErrorOutput, Header, JupyterMessage, JupyterMessageContent},
 };
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, serde:: Serialize, serde::Deserialize)]
 pub struct CodeExecutionOutput {
     pub stdout: String,
     pub stderr: String,
-    pub result: HashMap<String, String>,
+    pub result: MimeBundle,
     pub error: Option<ErrorOutput>,
     pub header: Header,
     pub start_time: String,
@@ -19,7 +19,7 @@ impl CodeExecutionOutput {
         Self {
             stdout: "".to_string(),
             stderr: "".to_string(),
-            result: HashMap::new(),
+            result: Default::default(),
             error: None,
             header,
             start_time: "".to_string(),
@@ -57,11 +57,17 @@ impl CodeExecutionOutput {
 
 impl std::fmt::Display for CodeExecutionOutput {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let result = if let Some((_, content)) = self.result.richest(&[MimeType::Plain]) {
+            content.to_string()
+        } else {
+            "".to_string()
+        };
+
         write!(
             f,
             "CodeExecutionOutput\nexecution id: {}\nstart_time: {}\nend_time: {}\nstdout: {}\nstderr: {}\nresult: {}",
             self.header.msg_id, self.start_time, self.end_time, self.stdout, self.stderr,
-            self.result.get("text/plain").unwrap_or(&"".to_string()),
+            result
         )?;
         match &self.error {
             Some(e) => write!(f, "\nerror: {:#?}", e),
