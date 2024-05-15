@@ -2,6 +2,7 @@ use serde::de::Error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 
 use crate::media::MimeBundle;
 
@@ -27,6 +28,8 @@ pub enum JupyterMessageContent {
     ShutdownReply(ShutdownReply),
     InputRequest(InputRequest),
     InputReply(InputReply),
+    InterruptRequest(InterruptRequest),
+    InterruptReply(InterruptReply),
     CompleteRequest(CompleteRequest),
     CompleteReply(CompleteReply),
     HistoryRequest(HistoryRequest),
@@ -54,6 +57,8 @@ impl JupyterMessageContent {
             JupyterMessageContent::CommClose(_) => "comm_close",
             JupyterMessageContent::ShutdownRequest(_) => "shutdown_request",
             JupyterMessageContent::ShutdownReply(_) => "shutdown_reply",
+            JupyterMessageContent::InterruptRequest(_) => "interrupt_request",
+            JupyterMessageContent::InterruptReply(__) => "interrupt_reply",
             JupyterMessageContent::InputRequest(_) => "input_request",
             JupyterMessageContent::InputReply(_) => "input_reply",
             JupyterMessageContent::CompleteRequest(_) => "complete_request",
@@ -160,6 +165,7 @@ impl JupyterMessageContent {
         }
     }
 }
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteRequest {
     pub code: String,
@@ -169,26 +175,52 @@ pub struct ExecuteRequest {
     pub allow_stdin: bool,
 }
 
-impl From<ExecuteRequest> for JupyterMessage {
-    fn from(req: ExecuteRequest) -> Self {
-        JupyterMessage::new(JupyterMessageContent::ExecuteRequest(req))
-    }
+pub trait AsChildOf {
+    fn as_child_of(self, parent: JupyterMessage) -> JupyterMessage;
 }
+
+macro_rules! impl_as_child_of {
+    ($content_type:path, $variant:ident) => {
+        impl AsChildOf for $content_type {
+            fn as_child_of(self, parent: JupyterMessage) -> JupyterMessage {
+                let mut message = JupyterMessage::new(JupyterMessageContent::$variant(self));
+                message.parent_header = Some(parent.header.clone());
+                message
+            }
+        }
+
+        impl From<$content_type> for JupyterMessage {
+            fn from(content: $content_type) -> Self {
+                JupyterMessage::new(JupyterMessageContent::$variant(content))
+            }
+        }
+    };
+}
+
+impl_as_child_of!(ExecuteRequest, ExecuteRequest);
+impl_as_child_of!(ExecuteReply, ExecuteReply);
+impl_as_child_of!(KernelInfoRequest, KernelInfoRequest);
+impl_as_child_of!(KernelInfoReply, KernelInfoReply);
+impl_as_child_of!(StreamContent, StreamContent);
+impl_as_child_of!(DisplayData, DisplayData);
+impl_as_child_of!(UpdateDisplayData, UpdateDisplayData);
+impl_as_child_of!(ExecuteInput, ExecuteInput);
+impl_as_child_of!(ExecuteResult, ExecuteResult);
+impl_as_child_of!(ErrorReply, ErrorReply);
+impl_as_child_of!(CommOpen, CommOpen);
+impl_as_child_of!(CommMsg, CommMsg);
+impl_as_child_of!(CommClose, CommClose);
+impl_as_child_of!(CompleteReply, CompleteReply);
+impl_as_child_of!(Status, Status);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteReply {
     pub status: String,
-    pub execution_count: i64,
+    pub execution_count: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KernelInfoRequest {}
-
-impl From<KernelInfoRequest> for JupyterMessage {
-    fn from(req: KernelInfoRequest) -> Self {
-        JupyterMessage::new(JupyterMessageContent::KernelInfoRequest(req))
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KernelInfoReply {
@@ -217,10 +249,43 @@ pub struct HelpLink {
     pub url: String,
 }
 
+pub enum StdioMsg {
+    Stdout(String),
+    Stderr(String),
+}
+
+impl Display for StdioMsg {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StdioMsg::Stdout(_) => write!(f, "stdout"),
+            StdioMsg::Stderr(_) => write!(f, "stderr"),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StreamContent {
     pub name: String,
     pub text: String,
+}
+
+impl From<StdioMsg> for JupyterMessage {
+    fn from(req: StdioMsg) -> Self {
+        match req {
+            StdioMsg::Stdout(text) => {
+                JupyterMessage::new(JupyterMessageContent::StreamContent(StreamContent {
+                    name: "stdout".to_string(),
+                    text,
+                }))
+            }
+            StdioMsg::Stderr(text) => {
+                JupyterMessage::new(JupyterMessageContent::StreamContent(StreamContent {
+                    name: "stderr".to_string(),
+                    text,
+                }))
+            }
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -238,12 +303,12 @@ pub struct UpdateDisplayData {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteInput {
     pub code: String,
-    pub execution_count: i64,
+    pub execution_count: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteResult {
-    pub execution_count: i64,
+    pub execution_count: usize,
     pub data: HashMap<String, String>,
     pub metadata: HashMap<String, String>,
 }
@@ -281,6 +346,14 @@ pub struct ShutdownRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InterruptRequest {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InterruptReply {
+    pub status: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShutdownReply {
     pub restart: bool,
     pub status: String,
@@ -300,16 +373,18 @@ pub struct InputReply {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CompleteRequest {
     pub code: String,
-    pub cursor_pos: i64,
+    pub cursor_pos: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CompleteReply {
     pub matches: Vec<String>,
-    pub cursor_start: i64,
-    pub cursor_end: i64,
+    pub cursor_start: usize,
+    pub cursor_end: usize,
     pub metadata: HashMap<String, String>,
 }
+
+//
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct IsCompleteReply {
@@ -322,10 +397,10 @@ pub struct HistoryRequest {
     pub output: bool,
     pub raw: bool,
     pub hist_access_type: String,
-    pub session: i64,
-    pub start: i64,
-    pub stop: i64,
-    pub n: i64,
+    pub session: usize,
+    pub start: usize,
+    pub stop: usize,
+    pub n: usize,
     pub pattern: String,
     pub unique: bool,
 }

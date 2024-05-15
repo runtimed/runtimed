@@ -10,6 +10,7 @@ clap = { version = "4.5.1", features = ["derive"] }
 serde = { version = "1.0.196", features = ["derive"] }
 tokio = { version = "1.36.0", features = ["full"] }
 runtimelib = { path = "../runtimelib" }
+runtimed = { path = "../runtimed" }
 tabled = "0.15.0"
 anyhow = "1.0.80"
 reqwest = { version = "0.11", features = ["json"] }

@@ -1,4 +1,4 @@
-use crate::messaging::{content::ErrorReply, Header, JupyterMessage, JupyterMessageContent};
+use runtimelib::messaging::{ErrorReply, Header, JupyterMessage, JupyterMessageContent};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, serde:: Serialize, serde::Deserialize)]
