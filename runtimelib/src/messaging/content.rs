@@ -244,6 +244,12 @@ pub struct KernelInfoReply {
     pub language_info: LanguageInfo,
     pub banner: String,
     pub help_links: Vec<HelpLink>,
+    #[serde(default = "default_debugger")]
+    pub debugger: bool,
+}
+
+fn default_debugger() -> bool {
+    false
 }
 
 fn default_status() -> String {
@@ -460,6 +466,7 @@ mod test {
             store_history: true,
             user_expressions: HashMap::new(),
             allow_stdin: false,
+            stop_on_error: true,
         };
         let request_value = serde_json::to_value(&request).unwrap();
 
