@@ -2,7 +2,6 @@ use serde::de::Error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 
 use crate::media::MimeBundle;
 
@@ -183,15 +182,13 @@ macro_rules! impl_as_child_of {
     ($content_type:path, $variant:ident) => {
         impl AsChildOf for $content_type {
             fn as_child_of(self, parent: &JupyterMessage) -> JupyterMessage {
-                let mut message = JupyterMessage::new(JupyterMessageContent::$variant(self));
-                message.parent_header = Some(parent.header.clone());
-                message
+                JupyterMessage::new(JupyterMessageContent::$variant(self), Some(parent))
             }
         }
 
         impl From<$content_type> for JupyterMessage {
             fn from(content: $content_type) -> Self {
-                JupyterMessage::new(JupyterMessageContent::$variant(content))
+                JupyterMessage::new(JupyterMessageContent::$variant(content), None)
             }
         }
     };
@@ -212,6 +209,8 @@ impl_as_child_of!(CommMsg, CommMsg);
 impl_as_child_of!(CommClose, CommClose);
 impl_as_child_of!(CompleteReply, CompleteReply);
 impl_as_child_of!(IsCompleteReply, IsCompleteReply);
+impl_as_child_of!(InputReply, InputReply);
+impl_as_child_of!(HistoryReply, HistoryReply);
 impl_as_child_of!(Status, Status);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -250,43 +249,18 @@ pub struct HelpLink {
     pub url: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum StdioMsg {
-    Stdout(String),
-    Stderr(String),
-}
-
-impl Display for StdioMsg {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            StdioMsg::Stdout(_) => write!(f, "stdout"),
-            StdioMsg::Stderr(_) => write!(f, "stderr"),
-        }
-    }
+    #[serde(rename = "stdout")]
+    Stdout,
+    #[serde(rename = "stderr")]
+    Stderr,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StreamContent {
-    pub name: String,
+    pub name: StdioMsg,
     pub text: String,
-}
-
-impl From<StdioMsg> for JupyterMessage {
-    fn from(req: StdioMsg) -> Self {
-        match req {
-            StdioMsg::Stdout(text) => {
-                JupyterMessage::new(JupyterMessageContent::StreamContent(StreamContent {
-                    name: "stdout".to_string(),
-                    text,
-                }))
-            }
-            StdioMsg::Stderr(text) => {
-                JupyterMessage::new(JupyterMessageContent::StreamContent(StreamContent {
-                    name: "stderr".to_string(),
-                    text,
-                }))
-            }
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -397,13 +371,13 @@ pub struct IsCompleteReply {
 pub struct HistoryRequest {
     pub output: bool,
     pub raw: bool,
-    pub hist_access_type: String,
-    pub session: usize,
-    pub start: usize,
-    pub stop: usize,
-    pub n: usize,
-    pub pattern: String,
-    pub unique: bool,
+    pub hist_access_type: String, // This could/should be an enum, which affects the fields below
+    pub session: Option<usize>,
+    pub start: Option<usize>,
+    pub stop: Option<usize>,
+    pub n: Option<usize>,
+    pub pattern: Option<String>,
+    pub unique: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

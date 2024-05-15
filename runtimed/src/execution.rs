@@ -1,4 +1,6 @@
-use runtimelib::messaging::{ErrorOutput, Header, JupyterMessage, JupyterMessageContent};
+use runtimelib::messaging::{
+    content::StdioMsg, ErrorOutput, Header, JupyterMessage, JupyterMessageContent,
+};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, serde:: Serialize, serde::Deserialize)]
@@ -34,13 +36,10 @@ impl CodeExecutionOutput {
                     self.end_time = message.header.date.to_string();
                 }
             }
-            JupyterMessageContent::StreamContent(stream_content) => {
-                if stream_content.name == "stdout" {
-                    self.stdout.push_str(&stream_content.text);
-                } else if stream_content.name == "stderr" {
-                    self.stderr.push_str(&stream_content.text);
-                }
-            }
+            JupyterMessageContent::StreamContent(stream_content) => match stream_content.name {
+                StdioMsg::Stdout => self.stdout.push_str(&stream_content.text),
+                StdioMsg::Stderr => self.stderr.push_str(&stream_content.text),
+            },
             JupyterMessageContent::ExecuteResult(execute_result) => {
                 self.result = execute_result.data.clone();
             }

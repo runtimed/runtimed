@@ -67,6 +67,7 @@ impl<S: zeromq::SocketSend + zeromq::SocketRecv> Connection<S> {
     }
 }
 
+#[derive(Debug)]
 struct RawMessage {
     zmq_identities: Vec<Bytes>,
     jparts: Vec<Bytes>,
@@ -183,7 +184,11 @@ impl JupyterMessage {
 
     fn from_raw_message(raw_message: RawMessage) -> Result<JupyterMessage, anyhow::Error> {
         if raw_message.jparts.len() < 4 {
-            bail!("Insufficient message parts {}", raw_message.jparts.len());
+            // Be explicit with error here
+            return Err(anyhow!(
+                "Insufficient message parts {}",
+                raw_message.jparts.len()
+            ));
         }
 
         let header: Header = serde_json::from_slice(&raw_message.jparts[0])?;
@@ -194,14 +199,20 @@ impl JupyterMessage {
         let content = match content {
             Ok(content) => content,
             Err(err) => {
-                bail!("Error deserializing content: {}", err);
+                return Err(anyhow!(
+                    "Error deserializing content for msg_type `{}`: {}",
+                    &header.msg_type,
+                    err
+                ));
             }
         };
 
-        Ok(JupyterMessage {
+        let parent_header = serde_json::from_slice(&raw_message.jparts[1]).ok();
+
+        let message = JupyterMessage {
             zmq_identities: raw_message.zmq_identities,
             header,
-            parent_header: serde_json::from_slice(&raw_message.jparts[1])?,
+            parent_header,
             metadata: serde_json::from_slice(&raw_message.jparts[2])?,
             content,
             buffers: if raw_message.jparts.len() > 4 {
@@ -209,14 +220,16 @@ impl JupyterMessage {
             } else {
                 vec![]
             },
-        })
+        };
+
+        Ok(message)
     }
 
     pub fn message_type(&self) -> &str {
         self.content.message_type()
     }
 
-    pub fn new(content: JupyterMessageContent) -> JupyterMessage {
+    pub fn new(content: JupyterMessageContent, parent: Option<&JupyterMessage>) -> JupyterMessage {
         let header = Header {
             msg_id: Uuid::new_v4().to_string(),
             username: "runtimelib".to_string(),
@@ -227,9 +240,9 @@ impl JupyterMessage {
         };
 
         JupyterMessage {
-            zmq_identities: Vec::new(),
+            zmq_identities: parent.map_or(Vec::new(), |parent| parent.zmq_identities.clone()),
             header,
-            parent_header: None, // Empty for a new message
+            parent_header: parent.map(|parent| parent.header.clone()),
             metadata: json!({}),
             content,
             buffers: Vec::new(),
