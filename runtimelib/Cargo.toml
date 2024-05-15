@@ -2,6 +2,8 @@
 name = "runtimelib"
 version = "0.2.0"
 edition = "2021"
+description = "Jupyter runtime library"
+license = "BSD-3-Clause"
 
 [dependencies]
 anyhow = "1.0.79"
