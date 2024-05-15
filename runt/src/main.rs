@@ -2,10 +2,10 @@ use clap::Parser;
 use clap::Subcommand;
 use futures::stream::StreamExt;
 use reqwest_eventsource::{Event, EventSource};
+use runtimed::execution::CodeExecutionOutput;
 use runtimelib::jupyter::client::JupyterRuntime;
 use runtimelib::jupyter::client::RuntimeId;
 use runtimelib::jupyter::KernelspecDir;
-use runtimelib::messaging::CodeExecutionOutput;
 use std::collections::HashMap;
 
 use anyhow::Error;
@@ -173,7 +173,6 @@ async fn eval_code(id: String, code: String) -> Result<(), Error> {
         .text()
         .await?;
 
-    // Deserialize the response
     let response: CodeExecutionOutput = serde_json::from_str(&response)?;
 
     println!("Execution: {response}\n");

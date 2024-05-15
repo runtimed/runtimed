@@ -1,3 +1,4 @@
+use crate::execution::CodeExecutionOutput;
 use crate::instance::RuntimeInstanceRunCode;
 use crate::runtime_manager::RuntimeInstance;
 use crate::state::AppState;
@@ -15,7 +16,7 @@ use axum::{
 use futures::stream::Stream;
 use runtimelib::jupyter::client::RuntimeId;
 use runtimelib::jupyter::KernelspecDir;
-use runtimelib::messaging::{CodeExecutionOutput, ExecuteRequest, Header, JupyterMessage};
+use runtimelib::messaging::{ExecuteRequest, Header, JupyterMessage};
 
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt;

@@ -17,16 +17,14 @@ use std::fmt;
 use uuid::Uuid;
 
 pub mod content;
-
 pub use content::JupyterMessageContent;
-
-mod execution;
-
-pub use execution::CodeExecutionOutput;
-
+// All the content types, which can be turned into a JupyterMessage
 pub use content::{
-    CompleteReply, CompleteRequest, ExecuteReply, ExecuteRequest, KernelInfoReply,
-    KernelInfoRequest, ShutdownRequest, Status, StdioMsg, StreamContent,
+    CommClose, CommMsg, CommOpen, CompleteReply, CompleteRequest, DisplayData, ErrorReply,
+    ExecuteInput, ExecuteReply, ExecuteRequest, ExecuteResult, HistoryReply, HistoryRequest,
+    InputReply, InputRequest, InterruptReply, InterruptRequest, IsCompleteReply, IsCompleteRequest,
+    KernelInfoReply, KernelInfoRequest, ShutdownReply, ShutdownRequest, Status, StreamContent,
+    UpdateDisplayData,
 };
 
 pub struct Connection<S> {

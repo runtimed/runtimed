@@ -11,6 +11,7 @@ const DB_STRING: &str = "sqlite:runtimed.db?mode=rwc";
 
 mod child_runtime;
 mod db;
+mod execution;
 mod instance;
 mod routes;
 mod runtime_manager;
