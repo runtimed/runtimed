@@ -181,6 +181,7 @@ pub struct ExecuteRequest {
     pub store_history: bool,
     pub user_expressions: HashMap<String, String>,
     pub allow_stdin: bool,
+    pub stop_on_error: bool,
 }
 
 pub trait AsChildOf {
