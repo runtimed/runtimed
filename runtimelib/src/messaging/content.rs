@@ -211,6 +211,7 @@ impl_as_child_of!(CommOpen, CommOpen);
 impl_as_child_of!(CommMsg, CommMsg);
 impl_as_child_of!(CommClose, CommClose);
 impl_as_child_of!(CompleteReply, CompleteReply);
+impl_as_child_of!(Status, Status);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteReply {
@@ -417,12 +418,6 @@ pub struct IsCompleteRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Status {
     pub execution_state: String,
-}
-
-impl From<Status> for JupyterMessage {
-    fn from(req: Status) -> Self {
-        JupyterMessage::new(JupyterMessageContent::Status(req))
-    }
 }
 
 #[cfg(test)]
