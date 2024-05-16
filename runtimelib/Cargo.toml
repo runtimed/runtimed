@@ -1,6 +1,6 @@
 [package]
 name = "runtimelib"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 description = "Jupyter runtime library"
 license = "BSD-3-Clause"
