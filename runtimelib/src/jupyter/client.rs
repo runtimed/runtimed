@@ -21,7 +21,13 @@ use anyhow::anyhow;
 use anyhow::{Context, Result};
 use std::fmt::{Display, Formatter};
 use std::net::{IpAddr, SocketAddr};
+
+#[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
+
+#[cfg(windows)]
+use std::os::windows::ffi::OsStrExt;
+
 use std::path::PathBuf;
 
 /// Connection information for a Jupyter kernel, as represented in a
@@ -151,7 +157,10 @@ impl RuntimeId {
     pub fn new(connection_file: PathBuf) -> Self {
         Self(Uuid::new_v5(
             &Uuid::NAMESPACE_URL,
+            #[cfg(unix)]
             connection_file.as_os_str().as_bytes(),
+            #[cfg(windows)]
+            connection_file.as_os_str().as_encoded_bytes(),
         ))
     }
 }

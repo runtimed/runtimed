@@ -1,0 +1,29 @@
+name: Build on Windows
+on: push
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+      - run: pip install -r .github/requirements.txt
+      - run: python -m ipykernel install --user --name=python3
+
+      - name: Install Rust
+        run: choco install rust
+
+      - name: Verify Rust installation
+        run: cargo --version
+
+      - name: Build
+        run: cargo build -p runtimelib --verbose
+
+      - name: Run tests
+        run: cargo test -p runtimelib --verbose
+
+      - name: Run Doc Tests
+        run: cargo test -p runtimelib --doc --verbose
