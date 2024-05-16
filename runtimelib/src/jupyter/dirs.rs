@@ -1,28 +1,37 @@
+use anyhow::{Context, Result};
 use dirs::{data_dir, home_dir};
 use serde_json::Value;
 use std::env;
 use std::path::PathBuf;
 use tokio::process::Command;
 
-#[allow(dead_code)]
-pub async fn ask_jupyter() -> Result<Value, Box<dyn std::error::Error>> {
+pub async fn ask_jupyter() -> Result<Value> {
     let output = Command::new("jupyter")
         .args(["--paths", "--json"])
         .output()
-        .await?;
+        .await
+        .context("Failed to execute `jupyter --paths --json` command")?;
 
     if output.status.success() {
-        let paths: Value = serde_json::from_slice(&output.stdout)?;
+        let paths: Value = serde_json::from_slice(&output.stdout)
+            .context("Failed to parse JSON from jupyter output")?;
         Ok(paths)
     } else {
-        Err("Failed to ask Jupyter about its paths".into())
+        Err(anyhow::anyhow!(
+            "Jupyter command failed with status: {:?}",
+            output.status
+        ))
     }
 }
 
-#[allow(dead_code)]
 pub fn system_config_dirs() -> Vec<PathBuf> {
     if cfg!(windows) {
-        vec![PathBuf::from(env::var("PROGRAMDATA").unwrap_or_default()).join("jupyter")]
+        match env::var("PROGRAMDATA") {
+            Err(_) => return vec![],
+            Ok(program_data) => {
+                vec![PathBuf::from(program_data).join("jupyter")]
+            }
+        }
     } else {
         vec![
             PathBuf::from("/usr/local/etc/jupyter"),
@@ -31,25 +40,31 @@ pub fn system_config_dirs() -> Vec<PathBuf> {
     }
 }
 
-#[allow(dead_code)]
 pub fn config_dirs() -> Vec<PathBuf> {
     let mut paths = vec![];
 
     if let Ok(jupyter_config_dir) = env::var("JUPYTER_CONFIG_DIR") {
         paths.push(PathBuf::from(jupyter_config_dir));
     }
+    if let Some(home_dir) = home_dir() {
+        paths.push(home_dir.join(".jupyter"));
+    }
 
-    paths.push(home_dir().unwrap_or_default().join(".jupyter"));
     paths.extend(system_config_dirs());
 
     // TODO: Use the sys.prefix from python and add that to the paths
     paths
 }
 
-#[allow(dead_code)]
 pub fn system_data_dirs() -> Vec<PathBuf> {
     if cfg!(windows) {
-        vec![PathBuf::from(env::var("PROGRAMDATA").unwrap_or_default()).join("jupyter")]
+        match env::var("PROGRAMDATA") {
+            Err(_) => return vec![],
+            Ok(program_data) => {
+                let program_data_dir = PathBuf::from(program_data);
+                return vec![program_data_dir.join("jupyter")];
+            }
+        }
     } else {
         vec![
             PathBuf::from("/usr/local/share/jupyter"),
@@ -58,20 +73,26 @@ pub fn system_data_dirs() -> Vec<PathBuf> {
     }
 }
 
-pub fn user_data_dir() -> PathBuf {
+pub fn user_data_dir() -> Result<PathBuf> {
     if cfg!(target_os = "macos") {
-        home_dir().unwrap_or_default().join("Library/Jupyter")
+        Ok(home_dir()
+            .context("Failed to get home directory")?
+            .join("Library/Jupyter"))
     } else if cfg!(windows) {
-        PathBuf::from(env::var("APPDATA").unwrap_or_default()).join("jupyter")
+        Ok(PathBuf::from(env::var("APPDATA").context("Failed to get APPDATA")?).join("jupyter"))
     } else {
         // TODO: Respect XDG_DATA_HOME if set
-        data_dir()
-            .unwrap_or_else(|| home_dir().unwrap_or_default().join(".local/share"))
-            .join("jupyter")
+        match data_dir() {
+            None => Ok(home_dir()
+                .context("Failed to get home directory")?
+                .join(".local/share")),
+            Some(data_dir) => {
+                return Ok(data_dir.join("jupyter"));
+            }
+        }
     }
 }
 
-#[allow(dead_code)]
 pub fn data_dirs() -> Vec<PathBuf> {
     let mut paths = vec![];
 
@@ -79,7 +100,10 @@ pub fn data_dirs() -> Vec<PathBuf> {
         paths.push(PathBuf::from(jupyter_path));
     }
 
-    paths.push(user_data_dir());
+    if let Ok(user_data_dir) = user_data_dir() {
+        paths.push(user_data_dir);
+    }
+
     paths.extend(system_data_dirs());
 
     // TODO: Use the sys.prefix from python and add that to the paths
@@ -91,7 +115,10 @@ pub fn runtime_dir() -> PathBuf {
         PathBuf::from(jupyter_runtime_dir)
     } else if let Ok(xdg_runtime_dir) = env::var("XDG_RUNTIME_DIR") {
         PathBuf::from(xdg_runtime_dir).join("jupyter")
+    } else if let Ok(user_data_dir) = user_data_dir() {
+        user_data_dir.join("runtime")
     } else {
-        user_data_dir().join("runtime")
+        // Fallback to a temp dir
+        env::temp_dir().join("jupyter").join("runtime")
     }
 }
