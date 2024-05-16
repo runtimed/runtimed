@@ -9,119 +9,143 @@ use super::JupyterMessage;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum JupyterMessageContent {
-    ExecuteRequest(ExecuteRequest),
-    ExecuteReply(ExecuteReply),
-    KernelInfoRequest(KernelInfoRequest),
-    KernelInfoReply(KernelInfoReply),
-    StreamContent(StreamContent),
-    DisplayData(DisplayData),
-    UpdateDisplayData(UpdateDisplayData),
-    ExecuteInput(ExecuteInput),
-    ExecuteResult(ExecuteResult),
-    ErrorOutput(ErrorOutput),
-    CommOpen(CommOpen),
-    CommMsg(CommMsg),
     CommClose(CommClose),
-    CommInfoRequest(CommInfoRequest),
     CommInfoReply(CommInfoReply),
-    ShutdownRequest(ShutdownRequest),
-    ShutdownReply(ShutdownReply),
-    InputRequest(InputRequest),
-    InputReply(InputReply),
-    InterruptRequest(InterruptRequest),
-    InterruptReply(InterruptReply),
-    CompleteRequest(CompleteRequest),
+    CommInfoRequest(CommInfoRequest),
+    CommMsg(CommMsg),
+    CommOpen(CommOpen),
     CompleteReply(CompleteReply),
-    HistoryRequest(HistoryRequest),
+    CompleteRequest(CompleteRequest),
+    DisplayData(DisplayData),
+    ErrorOutput(ErrorOutput),
+    ExecuteInput(ExecuteInput),
+    ExecuteReply(ExecuteReply),
+    ExecuteRequest(ExecuteRequest),
+    ExecuteResult(ExecuteResult),
     HistoryReply(HistoryReply),
-    IsCompleteRequest(IsCompleteRequest),
+    HistoryRequest(HistoryRequest),
+    InputReply(InputReply),
+    InputRequest(InputRequest),
+    InterruptReply(InterruptReply),
+    InterruptRequest(InterruptRequest),
     IsCompleteReply(IsCompleteReply),
+    IsCompleteRequest(IsCompleteRequest),
+    KernelInfoReply(KernelInfoReply),
+    KernelInfoRequest(KernelInfoRequest),
+    ShutdownReply(ShutdownReply),
+    ShutdownRequest(ShutdownRequest),
     Status(Status),
+    StreamContent(StreamContent),
     UnknownMessage(UnknownMessage),
+    UpdateDisplayData(UpdateDisplayData),
 }
 
 impl JupyterMessageContent {
     pub fn message_type(&self) -> &str {
         match self {
-            JupyterMessageContent::ExecuteRequest(_) => "execute_request",
-            JupyterMessageContent::ExecuteReply(_) => "execute_reply",
-            JupyterMessageContent::KernelInfoRequest(_) => "kernel_info_request",
-            JupyterMessageContent::KernelInfoReply(_) => "kernel_info_reply",
-            JupyterMessageContent::StreamContent(_) => "stream",
-            JupyterMessageContent::DisplayData(_) => "display_data",
-            JupyterMessageContent::UpdateDisplayData(_) => "update_display_data",
-            JupyterMessageContent::ExecuteInput(_) => "execute_input",
-            JupyterMessageContent::ExecuteResult(_) => "execute_result",
-            JupyterMessageContent::ErrorOutput(_) => "error",
-            JupyterMessageContent::CommOpen(_) => "comm_open",
-            JupyterMessageContent::CommMsg(_) => "comm_msg",
             JupyterMessageContent::CommClose(_) => "comm_close",
-            JupyterMessageContent::CommInfoRequest(_) => "comm_info_request",
             JupyterMessageContent::CommInfoReply(_) => "comm_info_reply",
-            JupyterMessageContent::ShutdownRequest(_) => "shutdown_request",
-            JupyterMessageContent::ShutdownReply(_) => "shutdown_reply",
-            JupyterMessageContent::InterruptRequest(_) => "interrupt_request",
-            JupyterMessageContent::InterruptReply(__) => "interrupt_reply",
-            JupyterMessageContent::InputRequest(_) => "input_request",
-            JupyterMessageContent::InputReply(_) => "input_reply",
-            JupyterMessageContent::CompleteRequest(_) => "complete_request",
+            JupyterMessageContent::CommInfoRequest(_) => "comm_info_request",
+            JupyterMessageContent::CommMsg(_) => "comm_msg",
+            JupyterMessageContent::CommOpen(_) => "comm_open",
             JupyterMessageContent::CompleteReply(_) => "complete_reply",
-            JupyterMessageContent::HistoryRequest(_) => "history_request",
+            JupyterMessageContent::CompleteRequest(_) => "complete_request",
+            JupyterMessageContent::DisplayData(_) => "display_data",
+            JupyterMessageContent::ErrorOutput(_) => "error",
+            JupyterMessageContent::ExecuteInput(_) => "execute_input",
+            JupyterMessageContent::ExecuteReply(_) => "execute_reply",
+            JupyterMessageContent::ExecuteRequest(_) => "execute_request",
+            JupyterMessageContent::ExecuteResult(_) => "execute_result",
             JupyterMessageContent::HistoryReply(_) => "history_reply",
-            JupyterMessageContent::IsCompleteRequest(_) => "is_complete_request",
+            JupyterMessageContent::HistoryRequest(_) => "history_request",
+            JupyterMessageContent::InputReply(_) => "input_reply",
+            JupyterMessageContent::InputRequest(_) => "input_request",
+            JupyterMessageContent::InterruptReply(__) => "interrupt_reply",
+            JupyterMessageContent::InterruptRequest(_) => "interrupt_request",
             JupyterMessageContent::IsCompleteReply(_) => "is_complete_reply",
+            JupyterMessageContent::IsCompleteRequest(_) => "is_complete_request",
+            JupyterMessageContent::KernelInfoReply(_) => "kernel_info_reply",
+            JupyterMessageContent::KernelInfoRequest(_) => "kernel_info_request",
+            JupyterMessageContent::ShutdownReply(_) => "shutdown_reply",
+            JupyterMessageContent::ShutdownRequest(_) => "shutdown_request",
             JupyterMessageContent::Status(_) => "status",
+            JupyterMessageContent::StreamContent(_) => "stream",
             JupyterMessageContent::UnknownMessage(unk) => unk.msg_type.as_str(),
+            JupyterMessageContent::UpdateDisplayData(_) => "update_display_data",
         }
     }
 
     pub fn from_type_and_content(msg_type: &str, content: Value) -> serde_json::Result<Self> {
         match msg_type {
-            "execute_request" => Ok(JupyterMessageContent::ExecuteRequest(
+            "comm_close" => Ok(JupyterMessageContent::CommClose(serde_json::from_value(
+                content,
+            )?)),
+
+            "comm_info_reply" => Ok(JupyterMessageContent::CommInfoReply(
                 serde_json::from_value(content)?,
             )),
+            "comm_info_request" => Ok(JupyterMessageContent::CommInfoRequest(
+                serde_json::from_value(content)?,
+            )),
+
+            "comm_msg" => Ok(JupyterMessageContent::CommMsg(serde_json::from_value(
+                content,
+            )?)),
+            "comm_open" => Ok(JupyterMessageContent::CommOpen(serde_json::from_value(
+                content,
+            )?)),
+
+            "complete_reply" => Ok(JupyterMessageContent::CompleteReply(
+                serde_json::from_value(content)?,
+            )),
+            "complete_request" => Ok(JupyterMessageContent::CompleteRequest(
+                serde_json::from_value(content)?,
+            )),
+
+            "display_data" => Ok(JupyterMessageContent::DisplayData(serde_json::from_value(
+                content,
+            )?)),
+
+            "error" => Ok(JupyterMessageContent::ErrorOutput(serde_json::from_value(
+                content,
+            )?)),
+
             "execute_input" => Ok(JupyterMessageContent::ExecuteInput(serde_json::from_value(
                 content,
             )?)),
+
             "execute_reply" => Ok(JupyterMessageContent::ExecuteReply(serde_json::from_value(
                 content,
             )?)),
+            "execute_request" => Ok(JupyterMessageContent::ExecuteRequest(
+                serde_json::from_value(content)?,
+            )),
+
+            "execute_result" => Ok(JupyterMessageContent::ExecuteResult(
+                serde_json::from_value(content)?,
+            )),
+
+            "input_request" => Ok(JupyterMessageContent::InputRequest(serde_json::from_value(
+                content,
+            )?)),
+            "input_reply" => Ok(JupyterMessageContent::InputReply(serde_json::from_value(
+                content,
+            )?)),
+
+            "is_complete_request" => Ok(JupyterMessageContent::IsCompleteRequest(
+                serde_json::from_value(content)?,
+            )),
+            "is_complete_reply" => Ok(JupyterMessageContent::IsCompleteReply(
+                serde_json::from_value(content)?,
+            )),
+
             "kernel_info_request" => Ok(JupyterMessageContent::KernelInfoRequest(
                 serde_json::from_value(content)?,
             )),
             "kernel_info_reply" => Ok(JupyterMessageContent::KernelInfoReply(
                 serde_json::from_value(content)?,
             )),
-            "stream" => Ok(JupyterMessageContent::StreamContent(
-                serde_json::from_value(content)?,
-            )),
-            "display_data" => Ok(JupyterMessageContent::DisplayData(serde_json::from_value(
-                content,
-            )?)),
-            "update_display_data" => Ok(JupyterMessageContent::UpdateDisplayData(
-                serde_json::from_value(content)?,
-            )),
-            "execute_result" => Ok(JupyterMessageContent::ExecuteResult(
-                serde_json::from_value(content)?,
-            )),
-            "error" => Ok(JupyterMessageContent::ErrorOutput(serde_json::from_value(
-                content,
-            )?)),
-            "comm_open" => Ok(JupyterMessageContent::CommOpen(serde_json::from_value(
-                content,
-            )?)),
-            "comm_msg" => Ok(JupyterMessageContent::CommMsg(serde_json::from_value(
-                content,
-            )?)),
-            "comm_close" => Ok(JupyterMessageContent::CommClose(serde_json::from_value(
-                content,
-            )?)),
-            "comm_info_request" => Ok(JupyterMessageContent::CommInfoRequest(
-                serde_json::from_value(content)?,
-            )),
-            "comm_info_reply" => Ok(JupyterMessageContent::CommInfoReply(
-                serde_json::from_value(content)?,
-            )),
+
             "shutdown_request" => Ok(JupyterMessageContent::ShutdownRequest(
                 serde_json::from_value(content)?,
             )),
@@ -129,43 +153,22 @@ impl JupyterMessageContent {
                 serde_json::from_value(content)?,
             )),
 
-            "input_request" => Ok(JupyterMessageContent::InputRequest(serde_json::from_value(
-                content,
-            )?)),
-
-            "input_reply" => Ok(JupyterMessageContent::InputReply(serde_json::from_value(
-                content,
-            )?)),
-
-            "complete_request" => Ok(JupyterMessageContent::CompleteRequest(
-                serde_json::from_value(content)?,
-            )),
-
-            "complete_reply" => Ok(JupyterMessageContent::CompleteReply(
-                serde_json::from_value(content)?,
-            )),
-
-            "history_request" => Ok(JupyterMessageContent::HistoryRequest(
-                serde_json::from_value(content)?,
-            )),
-
-            "history_reply" => Ok(JupyterMessageContent::HistoryReply(serde_json::from_value(
-                content,
-            )?)),
-
-            "is_complete_request" => Ok(JupyterMessageContent::IsCompleteRequest(
-                serde_json::from_value(content)?,
-            )),
-
-            "is_complete_reply" => Ok(JupyterMessageContent::IsCompleteReply(
-                serde_json::from_value(content)?,
-            )),
-
             "status" => Ok(JupyterMessageContent::Status(serde_json::from_value(
                 content,
             )?)),
 
-            _ => Ok(JupyterMessageContent::Unknown { msg_type, content }),
+            "stream" => Ok(JupyterMessageContent::StreamContent(
+                serde_json::from_value(content)?,
+            )),
+
+            "update_display_data" => Ok(JupyterMessageContent::UpdateDisplayData(
+                serde_json::from_value(content)?,
+            )),
+
+            _ => Ok(JupyterMessageContent::UnknownMessage(UnknownMessage {
+                msg_type: msg_type.to_string(),
+                content,
+            })),
         }
     }
 }
@@ -197,12 +200,14 @@ pub trait AsChildOf {
 macro_rules! impl_as_child_of {
     ($content_type:path, $variant:ident) => {
         impl AsChildOf for $content_type {
+            #[must_use]
             fn as_child_of(self, parent: &JupyterMessage) -> JupyterMessage {
                 JupyterMessage::new(JupyterMessageContent::$variant(self), Some(parent))
             }
         }
 
         impl From<$content_type> for JupyterMessage {
+            #[must_use]
             fn from(content: $content_type) -> Self {
                 JupyterMessage::new(JupyterMessageContent::$variant(content), None)
             }
@@ -210,27 +215,46 @@ macro_rules! impl_as_child_of {
     };
 }
 
-impl_as_child_of!(ExecuteRequest, ExecuteRequest);
-impl_as_child_of!(ExecuteReply, ExecuteReply);
-impl_as_child_of!(KernelInfoRequest, KernelInfoRequest);
-impl_as_child_of!(KernelInfoReply, KernelInfoReply);
-impl_as_child_of!(StreamContent, StreamContent);
-impl_as_child_of!(DisplayData, DisplayData);
-impl_as_child_of!(UpdateDisplayData, UpdateDisplayData);
-impl_as_child_of!(ExecuteInput, ExecuteInput);
-impl_as_child_of!(ExecuteResult, ExecuteResult);
-impl_as_child_of!(ErrorOutput, ErrorOutput);
-impl_as_child_of!(CommOpen, CommOpen);
-impl_as_child_of!(CommMsg, CommMsg);
 impl_as_child_of!(CommClose, CommClose);
-impl_as_child_of!(CommInfoRequest, CommInfoRequest);
 impl_as_child_of!(CommInfoReply, CommInfoReply);
+impl_as_child_of!(CommInfoRequest, CommInfoRequest);
+impl_as_child_of!(CommMsg, CommMsg);
+impl_as_child_of!(CommOpen, CommOpen);
 impl_as_child_of!(CompleteReply, CompleteReply);
-impl_as_child_of!(IsCompleteReply, IsCompleteReply);
-impl_as_child_of!(InputReply, InputReply);
+impl_as_child_of!(CompleteRequest, CompleteRequest);
+impl_as_child_of!(DisplayData, DisplayData);
+impl_as_child_of!(ErrorOutput, ErrorOutput);
+impl_as_child_of!(ExecuteInput, ExecuteInput);
+impl_as_child_of!(ExecuteReply, ExecuteReply);
+impl_as_child_of!(ExecuteRequest, ExecuteRequest);
+impl_as_child_of!(ExecuteResult, ExecuteResult);
 impl_as_child_of!(HistoryReply, HistoryReply);
+impl_as_child_of!(HistoryRequest, HistoryRequest);
+impl_as_child_of!(InputReply, InputReply);
+impl_as_child_of!(InputRequest, InputRequest);
+impl_as_child_of!(IsCompleteReply, IsCompleteReply);
+impl_as_child_of!(IsCompleteRequest, IsCompleteRequest);
+impl_as_child_of!(KernelInfoReply, KernelInfoReply);
+impl_as_child_of!(KernelInfoRequest, KernelInfoRequest);
+impl_as_child_of!(ShutdownReply, ShutdownReply);
+impl_as_child_of!(ShutdownRequest, ShutdownRequest);
 impl_as_child_of!(Status, Status);
+impl_as_child_of!(StreamContent, StreamContent);
+impl_as_child_of!(UpdateDisplayData, UpdateDisplayData);
 
+/// Unknown message types are a workaround for generically unknown messages.
+///
+/// ```rust
+/// use runtimelib::messaging::{JupyterMessage, JupyterMessageContent, UnknownMessage};
+///
+/// let msg = UnknownMessage {
+///     msg_type: "example_request".to_string(),
+///     content: json!({ "key": "value" }),
+/// };
+///
+/// let reply_msg = msg.reply(json!({ "status": "ok" }));
+/// ```
+///
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UnknownMessage {
     #[serde(skip_serializing, skip_deserializing)]
@@ -240,16 +264,11 @@ pub struct UnknownMessage {
 }
 
 impl UnknownMessage {
-    pub fn reply(&self) -> JupyterMessage {
-        let message_content = JupyterMessageContent::UnknownMessage(UnknownMessage {
+    pub fn reply(&self, content: serde_json::Value) -> JupyterMessageContent {
+        JupyterMessageContent::UnknownMessage(UnknownMessage {
             msg_type: self.msg_type.replace("_request", "_reply"),
-            content: json!({
-                    "status": "ok",
-            }),
-        });
-
-        // Must craft a very raw message
-        JupyterMessage::new(message_content, Some(self))
+            content,
+        })
     }
 }
 
@@ -257,6 +276,9 @@ impl UnknownMessage {
 pub struct ExecuteReply {
     pub status: String,
     pub execution_count: usize,
+
+    pub payload: Option<serde_json::Value>,
+    pub user_expressions: Option<serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
