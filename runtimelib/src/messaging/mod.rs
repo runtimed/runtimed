@@ -58,7 +58,7 @@ impl<S: zeromq::SocketRecv> Connection<S> {
 }
 
 impl<S: zeromq::SocketSend + zeromq::SocketRecv> Connection<S> {
-    pub async fn single_hearbeat(&mut self) -> Result<(), anyhow::Error> {
+    pub async fn single_heartbeat(&mut self) -> Result<(), anyhow::Error> {
         self.socket.recv().await?;
         self.socket
             .send(zeromq::ZmqMessage::from(b"ping".to_vec()))
