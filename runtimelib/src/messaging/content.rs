@@ -341,13 +341,13 @@ pub struct ErrorOutput {
 pub struct CommOpen {
     pub comm_id: String,
     pub target_name: String,
-    pub data: HashMap<String, String>,
+    pub data: HashMap<String, Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommMsg {
     pub comm_id: String,
-    pub data: HashMap<String, String>,
+    pub data: HashMap<String, Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -378,7 +378,7 @@ pub struct CommInfoReply {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommClose {
     pub comm_id: String,
-    pub data: HashMap<String, String>,
+    pub data: HashMap<String, Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
