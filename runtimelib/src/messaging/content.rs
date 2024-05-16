@@ -1,4 +1,3 @@
-use serde::de::Error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -38,6 +37,7 @@ pub enum JupyterMessageContent {
     IsCompleteRequest(IsCompleteRequest),
     IsCompleteReply(IsCompleteReply),
     Status(Status),
+    UnknownMessage(UnknownMessage),
 }
 
 impl JupyterMessageContent {
@@ -71,11 +71,10 @@ impl JupyterMessageContent {
             JupyterMessageContent::IsCompleteRequest(_) => "is_complete_request",
             JupyterMessageContent::IsCompleteReply(_) => "is_complete_reply",
             JupyterMessageContent::Status(_) => "status",
+            JupyterMessageContent::UnknownMessage(unk) => unk.msg_type.as_str(),
         }
     }
-}
 
-impl JupyterMessageContent {
     pub fn from_type_and_content(msg_type: &str, content: Value) -> serde_json::Result<Self> {
         match msg_type {
             "execute_request" => Ok(JupyterMessageContent::ExecuteRequest(
@@ -166,10 +165,7 @@ impl JupyterMessageContent {
                 content,
             )?)),
 
-            _ => Err(serde_json::Error::custom(format!(
-                "Unsupported message type: {}",
-                msg_type
-            ))),
+            _ => Ok(JupyterMessageContent::Unknown { msg_type, content }),
         }
     }
 }
@@ -234,6 +230,28 @@ impl_as_child_of!(IsCompleteReply, IsCompleteReply);
 impl_as_child_of!(InputReply, InputReply);
 impl_as_child_of!(HistoryReply, HistoryReply);
 impl_as_child_of!(Status, Status);
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UnknownMessage {
+    #[serde(skip_serializing, skip_deserializing)]
+    pub msg_type: String,
+    #[serde(flatten)]
+    pub content: Value,
+}
+
+impl UnknownMessage {
+    pub fn reply(&self) -> JupyterMessage {
+        let message_content = JupyterMessageContent::UnknownMessage(UnknownMessage {
+            msg_type: self.msg_type.replace("_request", "_reply"),
+            content: json!({
+                    "status": "ok",
+            }),
+        });
+
+        // Must craft a very raw message
+        JupyterMessage::new(message_content, Some(self))
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteReply {
