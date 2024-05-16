@@ -200,6 +200,23 @@ pub trait AsChildOf {
 macro_rules! impl_as_child_of {
     ($content_type:path, $variant:ident) => {
         impl AsChildOf for $content_type {
+            #[doc = concat!("Create a new `JupyterMessage`, assigning the parent for a `", stringify!($content_type), "` message.\n")]
+            ///
+            /// This method creates a new `JupyterMessage` with the right content, parent header, and zmq identities, making
+            /// it suitable for sending over ZeroMQ.
+            ///
+            /// # Example
+            /// ```
+            /// use runtimelib::messaging::{JupyterMessage, JupyterMessageContent, AsChildOf};
+            ///
+            /// let message = connection.recv().await?;
+            ///
+            #[doc = concat!("let child_message = ", stringify!($content_type), "{\n")]
+            ///   // ...
+            /// }.as_child_of(&message);
+            ///
+            /// connection.send(child_message).await?;
+            /// ```
             #[must_use]
             fn as_child_of(self, parent: &JupyterMessage) -> JupyterMessage {
                 JupyterMessage::new(JupyterMessageContent::$variant(self), Some(parent))
@@ -207,6 +224,9 @@ macro_rules! impl_as_child_of {
         }
 
         impl From<$content_type> for JupyterMessage {
+            #[doc = concat!("Create a new `JupyterMessage` for a `", stringify!($content_type), "`.\n\n")]
+            /// ⚠️ If you use this method, you must set the zmq identities yourself. If you have a message that
+            /// "caused" your message to be sent, use that message with `as_child_of` instead.
             #[must_use]
             fn from(content: $content_type) -> Self {
                 JupyterMessage::new(JupyterMessageContent::$variant(content), None)
@@ -324,24 +344,101 @@ pub struct HelpLink {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum StdioMsg {
+pub enum Stdio {
     #[serde(rename = "stdout")]
     Stdout,
     #[serde(rename = "stderr")]
     Stderr,
 }
 
+/// A `'stream'` message on the `'iopub'` channel.
+///
+/// See [Streams](https://jupyter-client.readthedocs.io/en/latest/messaging.html#streams-stdout-stderr-etc).
+///
+/// ## Example
+/// The UI/client sends an `'execute_request'` message to the kernel.
+///
+/// ```rust
+/// use runtimelib::messaging::{ExecuteReqeuest};
+/// // From the UI
+///
+/// let execute_request = ExecuteRequest {
+///     code: "print('Hello, World!')".to_string(),
+///     silent: false,
+///     store_history: true,
+///     user_expressions: None,
+///     allow_stdin: false,
+///     stop_on_error: true,
+/// };
+/// connection.send(execute_request).await?;
+/// ```
+///
+/// As a side effect of execution, the kenel can send `'stream'` messages to the UI/client.
+/// These are from using `print()`, `console.log()`, or similar. Anything on STDOUT or STDERR.
+///
+/// ```rust
+/// let execute_request = shell.read().await?; // Should be the execute_request
+///
+/// let message = StreamContent(Stdio::Stdout).child_of(execute_request);
+/// iopub.send(message).await?;
+///
+/// ```
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StreamContent {
-    pub name: StdioMsg,
+    pub name: Stdio,
     pub text: String,
 }
 
+/// Optional metadata for a display data to allow for updating an output.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Transient {
     pub display_id: Option<String>,
 }
 
+/// A `'display_data'` message on the `'iopub'` channel.
+///
+/// See [Display Data](https://jupyter-client.readthedocs.io/en/latest/messaging.html#display-data).
+///
+/// ## Example
+///
+/// The UI/client sends an `'execute_request'` message to the kernel.
+///
+/// ```rust
+/// use runtimelib::messaging::{ExecuteReqeuest};
+///
+/// let execute_request = ExecuteRequest {
+///     code: "print('Hello, World!')".to_string(),
+///     silent: false,
+///     store_history: true,
+///     user_expressions: None,
+///     allow_stdin: false,
+///     stop_on_error: true,
+/// };
+/// connection.send(execute_request).await?;
+/// ```
+///
+/// As a side effect of execution, the kenel can send `'display_data'` messages to the UI/client.
+///
+/// ```rust
+/// use runtimelib::media::{MimeBundle, MimeType, DisplayData};
+///
+/// let execute_request = shell.read().await?; // Should be the execute_request
+///
+/// let raw = r#"{
+///     "text/plain": "Hello, world!",
+///     "text/html": "<h1>Hello, world!</h1>",
+/// }"#;
+///
+/// let bundle: MimeBundle = serde_json::from_str(raw).unwrap();
+///
+/// let message = DisplayData{
+///    data: bundle,
+///    metadata: Default::default(),
+///    transient: None,
+/// }.child_of(execute_request);
+/// iopub.send(message).await?;
+///
+/// ```
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DisplayData {
     pub data: MimeBundle,
@@ -349,6 +446,8 @@ pub struct DisplayData {
     pub transient: Option<Transient>,
 }
 
+/// A `'update_display_data'` message on the `'iopub'` channel.
+/// See [Update Display Data](https://jupyter-client.readthedocs.io/en/latest/messaging.html#update-display-data).
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UpdateDisplayData {
     pub data: MimeBundle,
@@ -356,12 +455,40 @@ pub struct UpdateDisplayData {
     pub transient: Transient,
 }
 
+/// An `'execute_input'` message on the `'iopub'` channel.
+/// See [Execute Input](https://jupyter-client.readthedocs.io/en/latest/messaging.html#execute-input).
+///
+/// To let all frontends know what code is being executed at any given time, these messages contain a re-broadcast of the code portion of an execute_request, along with the execution_count.
+///
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteInput {
     pub code: String,
     pub execution_count: usize,
 }
 
+/// An `'execute_result'` message on the `'iopub'` channel.
+/// See [Execute Result](https://jupyter-client.readthedocs.io/en/latest/messaging.html#execute-result).
+///
+/// The is the "result", in the REPL sense from execution. As an example, the following Python code:
+///
+/// ```python
+/// >>> 3 + 4
+/// 7
+/// ```
+///
+/// would have an `'execute_result'` message with the following content:
+///
+/// ```json
+/// {
+///     "execution_count": 1,
+///     "data": {
+///         "text/plain": "7"
+///     },
+///     "metadata": {},
+///     "transient": {}
+/// }
+/// ```
+///
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteResult {
     pub execution_count: usize,
@@ -370,6 +497,11 @@ pub struct ExecuteResult {
     pub transient: Option<Transient>,
 }
 
+/// An `'error'` message on the `'iopub'` channel.
+/// See [Error](https://jupyter-client.readthedocs.io/en/latest/messaging.html#execution-errors).
+///
+/// These are errors that occur during execution from user code. Syntax errors, runtime errors, etc.
+///
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ErrorOutput {
     pub ename: String,
@@ -377,6 +509,33 @@ pub struct ErrorOutput {
     pub traceback: Vec<String>,
 }
 
+/// A `'comm_open'` message on the `'iopub'` channel.
+///
+/// See [Comm Open](https://jupyter-client.readthedocs.io/en/latest/messaging.html#opening-a-comm).
+///
+/// Comm messages are one-way communications to update comm state, used for
+/// synchronizing widget state, or simply requesting actions of a comm’s
+/// counterpart.
+///
+/// Opening a Comm produces a `comm_open` message, to be sent to the other side:
+///
+/// ```json
+/// {
+///   "comm_id": "u-u-i-d",
+///   "target_name": "my_comm",
+///   "data": {}
+/// }
+/// ```
+///
+/// Every Comm has an ID and a target name. The code handling the message on
+/// the receiving side is responsible for maintaining a mapping of target_name
+/// keys to constructors. After a `comm_open` message has been sent, there
+/// should be a corresponding Comm instance on both sides. The data key is
+/// always a object with any extra JSON information used in initialization of
+/// the comm.
+///
+/// If the `target_name` key is not found on the receiving side, then it should
+/// immediately reply with a `comm_close` message to avoid an inconsistent state.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommOpen {
     pub comm_id: String,
@@ -384,6 +543,24 @@ pub struct CommOpen {
     pub data: HashMap<String, Value>,
 }
 
+/// A `comm_msg` message on the `'iopub'` channel.
+///
+/// Comm messages are one-way communications to update comm state, used for
+/// synchronizing widget state, or simply requesting actions of a comm’s
+/// counterpart.
+///
+/// Essentially, each comm pair defines their own message specification
+/// implemented inside the data object.
+///
+/// There are no expected replies.
+///
+/// ```json
+/// {
+///   "comm_id": "u-u-i-d",
+///   "data": {}
+/// }
+/// ```
+///
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommMsg {
     pub comm_id: String,
@@ -415,6 +592,10 @@ pub struct CommInfoReply {
     pub comms: HashMap<CommId, CommInfo>,
 }
 
+/// A `comm_close` message on the `'iopub'` channel.
+///
+/// Since comms live on both sides, when a comm is destroyed the other side must
+/// be notified. This is done with a comm_close message.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommClose {
     pub comm_id: String,
@@ -464,8 +645,6 @@ pub struct CompleteReply {
     pub cursor_end: usize,
     pub metadata: HashMap<String, String>,
 }
-
-//
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct IsCompleteReply {
