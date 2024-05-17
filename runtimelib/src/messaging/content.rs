@@ -206,7 +206,7 @@ macro_rules! impl_as_child_of {
             /// it suitable for sending over ZeroMQ.
             ///
             /// # Example
-            /// ```
+            /// ```ignore
             /// use runtimelib::messaging::{JupyterMessage, JupyterMessageContent, AsChildOf};
             ///
             /// let message = connection.recv().await?;
