@@ -394,6 +394,22 @@ pub struct StreamContent {
     pub text: String,
 }
 
+impl StreamContent {
+    pub fn stdout(text: String) -> Self {
+        Self {
+            name: Stdio::Stdout,
+            text,
+        }
+    }
+
+    pub fn stderr(text: String) -> Self {
+        Self {
+            name: Stdio::Stderr,
+            text,
+        }
+    }
+}
+
 /// Optional metadata for a display data to allow for updating an output.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Transient {
@@ -692,21 +708,37 @@ pub struct IsCompleteRequest {
     pub code: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ExecutionState {
+    Busy,
+    Idle,
+}
+
+impl ExecutionState {
+    pub fn as_str(&self) -> &str {
+        match self {
+            ExecutionState::Busy => "busy",
+            ExecutionState::Idle => "idle",
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Status {
-    pub execution_state: String,
+    pub execution_state: ExecutionState,
 }
 
 impl Status {
     pub fn busy() -> Self {
         Self {
-            execution_state: "busy".to_string(),
+            execution_state: ExecutionState::Busy,
         }
     }
 
     pub fn idle() -> Self {
         Self {
-            execution_state: "idle".to_string(),
+            execution_state: ExecutionState::Idle,
         }
     }
 }
