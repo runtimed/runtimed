@@ -664,6 +664,15 @@ pub struct InterruptReply {
     pub error: Option<ReplyError>,
 }
 
+impl InterruptReply {
+    pub fn new() -> Self {
+        Self {
+            status: ReplyStatus::Ok,
+            error: None,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShutdownReply {
     pub restart: bool,
@@ -683,6 +692,7 @@ pub struct InputRequest {
 pub struct InputReply {
     pub value: String,
 
+    pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<ReplyError>,
 }
@@ -700,6 +710,7 @@ pub struct CompleteReply {
     pub cursor_end: usize,
     pub metadata: HashMap<String, String>,
 
+    pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<ReplyError>,
 }
@@ -783,8 +794,19 @@ pub enum HistoryEntry {
 pub struct HistoryReply {
     pub history: Vec<HistoryEntry>,
 
+    pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<ReplyError>,
+}
+
+impl HistoryReply {
+    pub fn new(history: Vec<HistoryEntry>) -> Self {
+        Self {
+            history,
+            status: ReplyStatus::Ok,
+            error: None,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
