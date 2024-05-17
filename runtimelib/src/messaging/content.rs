@@ -667,10 +667,52 @@ pub struct CompleteReply {
     pub metadata: HashMap<String, String>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum IsCompleteReplyStatus {
+    /// The code is incomplete, and the frontend should prompt the user for more
+    /// input.
+    Incomplete,
+    /// The code is ready to be executed.
+    Complete,
+    /// The code is invalid, yet can be sent for execution to see a syntax error.
+    Invalid,
+    /// The kernel is unable to determine status. The frontend should also
+    /// handle the kernel not replying promptly. It may default to sending the
+    /// code for execution, or it may implement simple fallback heuristics for
+    /// whether to execute the code (e.g. execute after a blank line).
+    Unknown,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct IsCompleteReply {
-    pub status: String,
+    pub status: IsCompleteReplyStatus,
+    /// If status is 'incomplete', indent should contain the characters to use
+    /// to indent the next line. This is only a hint: frontends may ignore it
+    /// and use their own autoindentation rules. For other statuses, this
+    /// field does not exist.
     pub indent: String,
+}
+
+impl IsCompleteReply {
+    pub fn new(status: IsCompleteReplyStatus, indent: String) -> Self {
+        Self { status, indent }
+    }
+
+    pub fn incomplete(indent: String) -> Self {
+        Self::new(IsCompleteReplyStatus::Incomplete, indent)
+    }
+
+    pub fn complete() -> Self {
+        Self::new(IsCompleteReplyStatus::Complete, String::new())
+    }
+
+    pub fn invalid() -> Self {
+        Self::new(IsCompleteReplyStatus::Invalid, String::new())
+    }
+
+    pub fn unknown() -> Self {
+        Self::new(IsCompleteReplyStatus::Unknown, String::new())
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
