@@ -293,13 +293,32 @@ impl UnknownMessage {
     }
 }
 
+/// All reply messages have a `status` field.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ReplyStatus {
+    Ok,
+    Error,
+    Aborted,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ReplyError {
+    pub ename: String,
+    pub evalue: String,
+    pub traceback: Vec<String>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteReply {
-    pub status: String,
+    pub status: ReplyStatus,
     pub execution_count: usize,
 
     pub payload: Option<serde_json::Value>,
     pub user_expressions: Option<serde_json::Value>,
+
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub error: Option<ReplyError>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -308,7 +327,7 @@ pub struct KernelInfoRequest {}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KernelInfoReply {
     #[serde(default = "default_status")]
-    pub status: String,
+    pub status: ReplyStatus,
     pub protocol_version: String,
     pub implementation: String,
     pub implementation_version: String,
@@ -317,14 +336,17 @@ pub struct KernelInfoReply {
     pub help_links: Vec<HelpLink>,
     #[serde(default = "default_debugger")]
     pub debugger: bool,
+
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub error: Option<ReplyError>,
 }
 
 fn default_debugger() -> bool {
     false
 }
 
-fn default_status() -> String {
-    "ok".to_string()
+fn default_status() -> ReplyStatus {
+    ReplyStatus::Ok
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -609,8 +631,11 @@ pub struct CommInfo {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommInfoReply {
-    pub status: String,
+    pub status: ReplyStatus,
     pub comms: HashMap<CommId, CommInfo>,
+
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub error: Option<ReplyError>,
 }
 
 /// A `comm_close` message on the `'iopub'` channel.
@@ -633,13 +658,19 @@ pub struct InterruptRequest {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InterruptReply {
-    pub status: String,
+    pub status: ReplyStatus,
+
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub error: Option<ReplyError>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShutdownReply {
     pub restart: bool,
-    pub status: String,
+    pub status: ReplyStatus,
+
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub error: Option<ReplyError>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -651,6 +682,9 @@ pub struct InputRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InputReply {
     pub value: String,
+
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub error: Option<ReplyError>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -665,6 +699,9 @@ pub struct CompleteReply {
     pub cursor_start: usize,
     pub cursor_end: usize,
     pub metadata: HashMap<String, String>,
+
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub error: Option<ReplyError>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -685,6 +722,8 @@ pub enum IsCompleteReplyStatus {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct IsCompleteReply {
+    /// Unlike other reply messages, the status is unique to this message, using `IsCompleteReplyStatus`
+    /// instead of `ReplyStatus`.
     pub status: IsCompleteReplyStatus,
     /// If status is 'incomplete', indent should contain the characters to use
     /// to indent the next line. This is only a hint: frontends may ignore it
@@ -743,6 +782,9 @@ pub enum HistoryEntry {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HistoryReply {
     pub history: Vec<HistoryEntry>,
+
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub error: Option<ReplyError>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
