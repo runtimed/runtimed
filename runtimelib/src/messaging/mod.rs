@@ -16,6 +16,8 @@ use serde_json::{json, Value};
 use std::fmt;
 use uuid::Uuid;
 
+mod time;
+
 pub mod content;
 pub use content::JupyterMessageContent;
 // All the content types, which can be turned into a JupyterMessage
@@ -234,7 +236,7 @@ impl JupyterMessage {
             msg_id: Uuid::new_v4().to_string(),
             username: "runtimelib".to_string(),
             session: Uuid::new_v4().to_string(),
-            date: Utc::now(),
+            date: time::utc_now(),
             msg_type: content.message_type().to_owned(),
             version: "5.3".to_string(),
         };
