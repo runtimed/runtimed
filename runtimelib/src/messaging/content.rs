@@ -697,6 +697,20 @@ pub struct Status {
     pub execution_state: String,
 }
 
+impl Status {
+    pub fn busy() -> Self {
+        Self {
+            execution_state: "busy".to_string(),
+        }
+    }
+
+    pub fn idle() -> Self {
+        Self {
+            execution_state: "idle".to_string(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
