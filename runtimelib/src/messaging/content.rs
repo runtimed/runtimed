@@ -26,6 +26,8 @@ pub enum JupyterMessageContent {
     HistoryRequest(HistoryRequest),
     InputReply(InputReply),
     InputRequest(InputRequest),
+    InspectReply(InspectReply),
+    InspectRequest(InspectRequest),
     InterruptReply(InterruptReply),
     InterruptRequest(InterruptRequest),
     IsCompleteReply(IsCompleteReply),
@@ -60,6 +62,8 @@ impl JupyterMessageContent {
             JupyterMessageContent::HistoryRequest(_) => "history_request",
             JupyterMessageContent::InputReply(_) => "input_reply",
             JupyterMessageContent::InputRequest(_) => "input_request",
+            JupyterMessageContent::InspectReply(_) => "inspect_reply",
+            JupyterMessageContent::InspectRequest(_) => "inspect_request",
             JupyterMessageContent::InterruptReply(__) => "interrupt_reply",
             JupyterMessageContent::InterruptRequest(_) => "interrupt_request",
             JupyterMessageContent::IsCompleteReply(_) => "is_complete_reply",
@@ -125,12 +129,19 @@ impl JupyterMessageContent {
                 serde_json::from_value(content)?,
             )),
 
-            "input_request" => Ok(JupyterMessageContent::InputRequest(serde_json::from_value(
-                content,
-            )?)),
             "input_reply" => Ok(JupyterMessageContent::InputReply(serde_json::from_value(
                 content,
             )?)),
+            "input_request" => Ok(JupyterMessageContent::InputRequest(serde_json::from_value(
+                content,
+            )?)),
+
+            "inspect_reply" => Ok(JupyterMessageContent::InspectReply(serde_json::from_value(
+                content,
+            )?)),
+            "inspect_request" => Ok(JupyterMessageContent::InspectRequest(
+                serde_json::from_value(content)?,
+            )),
 
             "is_complete_request" => Ok(JupyterMessageContent::IsCompleteRequest(
                 serde_json::from_value(content)?,
@@ -252,6 +263,8 @@ impl_as_child_of!(HistoryReply, HistoryReply);
 impl_as_child_of!(HistoryRequest, HistoryRequest);
 impl_as_child_of!(InputReply, InputReply);
 impl_as_child_of!(InputRequest, InputRequest);
+impl_as_child_of!(InspectReply, InspectReply);
+impl_as_child_of!(InspectRequest, InspectRequest);
 impl_as_child_of!(IsCompleteReply, IsCompleteReply);
 impl_as_child_of!(IsCompleteRequest, IsCompleteRequest);
 impl_as_child_of!(KernelInfoReply, KernelInfoReply);
@@ -485,7 +498,7 @@ pub struct Transient {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DisplayData {
     pub data: MimeBundle,
-    pub metadata: HashMap<String, String>,
+    pub metadata: HashMap<String, Value>,
     pub transient: Option<Transient>,
 }
 
@@ -494,7 +507,7 @@ pub struct DisplayData {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UpdateDisplayData {
     pub data: MimeBundle,
-    pub metadata: HashMap<String, String>,
+    pub metadata: HashMap<String, Value>,
     pub transient: Transient,
 }
 
@@ -536,7 +549,7 @@ pub struct ExecuteInput {
 pub struct ExecuteResult {
     pub execution_count: usize,
     pub data: MimeBundle,
-    pub metadata: HashMap<String, String>,
+    pub metadata: HashMap<String, Value>,
     pub transient: Option<Transient>,
 }
 
@@ -697,6 +710,36 @@ pub struct InputReply {
     pub error: Option<ReplyError>,
 }
 
+/// A `'inspect_request'` message on the `'shell'` channel.
+///
+/// Code can be inspected to show useful information to the user.
+/// It is up to the Kernel to decide what information should be displayed, and its formatting.
+///
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InspectRequest {
+    /// The code context in which introspection is requested
+    /// this may be up to an entire multiline cell.
+    pub code: String,
+    /// The cursor position within 'code' (in unicode characters) where inspection is requested
+    pub cursor_pos: usize,
+    /// The level of detail desired.  In IPython, the default (0) is equivalent to typing
+    /// 'x?' at the prompt, 1 is equivalent to 'x??'.
+    /// The difference is up to kernels, but in IPython level 1 includes the source code
+    /// if available.
+    pub detail_level: Option<usize>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InspectReply {
+    pub found: bool,
+    pub data: MimeBundle,
+    pub metadata: HashMap<String, Value>,
+
+    pub status: ReplyStatus,
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub error: Option<ReplyError>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CompleteRequest {
     pub code: String,
@@ -708,7 +751,7 @@ pub struct CompleteReply {
     pub matches: Vec<String>,
     pub cursor_start: usize,
     pub cursor_end: usize,
-    pub metadata: HashMap<String, String>,
+    pub metadata: HashMap<String, Value>,
 
     pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
