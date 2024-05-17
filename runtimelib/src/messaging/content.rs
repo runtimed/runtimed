@@ -16,6 +16,8 @@ pub enum JupyterMessageContent {
     CommOpen(CommOpen),
     CompleteReply(CompleteReply),
     CompleteRequest(CompleteRequest),
+    DebugReply(DebugReply),
+    DebugRequest(DebugRequest),
     DisplayData(DisplayData),
     ErrorOutput(ErrorOutput),
     ExecuteInput(ExecuteInput),
@@ -52,6 +54,8 @@ impl JupyterMessageContent {
             JupyterMessageContent::CommOpen(_) => "comm_open",
             JupyterMessageContent::CompleteReply(_) => "complete_reply",
             JupyterMessageContent::CompleteRequest(_) => "complete_request",
+            JupyterMessageContent::DebugReply(_) => "debug_reply",
+            JupyterMessageContent::DebugRequest(_) => "debug_request",
             JupyterMessageContent::DisplayData(_) => "display_data",
             JupyterMessageContent::ErrorOutput(_) => "error",
             JupyterMessageContent::ExecuteInput(_) => "execute_input",
@@ -105,6 +109,13 @@ impl JupyterMessageContent {
             "complete_request" => Ok(JupyterMessageContent::CompleteRequest(
                 serde_json::from_value(content)?,
             )),
+
+            "debug_reply" => Ok(JupyterMessageContent::DebugReply(serde_json::from_value(
+                content,
+            )?)),
+            "debug_request" => Ok(JupyterMessageContent::DebugRequest(serde_json::from_value(
+                content,
+            )?)),
 
             "display_data" => Ok(JupyterMessageContent::DisplayData(serde_json::from_value(
                 content,
@@ -253,6 +264,8 @@ impl_as_child_of!(CommMsg, CommMsg);
 impl_as_child_of!(CommOpen, CommOpen);
 impl_as_child_of!(CompleteReply, CompleteReply);
 impl_as_child_of!(CompleteRequest, CompleteRequest);
+impl_as_child_of!(DebugReply, DebugReply);
+impl_as_child_of!(DebugRequest, DebugRequest);
 impl_as_child_of!(DisplayData, DisplayData);
 impl_as_child_of!(ErrorOutput, ErrorOutput);
 impl_as_child_of!(ExecuteInput, ExecuteInput);
@@ -756,6 +769,18 @@ pub struct CompleteReply {
     pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<ReplyError>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DebugRequest {
+    #[serde(flatten)]
+    pub content: Value,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DebugReply {
+    #[serde(flatten)]
+    pub content: Value,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
