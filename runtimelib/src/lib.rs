@@ -1,11 +1,10 @@
 pub mod jupyter;
-use crate::jupyter::client;
-use crate::jupyter::dirs;
-use crate::jupyter::discovery;
-
+pub mod media;
 pub mod messaging;
 
-pub mod media;
+pub use jupyter::*;
+pub use media::*;
+pub use messaging::*;
 
 use anyhow::anyhow;
 use anyhow::Error;
