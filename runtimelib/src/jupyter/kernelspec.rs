@@ -20,17 +20,16 @@ pub struct KernelspecDir {
 /// Contents of a Jupyter JSON kernelspec file
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct JupyterKernelspec {
+    /// argv must contain `{connection_file}` to be replaced by the client launching the kernel
+    /// For example, `["python3", "-m", "ipykernel_launcher", "-f", "{connection_file}"]`
     #[serde(default)]
     pub argv: Vec<String>,
     pub display_name: String,
     pub language: String,
-    pub metadata: Option<Value>,
+    pub metadata: Option<HashMap<String, Value>>,
     pub interrupt_mode: Option<String>,
     pub env: Option<HashMap<String, String>>,
 }
-
-///
-//type KernelProcHnd = JoinHandle<Result<ExitStatus, std::io::Error>>;
 
 impl KernelspecDir {
     pub async fn new(kernel_name: &String) -> Result<KernelspecDir> {

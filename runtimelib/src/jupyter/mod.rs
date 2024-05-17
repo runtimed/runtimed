@@ -6,6 +6,9 @@ pub mod kernelspec;
 pub use kernelspec::list_kernelspecs;
 pub use kernelspec::KernelspecDir;
 
+pub use client::*;
+pub use kernelspec::*;
+
 #[cfg(test)]
 mod tests {
     use super::*;

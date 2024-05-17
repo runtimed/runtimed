@@ -30,6 +30,30 @@ use std::os::windows::ffi::OsStrExt;
 
 use std::path::PathBuf;
 
+type KernelIoPubSocket = zeromq::PubSocket;
+type KernelShellSocket = zeromq::RouterSocket;
+type KernelControlSocket = zeromq::RouterSocket;
+type KernelStdinSocket = zeromq::RouterSocket;
+type KernelHeartbeatSocket = zeromq::RepSocket;
+
+type ClientIoPubSocket = zeromq::SubSocket;
+type ClientShellSocket = zeromq::DealerSocket;
+type ClientControlSocket = zeromq::DealerSocket;
+type ClientStdinSocket = zeromq::DealerSocket;
+type ClientHeartbeatSocket = zeromq::ReqSocket;
+
+pub type KernelIoPubConnection = Connection<KernelIoPubSocket>;
+pub type KernelShellConnection = Connection<KernelShellSocket>;
+pub type KernelControlConnection = Connection<KernelControlSocket>;
+pub type KernelStdinConnection = Connection<KernelStdinSocket>;
+pub type KernelHeartbeatConnection = Connection<KernelHeartbeatSocket>;
+
+pub type ClientIoPubConnection = Connection<ClientIoPubSocket>;
+pub type ClientShellConnection = Connection<ClientShellSocket>;
+pub type ClientControlConnection = Connection<ClientControlSocket>;
+pub type ClientStdinConnection = Connection<ClientStdinSocket>;
+pub type ClientHeartbeatConnection = Connection<ClientHeartbeatSocket>;
+
 /// Connection information for a Jupyter kernel, as represented in a
 /// JSON connection file.
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -43,7 +67,9 @@ pub struct ConnectionInfo {
     pub hb_port: u16,
     pub key: String,
     pub signature_scheme: String,
-    pub kernel_name: String,
+    // Ignore if not present
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kernel_name: Option<String>,
 }
 
 impl ConnectionInfo {
@@ -62,7 +88,7 @@ impl ConnectionInfo {
             hb_port: ports[4],
             key: Self::jupyter_style_key(),
             signature_scheme: String::from("hmac-sha256"),
-            kernel_name: String::from(kernel_name),
+            kernel_name: Some(String::from(kernel_name)),
         })
     }
 
@@ -148,6 +174,50 @@ impl ConnectionInfo {
     pub fn hb_url(&self) -> String {
         format!("{}://{}:{}", self.transport, self.ip, self.hb_port)
     }
+
+    pub async fn create_kernel_iopub_connection(&self) -> anyhow::Result<KernelIoPubConnection> {
+        let endpoint = self.iopub_url();
+
+        let mut socket = zeromq::PubSocket::new();
+        socket.bind(&endpoint).await?;
+        anyhow::Ok(Connection::new(socket, &self.key))
+    }
+
+    pub async fn create_kernel_shell_connection(&self) -> anyhow::Result<KernelShellConnection> {
+        let endpoint = self.shell_url();
+
+        let mut socket = zeromq::RouterSocket::new();
+        socket.bind(&endpoint).await?;
+        anyhow::Ok(Connection::new(socket, &self.key))
+    }
+
+    pub async fn create_kernel_control_connection(
+        &self,
+    ) -> anyhow::Result<KernelControlConnection> {
+        let endpoint = self.control_url();
+
+        let mut socket = zeromq::RouterSocket::new();
+        socket.bind(&endpoint).await?;
+        anyhow::Ok(Connection::new(socket, &self.key))
+    }
+
+    pub async fn create_kernel_stdin_connection(&self) -> anyhow::Result<KernelStdinConnection> {
+        let endpoint = self.stdin_url();
+
+        let mut socket = zeromq::RouterSocket::new();
+        socket.bind(&endpoint).await?;
+        anyhow::Ok(Connection::new(socket, &self.key))
+    }
+
+    pub async fn create_kernel_heartbeat_connection(
+        &self,
+    ) -> anyhow::Result<KernelHeartbeatConnection> {
+        let endpoint = self.hb_url();
+
+        let mut socket = zeromq::RepSocket::new();
+        socket.bind(&endpoint).await?;
+        anyhow::Ok(Connection::new(socket, &self.key))
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash, Copy)]
@@ -222,40 +292,35 @@ impl JupyterRuntime {
         iopub_connection
             .socket
             .connect(&self.connection_info.iopub_url())
-            .await
-            .unwrap();
+            .await?;
 
         let shell_socket = zeromq::DealerSocket::new();
         let mut shell_connection = Connection::new(shell_socket, &self.connection_info.key);
         shell_connection
             .socket
             .connect(&self.connection_info.shell_url())
-            .await
-            .unwrap();
+            .await?;
 
         let stdin_socket = zeromq::DealerSocket::new();
         let mut stdin_connection = Connection::new(stdin_socket, &self.connection_info.key);
         stdin_connection
             .socket
             .connect(&self.connection_info.stdin_url())
-            .await
-            .unwrap();
+            .await?;
 
         let control_socket = zeromq::DealerSocket::new();
         let mut control_connection = Connection::new(control_socket, &self.connection_info.key);
         control_connection
             .socket
             .connect(&self.connection_info.control_url())
-            .await
-            .unwrap();
+            .await?;
 
         let heartbeat_socket = zeromq::ReqSocket::new();
         let mut heartbeat_connection = Connection::new(heartbeat_socket, &self.connection_info.key);
         heartbeat_connection
             .socket
             .connect(&self.connection_info.hb_url())
-            .await
-            .unwrap();
+            .await?;
 
         Ok(JupyterClient {
             iopub: iopub_connection,

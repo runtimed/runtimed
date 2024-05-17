@@ -19,16 +19,7 @@ use uuid::Uuid;
 mod time;
 
 pub mod content;
-pub use content::Stdio;
-pub use content::{AsChildOf, JupyterMessageContent};
-// All the content types, which can be turned into a JupyterMessage
-pub use content::{
-    CommClose, CommInfoReply, CommInfoRequest, CommMsg, CommOpen, CompleteReply, CompleteRequest,
-    DisplayData, ErrorOutput, ExecuteInput, ExecuteReply, ExecuteRequest, ExecuteResult,
-    HistoryReply, HistoryRequest, InputReply, InputRequest, InterruptReply, InterruptRequest,
-    IsCompleteReply, IsCompleteRequest, KernelInfoReply, KernelInfoRequest, ShutdownReply,
-    ShutdownRequest, Status, StreamContent, UnknownMessage, UpdateDisplayData,
-};
+pub use content::*;
 
 pub struct Connection<S> {
     pub socket: S,
@@ -93,7 +84,7 @@ impl RawMessage {
             .ok_or_else(|| anyhow!("Missing delimiter"))?;
         let mut parts = multipart.into_vec();
         let jparts: Vec<_> = parts.drain(delimiter_index + 2..).collect();
-        let expected_hmac = parts.pop().unwrap();
+        let expected_hmac = parts.pop().ok_or_else(|| anyhow!("Missing hmac"))?;
         // Remove delimiter, so that what's left is just the identities.
         parts.pop();
         let zmq_identities = parts;
@@ -140,7 +131,7 @@ impl RawMessage {
         }
         // ZmqMessage::try_from only fails if parts is empty, which it never
         // will be here.
-        let message = zeromq::ZmqMessage::try_from(parts).unwrap();
+        let message = zeromq::ZmqMessage::try_from(parts).map_err(|err| anyhow::anyhow!(err))?;
         connection.socket.send(message).await?;
         Ok(())
     }
@@ -260,29 +251,11 @@ impl JupyterMessage {
         &self,
         connection: &mut Connection<S>,
     ) -> Result<(), anyhow::Error> {
-        // If performance is a concern, we can probably avoid the clone and to_vec calls with a bit
-        // of refactoring.
         let mut jparts: Vec<Bytes> = vec![
-            serde_json::to_string(&self.header)
-                .unwrap()
-                .as_bytes()
-                .to_vec()
-                .into(),
-            serde_json::to_string(&self.parent_header)
-                .unwrap()
-                .as_bytes()
-                .to_vec()
-                .into(),
-            serde_json::to_string(&self.metadata)
-                .unwrap()
-                .as_bytes()
-                .to_vec()
-                .into(),
-            serde_json::to_string(&self.content)
-                .unwrap()
-                .as_bytes()
-                .to_vec()
-                .into(),
+            serde_json::to_vec(&self.header)?.into(),
+            serde_json::to_vec(&self.parent_header)?.into(),
+            serde_json::to_vec(&self.metadata)?.into(),
+            serde_json::to_vec(&self.content)?.into(),
         ];
         jparts.extend_from_slice(&self.buffers);
         let raw_message = RawMessage {
