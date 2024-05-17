@@ -374,12 +374,12 @@ pub enum Stdio {
 /// connection.send(execute_request).await?;
 /// ```
 ///
-/// As a side effect of execution, the kenel can send `'stream'` messages to the UI/client.
+/// As a side effect of execution, the kernel can send `'stream'` messages to the UI/client.
 /// These are from using `print()`, `console.log()`, or similar. Anything on STDOUT or STDERR.
 ///
 /// ```ignore
 /// use runtimelib::messaging::{StreamContent, Stdio, AsChildOf};
-/// let execute_request = shell.read().await?; // Should be the execute_request
+/// let execute_request = shell.read().await?;
 ///
 /// let message = StreamContent {
 ///   name: Stdio::Stdout,
@@ -422,12 +422,12 @@ pub struct Transient {
 /// connection.send(execute_request).await?;
 /// ```
 ///
-/// As a side effect of execution, the kenel can send `'display_data'` messages to the UI/client.
+/// As a side effect of execution, the kernel can send `'display_data'` messages to the UI/client.
 ///
 /// ```rust,ignore
 /// use runtimelib::media::{MimeBundle, MimeType, DisplayData};
 ///
-/// let execute_request = shell.read().await?; // Should be the execute_request
+/// let execute_request = shell.read().await?;
 ///
 /// let raw = r#"{
 ///     "text/plain": "Hello, world!",
@@ -661,7 +661,8 @@ pub struct IsCompleteReply {
 pub struct HistoryRequest {
     pub output: bool,
     pub raw: bool,
-    pub hist_access_type: String, // This could/should be an enum, which affects the fields below
+    // TODO: Implement this as an enum
+    pub hist_access_type: String,
     pub session: Option<usize>,
     pub start: Option<usize>,
     pub stop: Option<usize>,
