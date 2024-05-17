@@ -222,40 +222,35 @@ impl JupyterRuntime {
         iopub_connection
             .socket
             .connect(&self.connection_info.iopub_url())
-            .await
-            .unwrap();
+            .await?;
 
         let shell_socket = zeromq::DealerSocket::new();
         let mut shell_connection = Connection::new(shell_socket, &self.connection_info.key);
         shell_connection
             .socket
             .connect(&self.connection_info.shell_url())
-            .await
-            .unwrap();
+            .await?;
 
         let stdin_socket = zeromq::DealerSocket::new();
         let mut stdin_connection = Connection::new(stdin_socket, &self.connection_info.key);
         stdin_connection
             .socket
             .connect(&self.connection_info.stdin_url())
-            .await
-            .unwrap();
+            .await?;
 
         let control_socket = zeromq::DealerSocket::new();
         let mut control_connection = Connection::new(control_socket, &self.connection_info.key);
         control_connection
             .socket
             .connect(&self.connection_info.control_url())
-            .await
-            .unwrap();
+            .await?;
 
         let heartbeat_socket = zeromq::ReqSocket::new();
         let mut heartbeat_connection = Connection::new(heartbeat_socket, &self.connection_info.key);
         heartbeat_connection
             .socket
             .connect(&self.connection_info.hb_url())
-            .await
-            .unwrap();
+            .await?;
 
         Ok(JupyterClient {
             iopub: iopub_connection,
