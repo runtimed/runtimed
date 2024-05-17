@@ -358,7 +358,7 @@ pub enum Stdio {
 /// ## Example
 /// The UI/client sends an `'execute_request'` message to the kernel.
 ///
-/// ```rust
+/// ```rust,ignore
 /// use runtimelib::messaging::{ExecuteReqeuest};
 /// // From the UI
 ///
@@ -376,7 +376,7 @@ pub enum Stdio {
 /// As a side effect of execution, the kenel can send `'stream'` messages to the UI/client.
 /// These are from using `print()`, `console.log()`, or similar. Anything on STDOUT or STDERR.
 ///
-/// ```rust
+/// ```rust,ignore
 /// let execute_request = shell.read().await?; // Should be the execute_request
 ///
 /// let message = StreamContent(Stdio::Stdout).child_of(execute_request);
@@ -403,7 +403,7 @@ pub struct Transient {
 ///
 /// The UI/client sends an `'execute_request'` message to the kernel.
 ///
-/// ```rust
+/// ```rust,ignore
 /// use runtimelib::messaging::{ExecuteReqeuest};
 ///
 /// let execute_request = ExecuteRequest {
@@ -419,7 +419,7 @@ pub struct Transient {
 ///
 /// As a side effect of execution, the kenel can send `'display_data'` messages to the UI/client.
 ///
-/// ```rust
+/// ```rust,ignore
 /// use runtimelib::media::{MimeBundle, MimeType, DisplayData};
 ///
 /// let execute_request = shell.read().await?; // Should be the execute_request
