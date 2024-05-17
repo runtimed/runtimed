@@ -110,6 +110,7 @@ async fn list_instances() -> Result<(), Error> {
             kernel_name: runtime
                 .connection_info
                 .kernel_name
+                .unwrap_or("unknown".to_string())
                 .chars()
                 .take(15)
                 .collect(),
