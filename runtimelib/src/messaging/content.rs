@@ -362,7 +362,6 @@ pub struct KernelInfoReply {
     pub help_links: Vec<HelpLink>,
     #[serde(default = "default_debugger")]
     pub debugger: bool,
-
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<ReplyError>,
 }
@@ -376,13 +375,43 @@ fn default_status() -> ReplyStatus {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum CodeMirrorMode {
+    Simple(String),
+    CustomMode { name: String, version: usize },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CodeMirrorModeObject {
+    pub name: String,
+    pub version: usize,
+}
+
+impl CodeMirrorMode {
+    pub fn typescript() -> Self {
+        Self::Simple("typescript".to_string())
+    }
+
+    pub fn python() -> Self {
+        Self::Simple("python".to_string())
+    }
+
+    pub fn ipython_code_mirror_mode() -> Self {
+        Self::CustomMode {
+            name: "ipython".to_string(),
+            version: 3,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LanguageInfo {
     pub name: String,
     pub version: String,
     pub mimetype: String,
     pub file_extension: String,
     pub pygments_lexer: String,
-    pub codemirror_mode: Value,
+    pub codemirror_mode: CodeMirrorMode,
     pub nbconvert_exporter: String,
 }
 
