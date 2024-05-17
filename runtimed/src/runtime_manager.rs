@@ -1,6 +1,7 @@
 use crate::child_runtime::ChildRuntime;
 use runtimelib::jupyter::client::{ConnectionInfo, JupyterRuntime, RuntimeId};
 use runtimelib::jupyter::discovery::{get_jupyter_runtime_instances, is_connection_file};
+use runtimelib::messaging::content::ReplyStatus;
 use runtimelib::messaging::{JupyterMessage, JupyterMessageContent, ShutdownRequest};
 
 use anyhow::{anyhow, Error, Result};
@@ -61,10 +62,10 @@ impl RuntimeInstance {
             return Err(anyhow!("Unexpected reply to shutdown request: {:?}", reply));
         };
 
-        if reply.status.as_str() == "ok" {
-            Ok(())
-        } else {
-            Err(anyhow!("Unexpected reply to shutdown request: {:?}", reply))
+        match reply.status {
+            ReplyStatus::Ok => Ok(()),
+            ReplyStatus::Error => Err(anyhow!("Unexpected reply to shutdown request: {:?}", reply)),
+            _ => Err(anyhow!("Unexpected reply to shutdown request: {:?}", reply)),
         }
     }
 }

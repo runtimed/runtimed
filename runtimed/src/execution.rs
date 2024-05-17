@@ -1,6 +1,9 @@
 use runtimelib::{
     media::{MimeBundle, MimeType},
-    messaging::{content::Stdio, ErrorOutput, Header, JupyterMessage, JupyterMessageContent},
+    messaging::{
+        content::{ExecutionState, Stdio},
+        ErrorOutput, Header, JupyterMessage, JupyterMessageContent,
+    },
 };
 
 #[derive(Debug, Clone, serde:: Serialize, serde::Deserialize)]
@@ -29,13 +32,14 @@ impl CodeExecutionOutput {
 
     pub fn add_message(&mut self, message: JupyterMessage) {
         match message.content {
-            JupyterMessageContent::Status(status) => {
-                if status.execution_state == "busy" {
+            JupyterMessageContent::Status(status) => match status.execution_state {
+                ExecutionState::Idle => {
                     self.start_time = message.header.date.to_string();
-                } else if status.execution_state == "idle" {
+                }
+                ExecutionState::Busy => {
                     self.end_time = message.header.date.to_string();
                 }
-            }
+            },
             JupyterMessageContent::StreamContent(stream_content) => match stream_content.name {
                 Stdio::Stdout => self.stdout.push_str(&stream_content.text),
                 Stdio::Stderr => self.stderr.push_str(&stream_content.text),
