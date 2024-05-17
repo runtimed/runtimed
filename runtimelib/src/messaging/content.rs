@@ -140,6 +140,13 @@ impl JupyterMessageContent {
                 serde_json::from_value(content)?,
             )),
 
+            "history_reply" => Ok(JupyterMessageContent::HistoryReply(serde_json::from_value(
+                content,
+            )?)),
+            "history_request" => Ok(JupyterMessageContent::HistoryRequest(
+                serde_json::from_value(content)?,
+            )),
+
             "input_reply" => Ok(JupyterMessageContent::InputReply(serde_json::from_value(
                 content,
             )?)),
@@ -154,24 +161,31 @@ impl JupyterMessageContent {
                 serde_json::from_value(content)?,
             )),
 
-            "is_complete_request" => Ok(JupyterMessageContent::IsCompleteRequest(
+            "interrupt_reply" => Ok(JupyterMessageContent::InterruptReply(
                 serde_json::from_value(content)?,
             )),
+            "interrupt_request" => Ok(JupyterMessageContent::InterruptRequest(
+                serde_json::from_value(content)?,
+            )),
+
             "is_complete_reply" => Ok(JupyterMessageContent::IsCompleteReply(
                 serde_json::from_value(content)?,
             )),
-
-            "kernel_info_request" => Ok(JupyterMessageContent::KernelInfoRequest(
+            "is_complete_request" => Ok(JupyterMessageContent::IsCompleteRequest(
                 serde_json::from_value(content)?,
             )),
+
             "kernel_info_reply" => Ok(JupyterMessageContent::KernelInfoReply(
                 serde_json::from_value(content)?,
             )),
-
-            "shutdown_request" => Ok(JupyterMessageContent::ShutdownRequest(
+            "kernel_info_request" => Ok(JupyterMessageContent::KernelInfoRequest(
                 serde_json::from_value(content)?,
             )),
+
             "shutdown_reply" => Ok(JupyterMessageContent::ShutdownReply(
+                serde_json::from_value(content)?,
+            )),
+            "shutdown_request" => Ok(JupyterMessageContent::ShutdownRequest(
                 serde_json::from_value(content)?,
             )),
 
