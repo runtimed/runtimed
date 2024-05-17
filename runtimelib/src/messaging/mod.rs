@@ -19,14 +19,15 @@ use uuid::Uuid;
 mod time;
 
 pub mod content;
-pub use content::JupyterMessageContent;
+pub use content::Stdio;
+pub use content::{AsChildOf, JupyterMessageContent};
 // All the content types, which can be turned into a JupyterMessage
 pub use content::{
     CommClose, CommInfoReply, CommInfoRequest, CommMsg, CommOpen, CompleteReply, CompleteRequest,
     DisplayData, ErrorOutput, ExecuteInput, ExecuteReply, ExecuteRequest, ExecuteResult,
     HistoryReply, HistoryRequest, InputReply, InputRequest, InterruptReply, InterruptRequest,
     IsCompleteReply, IsCompleteRequest, KernelInfoReply, KernelInfoRequest, ShutdownReply,
-    ShutdownRequest, Status, StreamContent, UpdateDisplayData,
+    ShutdownRequest, Status, StreamContent, UnknownMessage, UpdateDisplayData,
 };
 
 pub struct Connection<S> {

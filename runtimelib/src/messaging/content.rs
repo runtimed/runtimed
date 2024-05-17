@@ -266,6 +266,7 @@ impl_as_child_of!(UpdateDisplayData, UpdateDisplayData);
 ///
 /// ```rust
 /// use runtimelib::messaging::{JupyterMessage, JupyterMessageContent, UnknownMessage};
+/// use serde_json::json;
 ///
 /// let msg = UnknownMessage {
 ///     msg_type: "example_request".to_string(),
@@ -358,8 +359,8 @@ pub enum Stdio {
 /// ## Example
 /// The UI/client sends an `'execute_request'` message to the kernel.
 ///
-/// ```rust,ignore
-/// use runtimelib::messaging::{ExecuteReqeuest};
+/// ```ignore
+/// use runtimelib::messaging::{ExecuteRequest};
 /// // From the UI
 ///
 /// let execute_request = ExecuteRequest {
@@ -376,10 +377,14 @@ pub enum Stdio {
 /// As a side effect of execution, the kenel can send `'stream'` messages to the UI/client.
 /// These are from using `print()`, `console.log()`, or similar. Anything on STDOUT or STDERR.
 ///
-/// ```rust,ignore
+/// ```ignore
+/// use runtimelib::messaging::{StreamContent, Stdio, AsChildOf};
 /// let execute_request = shell.read().await?; // Should be the execute_request
 ///
-/// let message = StreamContent(Stdio::Stdout).child_of(execute_request);
+/// let message = StreamContent {
+///   name: Stdio::Stdout,
+///   text: "Hello, World".to_string()
+/// }.as_child_of(execute_request);
 /// iopub.send(message).await?;
 ///
 /// ```
@@ -435,7 +440,7 @@ pub struct Transient {
 ///    data: bundle,
 ///    metadata: Default::default(),
 ///    transient: None,
-/// }.child_of(execute_request);
+/// }.as_child_of(execute_request);
 /// iopub.send(message).await?;
 ///
 /// ```
