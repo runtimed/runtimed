@@ -409,20 +409,20 @@ impl JupyterClient {
     /// Send a `*_request` message to the kernel, receive the corresponding
     /// `*_reply` message, and return it. Output messages will end up on IOPub
     pub async fn send(&mut self, message: JupyterMessage) -> Result<JupyterMessage> {
-        message.send(&mut self.shell).await?;
-        let response = JupyterMessage::read(&mut self.shell).await?;
+        self.shell.send(message).await?;
+        let response = self.shell.read().await?;
         Ok(response)
     }
 
     /// Send a `*_request` message to the kernel, receive the corresponding
     /// `*_reply` message, and return it. Output messages will end up on IOPub
     pub async fn send_control(&mut self, message: JupyterMessage) -> Result<JupyterMessage> {
-        message.send(&mut self.control).await?;
-        let response = JupyterMessage::read(&mut self.control).await?;
+        self.control.send(message).await?;
+        let response = self.control.read().await?;
         Ok(response)
     }
 
-    pub async fn next_io(&mut self) -> Result<JupyterMessage> {
-        JupyterMessage::read(&mut self.iopub).await
+    pub async fn recv_io(&mut self) -> Result<JupyterMessage> {
+        self.iopub.read().await
     }
 }

@@ -40,14 +40,19 @@ impl<S: zeromq::Socket> Connection<S> {
 
 impl<S: zeromq::SocketSend> Connection<S> {
     pub async fn send(&mut self, message: JupyterMessage) -> Result<(), anyhow::Error> {
-        message.send(self).await?;
+        let raw_message: RawMessage = message.into_raw_message()?;
+        let zmq_message = raw_message.into_zmq_message(&self.mac)?;
+
+        self.socket.send(zmq_message).await?;
         Ok(())
     }
 }
 
 impl<S: zeromq::SocketRecv> Connection<S> {
     pub async fn read(&mut self) -> Result<JupyterMessage, anyhow::Error> {
-        JupyterMessage::read(self).await
+        let raw_message = RawMessage::from_multipart(self.socket.recv().await?, &self.mac)?;
+        let message = JupyterMessage::from_raw_message(raw_message)?;
+        Ok(message)
     }
 }
 
@@ -62,21 +67,15 @@ impl<S: zeromq::SocketSend + zeromq::SocketRecv> Connection<S> {
 }
 
 #[derive(Debug)]
-struct RawMessage {
+pub struct RawMessage {
     zmq_identities: Vec<Bytes>,
     jparts: Vec<Bytes>,
 }
 
 impl RawMessage {
-    pub(crate) async fn read<S: zeromq::SocketRecv>(
-        connection: &mut Connection<S>,
-    ) -> Result<RawMessage, anyhow::Error> {
-        Self::from_multipart(connection.socket.recv().await?, connection)
-    }
-
-    pub(crate) fn from_multipart<S>(
+    pub fn from_multipart(
         multipart: zeromq::ZmqMessage,
-        connection: &Connection<S>,
+        key: &Option<hmac::Key>,
     ) -> Result<RawMessage, anyhow::Error> {
         let delimiter_index = multipart
             .iter()
@@ -94,7 +93,7 @@ impl RawMessage {
             jparts,
         };
 
-        if let Some(key) = &connection.mac {
+        if let Some(key) = key {
             let sig = HEXLOWER.decode(&expected_hmac)?;
             let mut msg = Vec::new();
             for part in &raw_message.jparts {
@@ -109,17 +108,31 @@ impl RawMessage {
         Ok(raw_message)
     }
 
-    async fn send<S: zeromq::SocketSend>(
-        self,
-        connection: &mut Connection<S>,
-    ) -> Result<(), anyhow::Error> {
-        let hmac = if let Some(key) = &connection.mac {
+    fn hmac(&self, key: &Option<hmac::Key>) -> String {
+        let hmac = if let Some(key) = key {
             let ctx = self.digest(key);
             let tag = ctx.sign();
             HEXLOWER.encode(tag.as_ref())
         } else {
             String::new()
         };
+        hmac
+    }
+
+    fn digest(&self, mac: &hmac::Key) -> hmac::Context {
+        let mut hmac_ctx = hmac::Context::with_key(mac);
+        for part in &self.jparts {
+            hmac_ctx.update(part);
+        }
+        hmac_ctx
+    }
+
+    fn into_zmq_message(
+        self,
+        key: &Option<hmac::Key>,
+    ) -> Result<zeromq::ZmqMessage, anyhow::Error> {
+        let hmac = self.hmac(key);
+
         let mut parts: Vec<bytes::Bytes> = Vec::new();
         for part in &self.zmq_identities {
             parts.push(part.to_vec().into());
@@ -132,16 +145,7 @@ impl RawMessage {
         // ZmqMessage::try_from only fails if parts is empty, which it never
         // will be here.
         let message = zeromq::ZmqMessage::try_from(parts).map_err(|err| anyhow::anyhow!(err))?;
-        connection.socket.send(message).await?;
-        Ok(())
-    }
-
-    fn digest(&self, mac: &hmac::Key) -> hmac::Context {
-        let mut hmac_ctx = hmac::Context::with_key(mac);
-        for part in &self.jparts {
-            hmac_ctx.update(part);
-        }
-        hmac_ctx
+        Ok(message)
     }
 }
 
@@ -170,12 +174,6 @@ pub struct Header {
 const DELIMITER: &[u8] = b"<IDS|MSG>";
 
 impl JupyterMessage {
-    pub(crate) async fn read<S: zeromq::SocketRecv>(
-        connection: &mut Connection<S>,
-    ) -> Result<JupyterMessage, anyhow::Error> {
-        Self::from_raw_message(RawMessage::read(connection).await?)
-    }
-
     fn from_raw_message(raw_message: RawMessage) -> Result<JupyterMessage, anyhow::Error> {
         if raw_message.jparts.len() < 4 {
             // Be explicit with error here
@@ -247,10 +245,7 @@ impl JupyterMessage {
         self.parent_header = Some(parent.header.clone());
     }
 
-    pub async fn send<S: zeromq::SocketSend>(
-        &self,
-        connection: &mut Connection<S>,
-    ) -> Result<(), anyhow::Error> {
+    pub fn into_raw_message(&self) -> Result<RawMessage, anyhow::Error> {
         let mut jparts: Vec<Bytes> = vec![
             serde_json::to_vec(&self.header)?.into(),
             serde_json::to_vec(&self.parent_header)?.into(),
@@ -262,7 +257,7 @@ impl JupyterMessage {
             zmq_identities: self.zmq_identities.clone(),
             jparts,
         };
-        raw_message.send(connection).await
+        Ok(raw_message)
     }
 }
 
