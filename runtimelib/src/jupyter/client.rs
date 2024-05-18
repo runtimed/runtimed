@@ -220,7 +220,7 @@ impl ConnectionInfo {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash, Copy, PartialOrd)]
 pub struct RuntimeId(pub Uuid);
 
 impl RuntimeId {
