@@ -5,7 +5,12 @@
 //! communicate with the kernels.
 
 use crate::jupyter::dirs;
-use crate::messaging::{Connection, JupyterMessage, KernelInfoReply};
+use crate::messaging::{
+    ClientControlConnection, ClientHeartbeatConnection, ClientIoPubConnection,
+    ClientShellConnection, ClientStdinConnection, Connection, JupyterMessage,
+    KernelControlConnection, KernelHeartbeatConnection, KernelInfoReply, KernelIoPubConnection,
+    KernelShellConnection, KernelStdinConnection,
+};
 use tokio::fs;
 use tokio::time::{timeout, Duration};
 
@@ -29,30 +34,6 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::windows::ffi::OsStrExt;
 
 use std::path::PathBuf;
-
-type KernelIoPubSocket = zeromq::PubSocket;
-type KernelShellSocket = zeromq::RouterSocket;
-type KernelControlSocket = zeromq::RouterSocket;
-type KernelStdinSocket = zeromq::RouterSocket;
-type KernelHeartbeatSocket = zeromq::RepSocket;
-
-type ClientIoPubSocket = zeromq::SubSocket;
-type ClientShellSocket = zeromq::DealerSocket;
-type ClientControlSocket = zeromq::DealerSocket;
-type ClientStdinSocket = zeromq::DealerSocket;
-type ClientHeartbeatSocket = zeromq::ReqSocket;
-
-pub type KernelIoPubConnection = Connection<KernelIoPubSocket>;
-pub type KernelShellConnection = Connection<KernelShellSocket>;
-pub type KernelControlConnection = Connection<KernelControlSocket>;
-pub type KernelStdinConnection = Connection<KernelStdinSocket>;
-pub type KernelHeartbeatConnection = Connection<KernelHeartbeatSocket>;
-
-pub type ClientIoPubConnection = Connection<ClientIoPubSocket>;
-pub type ClientShellConnection = Connection<ClientShellSocket>;
-pub type ClientControlConnection = Connection<ClientControlSocket>;
-pub type ClientStdinConnection = Connection<ClientStdinSocket>;
-pub type ClientHeartbeatConnection = Connection<ClientHeartbeatSocket>;
 
 /// Connection information for a Jupyter kernel, as represented in a
 /// JSON connection file.
@@ -406,8 +387,8 @@ impl JupyterClient {
         }
     }
 
-    /// Send a `*_request` message to the kernel, receive the corresponding
-    /// `*_reply` message, and return it. Output messages will end up on IOPub
+    /// Send a message over the shell connection, returning the response
+    /// Note: Output messages will end up on IOPub via `recv_io()`
     pub async fn send(&mut self, message: JupyterMessage) -> Result<JupyterMessage> {
         self.shell.send(message).await?;
         let response = self.shell.read().await?;

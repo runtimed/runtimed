@@ -15,11 +15,37 @@ use serde_json;
 use serde_json::{json, Value};
 use std::fmt;
 use uuid::Uuid;
+use zeromq::SocketRecv as _;
+use zeromq::SocketSend as _;
 
 mod time;
 
 pub mod content;
 pub use content::*;
+
+type KernelIoPubSocket = zeromq::PubSocket;
+type KernelShellSocket = zeromq::RouterSocket;
+type KernelControlSocket = zeromq::RouterSocket;
+type KernelStdinSocket = zeromq::RouterSocket;
+type KernelHeartbeatSocket = zeromq::RepSocket;
+
+type ClientIoPubSocket = zeromq::SubSocket;
+type ClientShellSocket = zeromq::DealerSocket;
+type ClientControlSocket = zeromq::DealerSocket;
+type ClientStdinSocket = zeromq::DealerSocket;
+type ClientHeartbeatSocket = zeromq::ReqSocket;
+
+pub type KernelIoPubConnection = Connection<KernelIoPubSocket>;
+pub type KernelShellConnection = Connection<KernelShellSocket>;
+pub type KernelControlConnection = Connection<KernelControlSocket>;
+pub type KernelStdinConnection = Connection<KernelStdinSocket>;
+pub type KernelHeartbeatConnection = Connection<KernelHeartbeatSocket>;
+
+pub type ClientIoPubConnection = Connection<ClientIoPubSocket>;
+pub type ClientShellConnection = Connection<ClientShellSocket>;
+pub type ClientControlConnection = Connection<ClientControlSocket>;
+pub type ClientStdinConnection = Connection<ClientStdinSocket>;
+pub type ClientHeartbeatConnection = Connection<ClientHeartbeatSocket>;
 
 pub struct Connection<S> {
     pub socket: S,
@@ -56,7 +82,7 @@ impl<S: zeromq::SocketRecv> Connection<S> {
     }
 }
 
-impl<S: zeromq::SocketSend + zeromq::SocketRecv> Connection<S> {
+impl KernelHeartbeatConnection {
     pub async fn single_heartbeat(&mut self) -> Result<(), anyhow::Error> {
         self.socket.recv().await?;
         self.socket
