@@ -218,6 +218,50 @@ impl ConnectionInfo {
         socket.bind(&endpoint).await?;
         anyhow::Ok(Connection::new(socket, &self.key))
     }
+
+    pub async fn create_client_iopub_connection(&self) -> anyhow::Result<ClientIoPubConnection> {
+        let endpoint = self.iopub_url();
+
+        let mut socket = zeromq::SubSocket::new();
+        socket.connect(&endpoint).await?;
+        anyhow::Ok(Connection::new(socket, &self.key))
+    }
+
+    pub async fn create_client_shell_connection(&self) -> anyhow::Result<ClientShellConnection> {
+        let endpoint = self.shell_url();
+
+        let mut socket = zeromq::DealerSocket::new();
+        socket.connect(&endpoint).await?;
+        anyhow::Ok(Connection::new(socket, &self.key))
+    }
+
+    pub async fn create_client_control_connection(
+        &self,
+    ) -> anyhow::Result<ClientControlConnection> {
+        let endpoint = self.control_url();
+
+        let mut socket = zeromq::DealerSocket::new();
+        socket.connect(&endpoint).await?;
+        anyhow::Ok(Connection::new(socket, &self.key))
+    }
+
+    pub async fn create_client_stdin_connection(&self) -> anyhow::Result<ClientStdinConnection> {
+        let endpoint = self.stdin_url();
+
+        let mut socket = zeromq::DealerSocket::new();
+        socket.connect(&endpoint).await?;
+        anyhow::Ok(Connection::new(socket, &self.key))
+    }
+
+    pub async fn create_client_heartbeat_connection(
+        &self,
+    ) -> anyhow::Result<ClientHeartbeatConnection> {
+        let endpoint = self.hb_url();
+
+        let mut socket = zeromq::ReqSocket::new();
+        socket.connect(&endpoint).await?;
+        anyhow::Ok(Connection::new(socket, &self.key))
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash, Copy, PartialOrd)]
@@ -334,11 +378,11 @@ impl JupyterRuntime {
 
 /// A Jupyter client connection to a running kernel
 pub struct JupyterClient {
-    pub(crate) shell: Connection<zeromq::DealerSocket>,
-    pub(crate) iopub: Connection<zeromq::SubSocket>,
-    pub(crate) stdin: Connection<zeromq::DealerSocket>,
-    pub(crate) control: Connection<zeromq::DealerSocket>,
-    pub(crate) heartbeat: Connection<zeromq::ReqSocket>,
+    pub shell: Connection<zeromq::DealerSocket>,
+    pub iopub: Connection<zeromq::SubSocket>,
+    pub stdin: Connection<zeromq::DealerSocket>,
+    pub control: Connection<zeromq::DealerSocket>,
+    pub heartbeat: Connection<zeromq::ReqSocket>,
 }
 
 impl JupyterClient {
