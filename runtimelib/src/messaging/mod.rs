@@ -267,8 +267,19 @@ impl JupyterMessage {
         }
     }
 
-    pub fn set_parent(&mut self, parent: JupyterMessage) {
-        self.parent_header = Some(parent.header.clone());
+    pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
+        self.metadata = metadata;
+        self
+    }
+
+    pub fn with_buffers(mut self, buffers: Vec<Bytes>) -> Self {
+        self.buffers = buffers;
+        self
+    }
+
+    pub fn with_parent(mut self, parent: JupyterMessage) -> Self {
+        self.parent_header = Some(parent.header);
+        self
     }
 
     pub fn into_raw_message(&self) -> Result<RawMessage, anyhow::Error> {
