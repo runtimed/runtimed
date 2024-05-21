@@ -85,9 +85,7 @@ impl JupyterRuntime {
 
             let message: JupyterMessage = kernel_info_request.into();
 
-            message.send(&mut client.shell).await?;
-
-            let reply = JupyterMessage::read(&mut client.shell).await;
+            let reply = client.send(message).await;
 
             let result = match reply {
                 Ok(msg) => {

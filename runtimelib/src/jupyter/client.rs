@@ -5,7 +5,12 @@
 //! communicate with the kernels.
 
 use crate::jupyter::dirs;
-use crate::messaging::{Connection, JupyterMessage, KernelInfoReply};
+use crate::messaging::{
+    ClientControlConnection, ClientHeartbeatConnection, ClientIoPubConnection,
+    ClientShellConnection, ClientStdinConnection, Connection, JupyterMessage,
+    KernelControlConnection, KernelHeartbeatConnection, KernelInfoReply, KernelIoPubConnection,
+    KernelShellConnection, KernelStdinConnection,
+};
 use tokio::fs;
 use tokio::time::{timeout, Duration};
 
@@ -29,30 +34,6 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::windows::ffi::OsStrExt;
 
 use std::path::PathBuf;
-
-type KernelIoPubSocket = zeromq::PubSocket;
-type KernelShellSocket = zeromq::RouterSocket;
-type KernelControlSocket = zeromq::RouterSocket;
-type KernelStdinSocket = zeromq::RouterSocket;
-type KernelHeartbeatSocket = zeromq::RepSocket;
-
-type ClientIoPubSocket = zeromq::SubSocket;
-type ClientShellSocket = zeromq::DealerSocket;
-type ClientControlSocket = zeromq::DealerSocket;
-type ClientStdinSocket = zeromq::DealerSocket;
-type ClientHeartbeatSocket = zeromq::ReqSocket;
-
-pub type KernelIoPubConnection = Connection<KernelIoPubSocket>;
-pub type KernelShellConnection = Connection<KernelShellSocket>;
-pub type KernelControlConnection = Connection<KernelControlSocket>;
-pub type KernelStdinConnection = Connection<KernelStdinSocket>;
-pub type KernelHeartbeatConnection = Connection<KernelHeartbeatSocket>;
-
-pub type ClientIoPubConnection = Connection<ClientIoPubSocket>;
-pub type ClientShellConnection = Connection<ClientShellSocket>;
-pub type ClientControlConnection = Connection<ClientControlSocket>;
-pub type ClientStdinConnection = Connection<ClientStdinSocket>;
-pub type ClientHeartbeatConnection = Connection<ClientHeartbeatSocket>;
 
 /// Connection information for a Jupyter kernel, as represented in a
 /// JSON connection file.
@@ -218,9 +199,58 @@ impl ConnectionInfo {
         socket.bind(&endpoint).await?;
         anyhow::Ok(Connection::new(socket, &self.key))
     }
+
+    pub async fn create_client_iopub_connection(
+        &self,
+        topic: &str,
+    ) -> anyhow::Result<ClientIoPubConnection> {
+        let endpoint = self.iopub_url();
+
+        let mut socket = zeromq::SubSocket::new();
+        socket.subscribe(topic).await?;
+
+        socket.connect(&endpoint).await?;
+        anyhow::Ok(Connection::new(socket, &self.key))
+    }
+
+    pub async fn create_client_shell_connection(&self) -> anyhow::Result<ClientShellConnection> {
+        let endpoint = self.shell_url();
+
+        let mut socket = zeromq::DealerSocket::new();
+        socket.connect(&endpoint).await?;
+        anyhow::Ok(Connection::new(socket, &self.key))
+    }
+
+    pub async fn create_client_control_connection(
+        &self,
+    ) -> anyhow::Result<ClientControlConnection> {
+        let endpoint = self.control_url();
+
+        let mut socket = zeromq::DealerSocket::new();
+        socket.connect(&endpoint).await?;
+        anyhow::Ok(Connection::new(socket, &self.key))
+    }
+
+    pub async fn create_client_stdin_connection(&self) -> anyhow::Result<ClientStdinConnection> {
+        let endpoint = self.stdin_url();
+
+        let mut socket = zeromq::DealerSocket::new();
+        socket.connect(&endpoint).await?;
+        anyhow::Ok(Connection::new(socket, &self.key))
+    }
+
+    pub async fn create_client_heartbeat_connection(
+        &self,
+    ) -> anyhow::Result<ClientHeartbeatConnection> {
+        let endpoint = self.hb_url();
+
+        let mut socket = zeromq::ReqSocket::new();
+        socket.connect(&endpoint).await?;
+        anyhow::Ok(Connection::new(socket, &self.key))
+    }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash, Copy, PartialOrd)]
 pub struct RuntimeId(pub Uuid);
 
 impl RuntimeId {
@@ -334,11 +364,11 @@ impl JupyterRuntime {
 
 /// A Jupyter client connection to a running kernel
 pub struct JupyterClient {
-    pub(crate) shell: Connection<zeromq::DealerSocket>,
-    pub(crate) iopub: Connection<zeromq::SubSocket>,
-    pub(crate) stdin: Connection<zeromq::DealerSocket>,
-    pub(crate) control: Connection<zeromq::DealerSocket>,
-    pub(crate) heartbeat: Connection<zeromq::ReqSocket>,
+    pub shell: Connection<zeromq::DealerSocket>,
+    pub iopub: Connection<zeromq::SubSocket>,
+    pub stdin: Connection<zeromq::DealerSocket>,
+    pub control: Connection<zeromq::DealerSocket>,
+    pub heartbeat: Connection<zeromq::ReqSocket>,
 }
 
 impl JupyterClient {
@@ -362,23 +392,23 @@ impl JupyterClient {
         }
     }
 
-    /// Send a `*_request` message to the kernel, receive the corresponding
-    /// `*_reply` message, and return it. Output messages will end up on IOPub
+    /// Send a message over the shell connection, returning the response
+    /// Note: Output messages will end up on IOPub via `recv_io()`
     pub async fn send(&mut self, message: JupyterMessage) -> Result<JupyterMessage> {
-        message.send(&mut self.shell).await?;
-        let response = JupyterMessage::read(&mut self.shell).await?;
+        self.shell.send(message).await?;
+        let response = self.shell.read().await?;
         Ok(response)
     }
 
     /// Send a `*_request` message to the kernel, receive the corresponding
     /// `*_reply` message, and return it. Output messages will end up on IOPub
     pub async fn send_control(&mut self, message: JupyterMessage) -> Result<JupyterMessage> {
-        message.send(&mut self.control).await?;
-        let response = JupyterMessage::read(&mut self.control).await?;
+        self.control.send(message).await?;
+        let response = self.control.read().await?;
         Ok(response)
     }
 
-    pub async fn next_io(&mut self) -> Result<JupyterMessage> {
-        JupyterMessage::read(&mut self.iopub).await
+    pub async fn recv_io(&mut self) -> Result<JupyterMessage> {
+        self.iopub.read().await
     }
 }

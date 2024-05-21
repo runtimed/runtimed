@@ -230,7 +230,7 @@ impl RuntimeManager {
             // TODO: how should we handle an error here?
             if let Ok(mut client) = client {
                 loop {
-                    let maybe_message = client.next_io().await;
+                    let maybe_message = client.recv_io().await;
                     if let Ok(message) = maybe_message {
                         crate::db::insert_message(&db, id.0, &message).await;
 
