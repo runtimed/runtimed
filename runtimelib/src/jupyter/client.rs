@@ -200,10 +200,15 @@ impl ConnectionInfo {
         anyhow::Ok(Connection::new(socket, &self.key))
     }
 
-    pub async fn create_client_iopub_connection(&self) -> anyhow::Result<ClientIoPubConnection> {
+    pub async fn create_client_iopub_connection(
+        &self,
+        topic: &str,
+    ) -> anyhow::Result<ClientIoPubConnection> {
         let endpoint = self.iopub_url();
 
         let mut socket = zeromq::SubSocket::new();
+        socket.subscribe(topic).await?;
+
         socket.connect(&endpoint).await?;
         anyhow::Ok(Connection::new(socket, &self.key))
     }
