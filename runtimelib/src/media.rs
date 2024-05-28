@@ -30,15 +30,17 @@ pub enum MimeType {
     #[serde(rename = "image/svg+xml")]
     Svg(String),
 
+    // Image data is all base64 encoded. These variants could all accept <Vec<u8>> as the
+    // data. However, not all users of this library will need immediate decoding of the data.
     /// PNG image data.
     #[serde(rename = "image/png")]
-    Png(Vec<u8>),
+    Png(String),
     /// JPEG image data.
     #[serde(rename = "image/jpeg")]
-    Jpeg(Vec<u8>),
+    Jpeg(String),
     /// GIF image data.
     #[serde(rename = "image/gif")]
-    Gif(Vec<u8>),
+    Gif(String),
 
     /// Raw JSON Object
     #[serde(rename = "application/json")]
@@ -163,6 +165,38 @@ where
 }
 
 impl MimeBundle {
+    /// Find the richest MIME type in the bundle, based on the provided ranker function.
+    /// A rank of 0 indicates that the MIME type is not supported. Higher numbers indicate
+    /// that the MIME type is preferred over other MIME types.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use runtimelib::media::{MimeBundle, MimeType};
+    ///
+    /// let raw = r#"{
+    ///    "text/plain": "FancyThing()",
+    ///    "text/html": "<h1>Fancy!</h1>",
+    ///    "application/json": {"fancy": true}
+    /// }"#;
+    ///
+    /// let mime_bundle: MimeBundle = serde_json::from_str(raw).unwrap();
+    ///
+    /// let ranker = |mime_type: &MimeType| match mime_type {
+    ///    MimeType::Html(_) => 3,
+    ///    MimeType::Json(_) => 2,
+    ///    MimeType::Plain(_) => 1,
+    ///    _ => 0,
+    /// };
+    ///
+    /// let richest = mime_bundle.richest(ranker);
+    ///
+    /// assert_eq!(
+    ///    richest,
+    ///    Some(MimeType::Html(String::from("<h1>Fancy!</h1>"))).as_ref()
+    /// );
+    ///
+    /// ```
     pub fn richest(&self, ranker: fn(&MimeType) -> usize) -> Option<&MimeType> {
         self.content
             .iter()
@@ -299,7 +333,7 @@ mod test {
     }
 
     #[test]
-    fn edge_case() {
+    fn no_media_type_supported() {
         let raw = r#"{
             "text/plain": "Hello, world!",
             "text/html": "<h1>Hello, world!</h1>",
