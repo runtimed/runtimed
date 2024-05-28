@@ -2,11 +2,15 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 
+pub mod datatable;
+
+pub use datatable::TabularDataResource;
+
 type JsonObject = serde_json::Map<String, serde_json::Value>;
 
 /// An enumeration representing various MIME (Multipurpose Internet Mail Extensions) types.
 /// These types are used to indicate the nature of the data in a rich content message.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "type", content = "data")]
 pub enum MimeType {
@@ -52,7 +56,7 @@ pub enum MimeType {
     /// Data table in JSON format, requires both a `data` and `schema`.
     /// Example: `{data: [{'ghost': true, 'says': "boo"}], schema: {fields: [{name: 'ghost', type: 'boolean'}, {name: 'says', type: 'string'}]}}`.
     #[serde(rename = "application/vnd.dataresource+json")]
-    DataTable(JsonObject),
+    DataTable(TabularDataResource),
     /// Plotly JSON Schema for for rendering graphs and charts.
     #[serde(rename = "application/vnd.plotly.v1+json")]
     Plotly(JsonObject),
