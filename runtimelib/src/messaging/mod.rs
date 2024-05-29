@@ -279,6 +279,12 @@ impl JupyterMessage {
 
     pub fn with_parent(mut self, parent: JupyterMessage) -> Self {
         self.parent_header = Some(parent.header);
+        self.zmq_identities = parent.zmq_identities.clone();
+        self
+    }
+
+    pub fn with_zmq_identities(mut self, zmq_identities: Vec<Bytes>) -> Self {
+        self.zmq_identities = zmq_identities;
         self
     }
 
