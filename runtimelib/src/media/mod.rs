@@ -141,7 +141,11 @@ impl std::hash::Hash for MimeType {
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct MimeBundle {
     /// A map of MIME types to their corresponding data, represented as JSON `Value`.
-    #[serde(flatten, deserialize_with = "deserialize_mimebundle")]
+    #[serde(
+        flatten,
+        deserialize_with = "deserialize_mimebundle",
+        serialize_with = "serialize_mimebundle"
+    )]
     pub content: HashSet<MimeType>,
 }
 
@@ -166,6 +170,28 @@ where
     }
 
     Ok(set)
+}
+
+fn serialize_mimebundle<S>(content: &HashSet<MimeType>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let mut map = HashMap::new();
+
+    for mime_type in content {
+        let serialized = serde_json::to_value(mime_type);
+
+        // Skip any that don't serialize properly, to degrade gracefully.
+        if let Ok(Value::Object(obj)) = serialized {
+            if let Some(Value::String(key)) = obj.get("type") {
+                if let Some(data) = obj.get("data") {
+                    map.insert(key.clone(), data.clone());
+                }
+            }
+        }
+    }
+
+    map.serialize(serializer)
 }
 
 impl MimeBundle {
