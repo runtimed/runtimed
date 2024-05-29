@@ -59,9 +59,16 @@ impl CodeExecutionOutput {
     }
 }
 
+fn plain_ranker(mime_type: &MimeType) -> usize {
+    match mime_type {
+        MimeType::Plain(_) => 1,
+        _ => 0,
+    }
+}
+
 impl std::fmt::Display for CodeExecutionOutput {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let result = if let Some((_, content)) = self.result.richest(&[MimeType::Plain]) {
+        let result = if let Some(MimeType::Plain(content)) = self.result.richest(plain_ranker) {
             content.to_string()
         } else {
             "".to_string()
