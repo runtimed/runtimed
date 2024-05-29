@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// See https://specs.frictionlessdata.io/tabular-data-resource/
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TabularDataResource {
     pub path: Option<PathOrPaths>,
@@ -29,7 +29,7 @@ pub enum PathOrPaths {
     Multiple(Vec<String>),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TableSchema {
     pub fields: Vec<TableSchemaField>,
@@ -66,7 +66,7 @@ pub struct ForeignKeyReference {
     pub fields: ForeignKeyFields,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TableSchemaField {
     pub name: String,
@@ -80,7 +80,7 @@ pub struct TableSchemaField {
     pub rdf_type: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum FieldType {
     String,
@@ -97,6 +97,7 @@ pub enum FieldType {
     Geojson,
     Array,
     Duration,
+    #[default]
     Any,
 }
 

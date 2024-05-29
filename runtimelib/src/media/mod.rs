@@ -219,6 +219,7 @@ impl MimeBundle {
 
 #[cfg(test)]
 mod test {
+    use datatable::TableSchemaField;
     use serde_json::json;
 
     use super::*;
@@ -297,14 +298,28 @@ mod test {
         let richest = bundle.richest(ranker);
 
         match richest {
-            Some(MimeType::DataTable(data)) => {
+            Some(MimeType::DataTable(table)) => {
                 assert_eq!(
-                    data["data"],
-                    json!([{"name": "Alice", "age": 25}, {"name": "Bob", "age": 35}])
+                    table.data,
+                    Some(vec![
+                        json!({"name": "Alice", "age": 25}),
+                        json!({"name": "Bob", "age": 35})
+                    ])
                 );
                 assert_eq!(
-                    data["schema"]["fields"],
-                    json!([{"name": "name", "type": "string"}, {"name": "age", "type": "integer"}])
+                    table.schema.fields,
+                    vec![
+                        TableSchemaField {
+                            name: "name".to_string(),
+                            field_type: datatable::FieldType::String,
+                            ..Default::default()
+                        },
+                        TableSchemaField {
+                            name: "age".to_string(),
+                            field_type: datatable::FieldType::Integer,
+                            ..Default::default()
+                        }
+                    ]
                 );
             }
             _ => panic!("Unexpected mime type"),
