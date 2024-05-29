@@ -209,26 +209,6 @@ impl JupyterMessageContent {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ExecuteRequest {
-    pub code: String,
-    pub silent: bool,
-    pub store_history: bool,
-    pub user_expressions: Option<HashMap<String, String>>,
-    #[serde(default = "default_allow_stdin")]
-    pub allow_stdin: bool,
-    #[serde(default = "default_stop_on_error")]
-    pub stop_on_error: bool,
-}
-
-fn default_allow_stdin() -> bool {
-    false
-}
-
-fn default_stop_on_error() -> bool {
-    true
-}
-
 pub trait AsChildOf {
     fn as_child_of(self, parent: &JupyterMessage) -> JupyterMessage;
 }
@@ -268,7 +248,21 @@ macro_rules! impl_as_child_of {
                 JupyterMessage::new(JupyterMessageContent::$variant(content), None)
             }
         }
+
+        impl From<$content_type> for JupyterMessageContent {
+            #[doc = concat!("Create a new `JupyterMessageContent` for a `", stringify!($content_type), "`.\n\n")]
+            #[must_use]
+            fn from(content: $content_type) -> Self {
+                JupyterMessageContent::$variant(content)
+            }
+        }
     };
+}
+
+impl From<JupyterMessageContent> for JupyterMessage {
+    fn from(content: JupyterMessageContent) -> Self {
+        JupyterMessage::new(content, None)
+    }
 }
 
 impl_as_child_of!(CommClose, CommClose);
@@ -350,18 +344,78 @@ pub struct ReplyError {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ExecuteRequest {
+    pub code: String,
+    pub silent: bool,
+    pub store_history: bool,
+    pub user_expressions: Option<HashMap<String, String>>,
+    #[serde(default = "default_allow_stdin")]
+    pub allow_stdin: bool,
+    #[serde(default = "default_stop_on_error")]
+    pub stop_on_error: bool,
+}
+
+fn default_allow_stdin() -> bool {
+    false
+}
+
+fn default_stop_on_error() -> bool {
+    true
+}
+
+impl Default for ExecuteRequest {
+    fn default() -> Self {
+        Self {
+            code: "".to_string(),
+            silent: false,
+            store_history: true,
+            user_expressions: None,
+            allow_stdin: false,
+            stop_on_error: true,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteReply {
     pub status: ReplyStatus,
     pub execution_count: usize,
 
-    pub payload: Option<serde_json::Value>,
-    pub user_expressions: Option<serde_json::Value>,
+    #[serde(default)]
+    pub payload: Vec<Payload>,
+    pub user_expressions: Option<HashMap<String, String>>,
 
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<ReplyError>,
 }
 
+/// Payloads are a way to trigger frontend actions from the kernel.
+/// They are stated as deprecated, however they are in regular use via `?` in IPython
+///
+/// See https://jupyter-client.readthedocs.io/en/latest/messaging.html#payloads-deprecated
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "snake_case")]
+#[serde(tag = "source")]
+pub enum Payload {
+    Page {
+        data: MimeBundle,
+        start: usize,
+    },
+    SetNextInput {
+        text: String,
+        replace: bool,
+    },
+    EditMagic {
+        filename: String,
+        line_number: usize,
+    },
+    AskExit {
+        // sic
+        keepkernel: bool,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct KernelInfoRequest {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -502,8 +556,9 @@ impl StreamContent {
 }
 
 /// Optional metadata for a display data to allow for updating an output.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Transient {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub display_id: Option<String>,
 }
 
@@ -551,16 +606,17 @@ pub struct Transient {
 /// iopub.send(message).await?;
 ///
 /// ```
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct DisplayData {
     pub data: MimeBundle,
     pub metadata: HashMap<String, Value>,
-    pub transient: Option<Transient>,
+    #[serde(default)]
+    pub transient: Transient,
 }
 
 /// A `'update_display_data'` message on the `'iopub'` channel.
 /// See [Update Display Data](https://jupyter-client.readthedocs.io/en/latest/messaging.html#update-display-data).
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct UpdateDisplayData {
     pub data: MimeBundle,
     pub metadata: HashMap<String, Value>,
@@ -962,6 +1018,8 @@ impl Status {
 
 #[cfg(test)]
 mod test {
+    use serde_json::json;
+
     use super::*;
 
     #[test]
@@ -986,5 +1044,131 @@ mod test {
         });
 
         assert_eq!(request_value, expected_request_value);
+    }
+
+    #[test]
+    fn test_into_various() {
+        let kernel_info_request = KernelInfoRequest {};
+        let content: JupyterMessageContent = kernel_info_request.clone().into();
+        let message: JupyterMessage = content.into();
+        assert!(message.parent_header.is_none());
+        match message.content {
+            JupyterMessageContent::KernelInfoRequest(req) => {
+                assert_eq!(req, kernel_info_request);
+            }
+            _ => panic!("Expected KernelInfoRequest"),
+        }
+
+        let kernel_info_request = KernelInfoRequest {};
+        let message: JupyterMessage = kernel_info_request.clone().into();
+        assert!(message.parent_header.is_none());
+        match message.content {
+            JupyterMessageContent::KernelInfoRequest(req) => {
+                assert_eq!(req, kernel_info_request);
+            }
+            _ => panic!("Expected KernelInfoRequest"),
+        }
+    }
+
+    #[test]
+    fn test_default() {
+        let msg: JupyterMessage = ExecuteRequest {
+            code: "import this".to_string(),
+            ..Default::default()
+        }
+        .into();
+
+        assert_eq!(msg.header.msg_type, "execute_request");
+        assert_eq!(msg.header.msg_id.len(), 36);
+
+        match msg.content {
+            JupyterMessageContent::ExecuteRequest(req) => {
+                assert_eq!(req.code, "import this");
+                assert_eq!(req.silent, false);
+                assert_eq!(req.store_history, true);
+                assert_eq!(req.user_expressions, None);
+                assert_eq!(req.allow_stdin, false);
+                assert_eq!(req.stop_on_error, true);
+            }
+            _ => panic!("Expected ExecuteRequest"),
+        }
+    }
+
+    #[test]
+    fn test_deserialize_payload() {
+        let raw_execute_reply_content = r#"
+        {
+            "status": "ok",
+            "execution_count": 1,
+            "payload": [{
+                "source": "page",
+                "data": {
+                    "text/html": "<h1>Hello</h1>",
+                    "text/plain": "Hello"
+                },
+                "start": 0
+            }],
+            "user_expressions": {}
+        }
+        "#;
+
+        let execute_reply: ExecuteReply = serde_json::from_str(raw_execute_reply_content).unwrap();
+
+        assert_eq!(execute_reply.status, ReplyStatus::Ok);
+        assert_eq!(execute_reply.execution_count, 1);
+
+        let payload = execute_reply.payload.clone();
+
+        assert_eq!(payload.len(), 1);
+        let payload = payload.first().unwrap();
+
+        let media = match payload {
+            Payload::Page { data, .. } => data,
+            _ => panic!("Expected Page payload type"),
+        };
+
+        let media = serde_json::to_value(media).unwrap();
+
+        let expected_media = serde_json::json!({
+            "text/html": "<h1>Hello</h1>",
+            "text/plain": "Hello"
+        });
+
+        assert_eq!(media, expected_media);
+    }
+
+    #[test]
+    pub fn test_display_data_various_data() {
+        let display_data = DisplayData {
+            data: serde_json::from_value(json!({
+                "text/plain": "Hello, World!",
+                "text/html": "<h1>Hello, World!</h1>",
+                "application/json": {
+                    "hello": "world",
+                    "foo": "bar",
+                    "ok": [1, 2, 3],
+                }
+            }))
+            .unwrap(),
+            ..Default::default()
+        };
+
+        let display_data_value = serde_json::to_value(&display_data).unwrap();
+
+        let expected_display_data_value = serde_json::json!({
+            "data": {
+                "text/plain": "Hello, World!",
+                "text/html": "<h1>Hello, World!</h1>",
+                "application/json": {
+                    "hello": "world",
+                    "foo": "bar",
+                    "ok": [1, 2, 3]
+                }
+            },
+            "metadata": {},
+            "transient": {}
+        });
+
+        assert_eq!(display_data_value, expected_display_data_value);
     }
 }
