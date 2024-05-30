@@ -9,6 +9,7 @@ use super::JupyterMessage;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum JupyterMessageContent {
+    ClearOutput(ClearOutput),
     CommClose(CommClose),
     CommInfoReply(CommInfoReply),
     CommInfoRequest(CommInfoRequest),
@@ -47,6 +48,7 @@ pub enum JupyterMessageContent {
 impl JupyterMessageContent {
     pub fn message_type(&self) -> &str {
         match self {
+            JupyterMessageContent::ClearOutput(_) => "clear_output",
             JupyterMessageContent::CommClose(_) => "comm_close",
             JupyterMessageContent::CommInfoReply(_) => "comm_info_reply",
             JupyterMessageContent::CommInfoRequest(_) => "comm_info_request",
@@ -85,6 +87,10 @@ impl JupyterMessageContent {
 
     pub fn from_type_and_content(msg_type: &str, content: Value) -> serde_json::Result<Self> {
         match msg_type {
+            "clear_output" => Ok(JupyterMessageContent::ClearOutput(serde_json::from_value(
+                content,
+            )?)),
+
             "comm_close" => Ok(JupyterMessageContent::CommClose(serde_json::from_value(
                 content,
             )?)),
@@ -265,6 +271,7 @@ impl From<JupyterMessageContent> for JupyterMessage {
     }
 }
 
+impl_as_child_of!(ClearOutput, ClearOutput);
 impl_as_child_of!(CommClose, CommClose);
 impl_as_child_of!(CommInfoReply, CommInfoReply);
 impl_as_child_of!(CommInfoRequest, CommInfoRequest);
@@ -341,6 +348,15 @@ pub struct ReplyError {
     pub ename: String,
     pub evalue: String,
     pub traceback: Vec<String>,
+}
+
+/// Clear output of a single cell / output area.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ClearOutput {
+    /// Wait to clear the output until new output is available.  Clears the
+    /// existing output immediately before the new output is displayed.
+    /// Useful for creating simple animations with minimal flickering.
+    pub wait: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
