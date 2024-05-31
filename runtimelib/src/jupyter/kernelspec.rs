@@ -5,9 +5,12 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use tokio::fs;
-use tokio::io::AsyncReadExt;
-use tokio::process::Command;
+
+#[cfg(feature = "tokio-runtime")]
+use tokio::{fs, io::AsyncReadExt, process::Command};
+
+#[cfg(feature = "async-dispatcher-runtime")]
+use smol::{fs, io::AsyncReadExt, process::Command};
 
 /// A pointer to a kernelspec directory, with name and fully deserialized specification
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -32,6 +35,7 @@ pub struct JupyterKernelspec {
 }
 
 impl KernelspecDir {
+    #[cfg(feature = "tokio-runtime")]
     pub async fn new(kernel_name: &String) -> Result<KernelspecDir> {
         let kernelspec_dirs = list_kernelspecs().await;
         let spec = kernelspec_dirs
@@ -83,6 +87,7 @@ impl KernelspecDir {
 // But we must check through all the possible <datadir> to figure that out.
 //
 // For now, just use a combination of the standard system and user data directories.
+#[cfg(feature = "tokio-runtime")]
 pub async fn list_kernelspecs() -> Vec<KernelspecDir> {
     let mut kernelspecs = Vec::new();
     let data_dirs = crate::dirs::data_dirs();
@@ -95,6 +100,7 @@ pub async fn list_kernelspecs() -> Vec<KernelspecDir> {
 
 // Design choice here is to not report any errors, keep going if possible,
 // and skip any paths that don't have a kernels subdirectory.
+#[cfg(feature = "tokio-runtime")]
 pub async fn list_kernelspec_names_at(data_dir: &Path) -> Vec<String> {
     let mut kernelspecs = Vec::new();
     let kernels_dir = data_dir.join("kernels");
@@ -111,6 +117,7 @@ pub async fn list_kernelspec_names_at(data_dir: &Path) -> Vec<String> {
 }
 
 // For a given data directory, return all the parsed kernelspecs and corresponding directories
+#[cfg(feature = "tokio-runtime")]
 pub async fn read_kernelspec_jsons(data_dir: &Path) -> Vec<KernelspecDir> {
     let mut kernelspecs = Vec::new();
     let kernel_names = list_kernelspec_names_at(data_dir).await;
@@ -136,7 +143,7 @@ async fn read_kernelspec_json(json_file_path: &Path) -> Result<JupyterKernelspec
     Ok(jupyter_runtime)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "tokio-runtime"))]
 mod tests {
     use super::*;
 

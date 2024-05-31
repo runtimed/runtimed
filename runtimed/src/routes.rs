@@ -207,6 +207,6 @@ async fn get_runtime_instance_attach(
 }
 
 async fn get_environments() -> Result<Json<Vec<KernelspecDir>>, StatusCode> {
-    let kernelspecs = runtimelib::jupyter::list_kernelspecs().await;
+    let kernelspecs = runtimelib::jupyter::kernelspec::list_kernelspecs().await;
     Ok(Json(kernelspecs))
 }

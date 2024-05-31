@@ -39,13 +39,17 @@ pub type KernelIoPubConnection = Connection<KernelIoPubSocket>;
 pub type KernelShellConnection = Connection<KernelShellSocket>;
 pub type KernelControlConnection = Connection<KernelControlSocket>;
 pub type KernelStdinConnection = Connection<KernelStdinSocket>;
-pub type KernelHeartbeatConnection = Connection<KernelHeartbeatSocket>;
+pub struct KernelHeartbeatConnection {
+    pub socket: KernelHeartbeatSocket,
+}
 
 pub type ClientIoPubConnection = Connection<ClientIoPubSocket>;
 pub type ClientShellConnection = Connection<ClientShellSocket>;
 pub type ClientControlConnection = Connection<ClientControlSocket>;
 pub type ClientStdinConnection = Connection<ClientStdinSocket>;
-pub type ClientHeartbeatConnection = Connection<ClientHeartbeatSocket>;
+pub struct ClientHeartbeatConnection {
+    pub socket: ClientHeartbeatSocket,
+}
 
 pub struct Connection<S> {
     pub socket: S,
@@ -84,9 +88,9 @@ impl<S: zeromq::SocketRecv> Connection<S> {
 
 impl KernelHeartbeatConnection {
     pub async fn single_heartbeat(&mut self) -> Result<(), anyhow::Error> {
-        self.socket.recv().await?;
+        let _msg = self.socket.recv().await?;
         self.socket
-            .send(zeromq::ZmqMessage::from(b"ping".to_vec()))
+            .send(zeromq::ZmqMessage::from(b"pong".to_vec()))
             .await?;
         Ok(())
     }
@@ -248,10 +252,18 @@ impl JupyterMessage {
     }
 
     pub fn new(content: JupyterMessageContent, parent: Option<&JupyterMessage>) -> JupyterMessage {
+        // Normally a session ID is per client. A higher level wrapper on this API
+        // should probably create messages based on a `Session` struct that is stateful.
+        // For now, a user can create a message and then set the session ID directly.
+        let session = match parent {
+            Some(parent) => parent.header.session.clone(),
+            None => Uuid::new_v4().to_string(),
+        };
+
         let header = Header {
             msg_id: Uuid::new_v4().to_string(),
             username: "runtimelib".to_string(),
-            session: Uuid::new_v4().to_string(),
+            session,
             date: time::utc_now(),
             msg_type: content.message_type().to_owned(),
             version: "5.3".to_string(),
@@ -278,6 +290,7 @@ impl JupyterMessage {
     }
 
     pub fn with_parent(mut self, parent: JupyterMessage) -> Self {
+        self.header.session = parent.header.session.clone();
         self.parent_header = Some(parent.header);
         self.zmq_identities = parent.zmq_identities.clone();
         self
@@ -285,6 +298,11 @@ impl JupyterMessage {
 
     pub fn with_zmq_identities(mut self, zmq_identities: Vec<Bytes>) -> Self {
         self.zmq_identities = zmq_identities;
+        self
+    }
+
+    pub fn with_session(mut self, session: &str) -> Self {
+        self.header.session = session.to_string();
         self
     }
 

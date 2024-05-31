@@ -7,21 +7,48 @@ license = "BSD-3-Clause"
 readme = "../README.md"
 
 [dependencies]
+zeromq = { version = "0.4", default-features = false, features = [
+    "tcp-transport",
+] }
 anyhow = "1.0.79"
 bytes = "1.5.0"
-chrono = { version = "0.4.34", default-features = false, features = ["std", "serde"] }
+chrono = { version = "0.4.34", default-features = false, features = [
+    "std",
+    "serde",
+] }
 data-encoding = "2.5.0"
 dirs = "5.0.1"
+smol = { version = "1.2", optional = true }
+futures = { version = "0.3" }
 rand = "0.8.5"
 ring = "0.17.7"
 serde = { version = "1.0.196", features = ["derive"] }
 serde_json = "1.0.113"
 uuid = { version = "1.7.0", features = ["serde", "v5"] }
-zeromq = { version = "=0.3.4", default-features = false, features = [
-    "tcp-transport",
-    "tokio-runtime",
-] }
-tokio = { version = "1.36.0", features = ["full"] }
 shellexpand = "3.1.0"
 glob = "0.3.1"
 base64 = "0.22.0"
+
+[features]
+default = ["tokio-runtime"]
+async-dispatcher-runtime = [
+    "zeromq/async-dispatcher-runtime",
+    "async-dispatcher",
+    "async-std",
+    "smol",
+]
+tokio-runtime = ["tokio", "zeromq/tokio-runtime"]
+
+[dependencies.tokio]
+version = "1.36.0"
+features = ["full"]
+optional = true
+
+[dependencies.async-dispatcher]
+version = "0.1"
+optional = true
+
+[dependencies.async-std]
+version = "1"
+features = ["attributes"]
+optional = true

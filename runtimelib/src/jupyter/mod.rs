@@ -3,13 +3,12 @@ pub mod dirs;
 pub mod discovery;
 pub mod kernelspec;
 
-pub use kernelspec::list_kernelspecs;
 pub use kernelspec::KernelspecDir;
 
 pub use client::*;
 pub use kernelspec::*;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "tokio-runtime"))]
 mod tests {
     use super::*;
     use tokio::runtime::Runtime;
