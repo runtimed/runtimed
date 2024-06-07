@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::media::MimeBundle;
+use crate::{media::Media, MediaType};
 
 use super::JupyterMessage;
 
@@ -392,10 +392,31 @@ impl Default for ExecuteRequest {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ExecutionCount(pub usize);
+
+impl ExecutionCount {
+    pub fn new(count: usize) -> Self {
+        Self(count)
+    }
+}
+
+impl From<usize> for ExecutionCount {
+    fn from(count: usize) -> Self {
+        Self(count)
+    }
+}
+
+impl Default for ExecutionCount {
+    fn default() -> Self {
+        Self(0)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteReply {
     pub status: ReplyStatus,
-    pub execution_count: usize,
+    pub execution_count: ExecutionCount,
 
     #[serde(default)]
     pub payload: Vec<Payload>,
@@ -414,7 +435,7 @@ pub struct ExecuteReply {
 #[serde(tag = "source")]
 pub enum Payload {
     Page {
-        data: MimeBundle,
+        data: Media,
         start: usize,
     },
     SetNextInput {
@@ -556,17 +577,17 @@ pub struct StreamContent {
 }
 
 impl StreamContent {
-    pub fn stdout(text: String) -> Self {
+    pub fn stdout(text: &str) -> Self {
         Self {
             name: Stdio::Stdout,
-            text,
+            text: text.to_string(),
         }
     }
 
-    pub fn stderr(text: String) -> Self {
+    pub fn stderr(text: &str) -> Self {
         Self {
             name: Stdio::Stderr,
-            text,
+            text: text.to_string(),
         }
     }
 }
@@ -603,7 +624,7 @@ pub struct Transient {
 /// As a side effect of execution, the kernel can send `'display_data'` messages to the UI/client.
 ///
 /// ```rust,ignore
-/// use runtimelib::media::{MimeBundle, MimeType, DisplayData};
+/// use runtimelib::media::{Media, MediaType, DisplayData};
 ///
 /// let execute_request = shell.read().await?;
 ///
@@ -612,7 +633,7 @@ pub struct Transient {
 ///     "text/html": "<h1>Hello, world!</h1>",
 /// }"#;
 ///
-/// let bundle: MimeBundle = serde_json::from_str(raw).unwrap();
+/// let bundle: Media = serde_json::from_str(raw).unwrap();
 ///
 /// let message = DisplayData{
 ///    data: bundle,
@@ -624,19 +645,59 @@ pub struct Transient {
 /// ```
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct DisplayData {
-    pub data: MimeBundle,
+    pub data: Media,
     pub metadata: HashMap<String, Value>,
     #[serde(default)]
     pub transient: Transient,
+}
+
+impl DisplayData {
+    pub fn new(data: Media) -> Self {
+        Self {
+            data,
+            metadata: Default::default(),
+            transient: Default::default(),
+        }
+    }
+}
+
+impl From<Vec<MediaType>> for DisplayData {
+    fn from(content: Vec<MediaType>) -> Self {
+        Self::new(Media {
+            content,
+            ..Default::default()
+        })
+    }
+}
+
+impl From<MediaType> for DisplayData {
+    fn from(content: MediaType) -> Self {
+        Self::new(Media {
+            content: vec![content],
+            ..Default::default()
+        })
+    }
 }
 
 /// A `'update_display_data'` message on the `'iopub'` channel.
 /// See [Update Display Data](https://jupyter-client.readthedocs.io/en/latest/messaging.html#update-display-data).
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct UpdateDisplayData {
-    pub data: MimeBundle,
+    pub data: Media,
     pub metadata: HashMap<String, Value>,
     pub transient: Transient,
+}
+
+impl UpdateDisplayData {
+    pub fn new(data: Media, display_id: &str) -> Self {
+        Self {
+            data,
+            metadata: Default::default(),
+            transient: Transient {
+                display_id: Some(display_id.to_string()),
+            },
+        }
+    }
 }
 
 /// An `'execute_input'` message on the `'iopub'` channel.
@@ -647,7 +708,7 @@ pub struct UpdateDisplayData {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteInput {
     pub code: String,
-    pub execution_count: usize,
+    pub execution_count: ExecutionCount,
 }
 
 /// An `'execute_result'` message on the `'iopub'` channel.
@@ -675,10 +736,45 @@ pub struct ExecuteInput {
 ///
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteResult {
-    pub execution_count: usize,
-    pub data: MimeBundle,
+    pub execution_count: ExecutionCount,
+    pub data: Media,
     pub metadata: HashMap<String, Value>,
     pub transient: Option<Transient>,
+}
+
+impl ExecuteResult {
+    pub fn new(execution_count: ExecutionCount, data: Media) -> Self {
+        Self {
+            execution_count,
+            data,
+            metadata: Default::default(),
+            transient: None,
+        }
+    }
+}
+
+impl From<(ExecutionCount, Vec<MediaType>)> for ExecuteResult {
+    fn from((execution_count, content): (ExecutionCount, Vec<MediaType>)) -> Self {
+        Self::new(
+            execution_count,
+            Media {
+                content,
+                ..Default::default()
+            },
+        )
+    }
+}
+
+impl From<(ExecutionCount, MediaType)> for ExecuteResult {
+    fn from((execution_count, content): (ExecutionCount, MediaType)) -> Self {
+        Self::new(
+            execution_count,
+            Media {
+                content: vec![content],
+                ..Default::default()
+            },
+        )
+    }
 }
 
 /// An `'error'` message on the `'iopub'` channel.
@@ -860,7 +956,7 @@ pub struct InspectRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InspectReply {
     pub found: bool,
-    pub data: MimeBundle,
+    pub data: Media,
     pub metadata: HashMap<String, Value>,
 
     pub status: ReplyStatus,
@@ -1132,7 +1228,7 @@ mod test {
         let execute_reply: ExecuteReply = serde_json::from_str(raw_execute_reply_content).unwrap();
 
         assert_eq!(execute_reply.status, ReplyStatus::Ok);
-        assert_eq!(execute_reply.execution_count, 1);
+        assert_eq!(execute_reply.execution_count, ExecutionCount::new(1));
 
         let payload = execute_reply.payload.clone();
 

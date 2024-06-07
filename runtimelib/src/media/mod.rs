@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 pub mod datatable;
 
@@ -8,12 +8,12 @@ pub use datatable::TabularDataResource;
 
 pub type JsonObject = serde_json::Map<String, serde_json::Value>;
 
-/// An enumeration representing various MIME (Multipurpose Internet Mail Extensions) types.
-/// These types are used to indicate the nature of the data in a rich content message.
+/// An enumeration representing various Media types, otherwise known as MIME (Multipurpose Internet Mail Extensions) types.
+/// These types are used to indicate the nature of the data in a rich content message such as `DisplayData`, `UpdateDisplayData`, and `ExecuteResult`.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "type", content = "data")]
-pub enum MimeType {
+pub enum MediaType {
     /// Plain text, typically representing unformatted text. (e.g. Python's `_repr_` or `_repr_pretty_` methods).
     #[serde(rename = "text/plain")]
     Plain(String),
@@ -100,86 +100,87 @@ pub enum MimeType {
     Other((String, Value)),
 }
 
-impl std::hash::Hash for MimeType {
+impl std::hash::Hash for MediaType {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        let mime_type_str = match &self {
-            MimeType::Plain(_) => "text/plain",
-            MimeType::Html(_) => "text/html",
-            MimeType::Latex(_) => "text/latex",
-            MimeType::Javascript(_) => "application/javascript",
-            MimeType::Markdown(_) => "text/markdown",
-            MimeType::Svg(_) => "image/svg+xml",
-            MimeType::Png(_) => "image/png",
-            MimeType::Jpeg(_) => "image/jpeg",
-            MimeType::Gif(_) => "image/gif",
-            MimeType::Json(_) => "application/json",
-            MimeType::GeoJson(_) => "application/geo+json",
-            MimeType::DataTable(_) => "application/vnd.dataresource+json",
-            MimeType::Plotly(_) => "application/vnd.plotly.v1+json",
-            MimeType::WidgetView(_) => "application/vnd.jupyter.widget-view+json",
-            MimeType::WidgetState(_) => "application/vnd.jupyter.widget-state+json",
-            MimeType::VegaLiteV2(_) => "application/vnd.vegalite.v2+json",
-            MimeType::VegaLiteV3(_) => "application/vnd.vegalite.v3+json",
-            MimeType::VegaLiteV4(_) => "application/vnd.vegalite.v4+json",
-            MimeType::VegaLiteV5(_) => "application/vnd.vegalite.v5+json",
-            MimeType::VegaLiteV6(_) => "application/vnd.vegalite.v6+json",
-            MimeType::VegaV3(_) => "application/vnd.vega.v3+json",
-            MimeType::VegaV4(_) => "application/vnd.vega.v4+json",
-            MimeType::VegaV5(_) => "application/vnd.vega.v5+json",
-            MimeType::Vdom(_) => "application/vdom.v1+json",
-            MimeType::Other((key, _)) => key.as_str(),
-        };
-
-        mime_type_str.hash(state);
+        match &self {
+            MediaType::Plain(_) => "text/plain",
+            MediaType::Html(_) => "text/html",
+            MediaType::Latex(_) => "text/latex",
+            MediaType::Javascript(_) => "application/javascript",
+            MediaType::Markdown(_) => "text/markdown",
+            MediaType::Svg(_) => "image/svg+xml",
+            MediaType::Png(_) => "image/png",
+            MediaType::Jpeg(_) => "image/jpeg",
+            MediaType::Gif(_) => "image/gif",
+            MediaType::Json(_) => "application/json",
+            MediaType::GeoJson(_) => "application/geo+json",
+            MediaType::DataTable(_) => "application/vnd.dataresource+json",
+            MediaType::Plotly(_) => "application/vnd.plotly.v1+json",
+            MediaType::WidgetView(_) => "application/vnd.jupyter.widget-view+json",
+            MediaType::WidgetState(_) => "application/vnd.jupyter.widget-state+json",
+            MediaType::VegaLiteV2(_) => "application/vnd.vegalite.v2+json",
+            MediaType::VegaLiteV3(_) => "application/vnd.vegalite.v3+json",
+            MediaType::VegaLiteV4(_) => "application/vnd.vegalite.v4+json",
+            MediaType::VegaLiteV5(_) => "application/vnd.vegalite.v5+json",
+            MediaType::VegaLiteV6(_) => "application/vnd.vegalite.v6+json",
+            MediaType::VegaV3(_) => "application/vnd.vega.v3+json",
+            MediaType::VegaV4(_) => "application/vnd.vega.v4+json",
+            MediaType::VegaV5(_) => "application/vnd.vega.v5+json",
+            MediaType::Vdom(_) => "application/vdom.v1+json",
+            MediaType::Other((key, _)) => key.as_str(),
+        }
+        .hash(state)
     }
 }
 
-/// A `MimeBundle` is a collection of data associated with different MIME types.
+/// A `Media` is a collection of data associated with different Media types.
 /// It allows for the representation of rich content that can be displayed in multiple formats.
 /// These are found in the `data` field of a `DisplayData` and `ExecuteResult` messages/output types.
 ///
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
-pub struct MimeBundle {
-    /// A map of MIME types to their corresponding data, represented as JSON `Value`.
+pub struct Media {
+    /// A map of Media types to their corresponding data, represented as JSON `Value`.
     #[serde(
         flatten,
-        deserialize_with = "deserialize_mimebundle",
-        serialize_with = "serialize_mimebundle"
+        deserialize_with = "deserialize_media",
+        serialize_with = "serialize_media"
     )]
-    pub content: HashSet<MimeType>,
+    pub content: Vec<MediaType>,
 }
 
-fn deserialize_mimebundle<'de, D>(deserializer: D) -> Result<HashSet<MimeType>, D::Error>
+fn deserialize_media<'de, D>(deserializer: D) -> Result<Vec<MediaType>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
+    // Jupyter protocol does pure Map<String, Value> for media types.
+    // Our deserializer goes a step further by having enums that have their data fully typed
     let map: HashMap<String, Value> = HashMap::deserialize(deserializer)?;
-    let mut set = HashSet::new();
+    let mut content = Vec::new();
 
     for (key, value) in map {
-        let mut mime_value_map = serde_json::Map::new();
-        mime_value_map.insert("type".to_string(), Value::String(key.clone()));
-        mime_value_map.insert("data".to_string(), value.clone());
+        let mime_type: MediaType =
+            match serde_json::from_value(Value::Object(serde_json::Map::from_iter([
+                ("type".to_string(), Value::String(key.clone())),
+                ("data".to_string(), value.clone()),
+            ]))) {
+                Ok(mediatype) => mediatype,
+                Err(_) => MediaType::Other((key, value)),
+            };
 
-        let mime_type: MimeType = match serde_json::from_value(Value::Object(mime_value_map)) {
-            Ok(mime_type) => mime_type,
-            Err(_) => MimeType::Other((key, value)),
-        };
-
-        set.insert(mime_type);
+        content.push(mime_type);
     }
 
-    Ok(set)
+    Ok(content)
 }
 
-fn serialize_mimebundle<S>(content: &HashSet<MimeType>, serializer: S) -> Result<S::Ok, S::Error>
+fn serialize_media<S>(content: &Vec<MediaType>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
     let mut map = HashMap::new();
 
-    for mime_type in content {
-        let serialized = serde_json::to_value(mime_type);
+    for media_type in content {
+        let serialized = serde_json::to_value(media_type);
 
         // Skip any that don't serialize properly, to degrade gracefully.
         if let Ok(Value::Object(obj)) = serialized {
@@ -194,15 +195,15 @@ where
     map.serialize(serializer)
 }
 
-impl MimeBundle {
-    /// Find the richest MIME type in the bundle, based on the provided ranker function.
-    /// A rank of 0 indicates that the MIME type is not supported. Higher numbers indicate
-    /// that the MIME type is preferred over other MIME types.
+impl Media {
+    /// Find the richest media type in the bundle, based on the provided ranker function.
+    /// A rank of 0 indicates that the media type is not supported. Higher numbers indicate
+    /// that the media type is preferred over other media types.
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use runtimelib::media::{MimeBundle, MimeType};
+    /// use runtimelib::media::{Media, MediaType};
     ///
     /// let raw = r#"{
     ///    "text/plain": "FancyThing()",
@@ -210,36 +211,48 @@ impl MimeBundle {
     ///    "application/json": {"fancy": true}
     /// }"#;
     ///
-    /// let mime_bundle: MimeBundle = serde_json::from_str(raw).unwrap();
+    /// let media: Media = serde_json::from_str(raw).unwrap();
     ///
-    /// let ranker = |mime_type: &MimeType| match mime_type {
-    ///    MimeType::Html(_) => 3,
-    ///    MimeType::Json(_) => 2,
-    ///    MimeType::Plain(_) => 1,
+    /// let ranker = |media_type: &MediaType| match media_type {
+    ///    MediaType::Html(_) => 3,
+    ///    MediaType::Json(_) => 2,
+    ///    MediaType::Plain(_) => 1,
     ///    _ => 0,
     /// };
     ///
-    /// let richest = mime_bundle.richest(ranker);
+    /// let richest = media.richest(ranker);
     ///
     /// assert_eq!(
     ///    richest,
-    ///    Some(MimeType::Html(String::from("<h1>Fancy!</h1>"))).as_ref()
+    ///    Some(MediaType::Html(String::from("<h1>Fancy!</h1>"))).as_ref()
     /// );
     ///
     /// ```
-    pub fn richest(&self, ranker: fn(&MimeType) -> usize) -> Option<&MimeType> {
+    pub fn richest(&self, ranker: fn(&MediaType) -> usize) -> Option<&MediaType> {
         self.content
             .iter()
-            .filter_map(|mimetype| {
-                let rank = ranker(mimetype);
+            .filter_map(|mediatype| {
+                let rank = ranker(mediatype);
                 if rank > 0 {
-                    Some((rank, mimetype))
+                    Some((rank, mediatype))
                 } else {
                     None
                 }
             })
             .max_by_key(|(rank, _)| *rank)
-            .map(|(_, mimetype)| mimetype)
+            .map(|(_, mediatype)| mediatype)
+    }
+
+    pub fn new(content: Vec<MediaType>) -> Self {
+        Self { content }
+    }
+}
+
+impl From<MediaType> for Media {
+    fn from(media_type: MediaType) -> Self {
+        Media {
+            content: vec![media_type],
+        }
     }
 }
 
@@ -274,17 +287,17 @@ mod test {
             "application/octet-stream": "Binary data"
         }"#;
 
-        let bundle: MimeBundle = serde_json::from_str(raw).unwrap();
+        let bundle: Media = serde_json::from_str(raw).unwrap();
 
-        let ranker = |mime_type: &MimeType| match mime_type {
-            MimeType::Plain(_) => 1,
-            MimeType::Html(_) => 2,
+        let ranker = |mediatype: &MediaType| match mediatype {
+            MediaType::Plain(_) => 1,
+            MediaType::Html(_) => 2,
             _ => 0,
         };
 
         match bundle.richest(ranker) {
-            Some(MimeType::Html(data)) => assert_eq!(data, "<h1>Hello, world!</h1>"),
-            _ => panic!("Unexpected mime type"),
+            Some(MediaType::Html(data)) => assert_eq!(data, "<h1>Hello, world!</h1>"),
+            _ => panic!("Unexpected media type"),
         }
     }
 
@@ -312,19 +325,19 @@ mod test {
             "application/octet-stream": "Binary data"
         }"#;
 
-        let bundle: MimeBundle = serde_json::from_str(raw).unwrap();
+        let bundle: Media = serde_json::from_str(raw).unwrap();
 
-        let ranker = |mime_type: &MimeType| match mime_type {
-            MimeType::Html(_) => 1,
-            MimeType::Json(_) => 2,
-            MimeType::DataTable(_) => 3,
+        let ranker = |mediatype: &MediaType| match mediatype {
+            MediaType::Html(_) => 1,
+            MediaType::Json(_) => 2,
+            MediaType::DataTable(_) => 3,
             _ => 0,
         };
 
         let richest = bundle.richest(ranker);
 
         match richest {
-            Some(MimeType::DataTable(table)) => {
+            Some(MediaType::DataTable(table)) => {
                 assert_eq!(
                     table.data,
                     Some(vec![
@@ -358,12 +371,12 @@ mod test {
             "application/fancy": "Too ✨ Fancy ✨ for you!"
         }"#;
 
-        let bundle: MimeBundle = serde_json::from_str(raw).unwrap();
+        let bundle: Media = serde_json::from_str(raw).unwrap();
 
-        let ranker = |mime_type: &MimeType| match mime_type {
-            MimeType::Html(_) => 1,
-            MimeType::Json(_) => 2,
-            MimeType::DataTable(_) => 3,
+        let ranker = |mediatype: &MediaType| match mediatype {
+            MediaType::Html(_) => 1,
+            MediaType::Json(_) => 2,
+            MediaType::DataTable(_) => 3,
             _ => 0,
         };
 
@@ -371,7 +384,7 @@ mod test {
 
         assert_eq!(richest, None);
 
-        assert!(bundle.content.contains(&MimeType::Other((
+        assert!(bundle.content.contains(&MediaType::Other((
             "application/fancy".to_string(),
             json!("Too ✨ Fancy ✨ for you!")
         ))));
@@ -401,8 +414,12 @@ mod test {
             "application/octet-stream": "Binary data"
         }"#;
 
-        let bundle: MimeBundle = serde_json::from_str(raw).unwrap();
+        let bundle: Media = serde_json::from_str(raw).unwrap();
         let richest = bundle.richest(|_| 0);
         assert_eq!(richest, None);
     }
 }
+
+// Backwards compatibility with previous versions and Jupyter naming
+pub type MimeBundle = Media;
+pub type MimeType = MediaType;

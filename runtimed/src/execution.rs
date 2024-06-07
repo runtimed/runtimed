@@ -1,5 +1,5 @@
 use runtimelib::{
-    media::{MimeBundle, MimeType},
+    media::{Media, MediaType},
     messaging::{
         content::{ExecutionState, Stdio},
         ErrorOutput, Header, JupyterMessage, JupyterMessageContent,
@@ -10,7 +10,7 @@ use runtimelib::{
 pub struct CodeExecutionOutput {
     pub stdout: String,
     pub stderr: String,
-    pub result: MimeBundle,
+    pub result: Media,
     pub error: Option<ErrorOutput>,
     pub header: Header,
     pub start_time: String,
@@ -59,16 +59,16 @@ impl CodeExecutionOutput {
     }
 }
 
-fn plain_ranker(mime_type: &MimeType) -> usize {
+fn plain_ranker(mime_type: &MediaType) -> usize {
     match mime_type {
-        MimeType::Plain(_) => 1,
+        MediaType::Plain(_) => 1,
         _ => 0,
     }
 }
 
 impl std::fmt::Display for CodeExecutionOutput {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let result = if let Some(MimeType::Plain(content)) = self.result.richest(plain_ranker) {
+        let result = if let Some(MediaType::Plain(content)) = self.result.richest(plain_ranker) {
             content.to_string()
         } else {
             "".to_string()
