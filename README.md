@@ -20,7 +20,24 @@ There are three main interfaces:
 - `runtimed` - a daemon for working with the interactive computing runtimes
 - `runtimelib` - a rust library for interfacing with runtimes directly
 
-## Getting Started
+## Getting Started with `runtimelib`
+
+```
+cargo install runtimelib
+```
+
+### Asynchronous dispatch options
+
+By default, runtimelib uses tokio. However, the [async-dispatcher](https://github.com/zed-industries/async-dispatcher) runtime can be selected at compile time with:
+
+```bash
+cargo build --feature async-dispatch-runtime
+```
+
+This will allow you to build GPUI apps with runtimelib.
+
+
+## Development - getting started
 
 ```
 git clone git@github.com:runtimed/runtimed.git
