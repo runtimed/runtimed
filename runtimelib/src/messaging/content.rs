@@ -35,7 +35,9 @@ pub enum JupyterMessageContent {
     InterruptRequest(InterruptRequest),
     IsCompleteReply(IsCompleteReply),
     IsCompleteRequest(IsCompleteRequest),
-    KernelInfoReply(KernelInfoReply),
+    // This field is much larger than the most frequent ones
+    // so we box it.
+    KernelInfoReply(Box<KernelInfoReply>),
     KernelInfoRequest(KernelInfoRequest),
     ShutdownReply(ShutdownReply),
     ShutdownRequest(ShutdownRequest),
@@ -70,7 +72,7 @@ impl JupyterMessageContent {
             JupyterMessageContent::InputRequest(_) => "input_request",
             JupyterMessageContent::InspectReply(_) => "inspect_reply",
             JupyterMessageContent::InspectRequest(_) => "inspect_request",
-            JupyterMessageContent::InterruptReply(__) => "interrupt_reply",
+            JupyterMessageContent::InterruptReply(_) => "interrupt_reply",
             JupyterMessageContent::InterruptRequest(_) => "interrupt_request",
             JupyterMessageContent::IsCompleteReply(_) => "is_complete_reply",
             JupyterMessageContent::IsCompleteRequest(_) => "is_complete_request",
@@ -216,7 +218,7 @@ impl JupyterMessageContent {
 }
 
 pub trait AsChildOf {
-    fn as_child_of(self, parent: &JupyterMessage) -> JupyterMessage;
+    fn as_child_of(&self, parent: &JupyterMessage) -> JupyterMessage;
 }
 
 macro_rules! impl_as_child_of {
@@ -240,8 +242,8 @@ macro_rules! impl_as_child_of {
             /// connection.send(child_message).await?;
             /// ```
             #[must_use]
-            fn as_child_of(self, parent: &JupyterMessage) -> JupyterMessage {
-                JupyterMessage::new(JupyterMessageContent::$variant(self), Some(parent))
+            fn as_child_of(&self, parent: &JupyterMessage) -> JupyterMessage {
+                JupyterMessage::new(JupyterMessageContent::$variant(self.clone()), Some(parent))
             }
         }
 
@@ -295,13 +297,39 @@ impl_as_child_of!(InspectReply, InspectReply);
 impl_as_child_of!(InspectRequest, InspectRequest);
 impl_as_child_of!(IsCompleteReply, IsCompleteReply);
 impl_as_child_of!(IsCompleteRequest, IsCompleteRequest);
-impl_as_child_of!(KernelInfoReply, KernelInfoReply);
 impl_as_child_of!(KernelInfoRequest, KernelInfoRequest);
 impl_as_child_of!(ShutdownReply, ShutdownReply);
 impl_as_child_of!(ShutdownRequest, ShutdownRequest);
 impl_as_child_of!(Status, Status);
 impl_as_child_of!(StreamContent, StreamContent);
 impl_as_child_of!(UpdateDisplayData, UpdateDisplayData);
+
+// KernelInfoReply is a special case due to the Boxing requirement
+// impl_as_child_of!(KernelInfoReply, KernelInfoReply);
+
+impl AsChildOf for KernelInfoReply {
+    fn as_child_of(&self, parent: &JupyterMessage) -> JupyterMessage {
+        JupyterMessage::new(
+            JupyterMessageContent::KernelInfoReply(Box::new(self.clone())),
+            Some(parent),
+        )
+    }
+}
+
+impl From<KernelInfoReply> for JupyterMessage {
+    fn from(content: KernelInfoReply) -> Self {
+        JupyterMessage::new(
+            JupyterMessageContent::KernelInfoReply(Box::new(content)),
+            None,
+        )
+    }
+}
+
+impl From<KernelInfoReply> for JupyterMessageContent {
+    fn from(content: KernelInfoReply) -> Self {
+        JupyterMessageContent::KernelInfoReply(Box::new(content))
+    }
+}
 
 /// Unknown message types are a workaround for generically unknown messages.
 ///
@@ -392,8 +420,7 @@ impl Default for ExecuteRequest {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct ExecutionCount(pub usize);
 
 impl ExecutionCount {
@@ -407,7 +434,6 @@ impl From<usize> for ExecutionCount {
         Self(count)
     }
 }
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteReply {
@@ -659,10 +685,7 @@ impl DisplayData {
 
 impl From<Vec<MediaType>> for DisplayData {
     fn from(content: Vec<MediaType>) -> Self {
-        Self::new(Media {
-            content,
-            ..Default::default()
-        })
+        Self::new(Media { content })
     }
 }
 
@@ -670,7 +693,6 @@ impl From<MediaType> for DisplayData {
     fn from(content: MediaType) -> Self {
         Self::new(Media {
             content: vec![content],
-            ..Default::default()
         })
     }
 }
@@ -751,13 +773,7 @@ impl ExecuteResult {
 
 impl From<(ExecutionCount, Vec<MediaType>)> for ExecuteResult {
     fn from((execution_count, content): (ExecutionCount, Vec<MediaType>)) -> Self {
-        Self::new(
-            execution_count,
-            Media {
-                content,
-                ..Default::default()
-            },
-        )
+        Self::new(execution_count, Media { content })
     }
 }
 
@@ -767,7 +783,6 @@ impl From<(ExecutionCount, MediaType)> for ExecuteResult {
             execution_count,
             Media {
                 content: vec![content],
-                ..Default::default()
             },
         )
     }

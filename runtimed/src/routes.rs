@@ -161,17 +161,10 @@ async fn post_runtime_instance_eval_code(
         .await
         .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
 
-    loop {
-        match broadcaster.recv().await {
-            Ok(output_msg) => {
-                response.add_message(output_msg);
-                if response.is_complete() {
-                    break;
-                }
-            }
-            _ => {
-                break;
-            }
+    while let Ok(output_msg) = broadcaster.recv().await {
+        response.add_message(output_msg);
+        if response.is_complete() {
+            break;
         }
     }
 

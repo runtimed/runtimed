@@ -47,7 +47,7 @@ impl KernelspecDir {
 
     pub async fn command(
         self,
-        connection_path: &PathBuf,
+        connection_path: &Path,
         stderr: Option<Stdio>,
         stdout: Option<Stdio>,
     ) -> Result<Command> {

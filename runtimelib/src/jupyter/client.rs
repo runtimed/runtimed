@@ -287,7 +287,7 @@ pub struct JupyterRuntime {
     pub id: RuntimeId,
     // TODO: create an enum for activity state
     pub state: String,
-    pub kernel_info: Option<KernelInfoReply>,
+    pub kernel_info: Option<Box<KernelInfoReply>>,
 }
 
 impl JupyterRuntime {

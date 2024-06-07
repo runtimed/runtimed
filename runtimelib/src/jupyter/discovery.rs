@@ -76,7 +76,7 @@ impl JupyterRuntime {
     }
 
     /// Send a message to the kernel to check its status.
-    pub async fn check_kernel_info(&self) -> Result<KernelInfoReply, Error> {
+    pub async fn check_kernel_info(&self) -> Result<Box<KernelInfoReply>, Error> {
         let res = timeout(std::time::Duration::from_secs(1), async {
             let mut client = match self.attach().await {
                 Ok(client) => client,
