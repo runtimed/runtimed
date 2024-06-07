@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::media::MimeBundle;
+use crate::media::Media;
 
 use super::JupyterMessage;
 
@@ -414,7 +414,7 @@ pub struct ExecuteReply {
 #[serde(tag = "source")]
 pub enum Payload {
     Page {
-        data: MimeBundle,
+        data: Media,
         start: usize,
     },
     SetNextInput {
@@ -624,7 +624,7 @@ pub struct Transient {
 /// ```
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct DisplayData {
-    pub data: MimeBundle,
+    pub data: Media,
     pub metadata: HashMap<String, Value>,
     #[serde(default)]
     pub transient: Transient,
@@ -634,7 +634,7 @@ pub struct DisplayData {
 /// See [Update Display Data](https://jupyter-client.readthedocs.io/en/latest/messaging.html#update-display-data).
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct UpdateDisplayData {
-    pub data: MimeBundle,
+    pub data: Media,
     pub metadata: HashMap<String, Value>,
     pub transient: Transient,
 }
@@ -676,7 +676,7 @@ pub struct ExecuteInput {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteResult {
     pub execution_count: usize,
-    pub data: MimeBundle,
+    pub data: Media,
     pub metadata: HashMap<String, Value>,
     pub transient: Option<Transient>,
 }
@@ -860,7 +860,7 @@ pub struct InspectRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InspectReply {
     pub found: bool,
-    pub data: MimeBundle,
+    pub data: Media,
     pub metadata: HashMap<String, Value>,
 
     pub status: ReplyStatus,
