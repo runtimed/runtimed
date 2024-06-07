@@ -11,8 +11,16 @@ use crate::messaging::{
     KernelControlConnection, KernelHeartbeatConnection, KernelInfoReply, KernelIoPubConnection,
     KernelShellConnection, KernelStdinConnection,
 };
-use tokio::fs;
-use tokio::time::{timeout, Duration};
+
+#[cfg(feature = "tokio-runtime")]
+use tokio::{fs, net::TcpListener};
+
+#[cfg(feature = "async-dispatcher-runtime")]
+use async_dispatcher::timeout;
+#[cfg(feature = "async-dispatcher-runtime")]
+use async_std::{fs, net::TcpListener};
+#[cfg(feature = "async-dispatcher-runtime")]
+use futures::join;
 
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -101,7 +109,7 @@ impl ConnectionInfo {
 
         let mut ports: Vec<u16> = Vec::new();
         for _ in 0..num {
-            let listener = tokio::net::TcpListener::bind(addr_zeroport).await?;
+            let listener = TcpListener::bind(addr_zeroport).await?;
             let bound_port = listener.local_addr()?.port();
             ports.push(bound_port);
         }
@@ -197,7 +205,7 @@ impl ConnectionInfo {
 
         let mut socket = zeromq::RepSocket::new();
         socket.bind(&endpoint).await?;
-        anyhow::Ok(Connection::new(socket, &self.key))
+        anyhow::Ok(KernelHeartbeatConnection { socket })
     }
 
     pub async fn create_client_iopub_connection(
@@ -246,7 +254,7 @@ impl ConnectionInfo {
 
         let mut socket = zeromq::ReqSocket::new();
         socket.connect(&endpoint).await?;
-        anyhow::Ok(Connection::new(socket, &self.key))
+        anyhow::Ok(ClientHeartbeatConnection { socket })
     }
 }
 
@@ -373,7 +381,11 @@ pub struct JupyterClient {
 
 impl JupyterClient {
     /// Close all connections to the kernel
+    #[cfg(feature = "tokio-runtime")]
     pub async fn detach(self) -> Result<()> {
+        use std::time::Duration;
+        use tokio::time::timeout;
+
         let timeout_duration = Duration::from_millis(60);
 
         let close_sockets = async {

@@ -3,7 +3,12 @@ use dirs::{data_dir, home_dir};
 use serde_json::Value;
 use std::env;
 use std::path::PathBuf;
+
+#[cfg(feature = "tokio-runtime")]
 use tokio::process::Command;
+
+#[cfg(feature = "async-dispatcher-runtime")]
+use smol::process::Command;
 
 pub async fn ask_jupyter() -> Result<Value> {
     let output = Command::new("jupyter")

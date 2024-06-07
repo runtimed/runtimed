@@ -11,7 +11,9 @@ path = "src/lib.rs"
 tokio = { version = "1.36.0", features = ["full"] }
 serde = { version = "1.0.196", features = ["derive"] }
 axum = "0.7.4"
-runtimelib = { path = "../runtimelib" }
+runtimelib = { path = "../runtimelib", default-features = false, features = [
+    "tokio-runtime",
+] }
 sqlx = { version = "0.7", features = [
     "runtime-tokio",
     "sqlite",

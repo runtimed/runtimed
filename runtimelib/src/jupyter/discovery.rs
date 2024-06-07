@@ -1,8 +1,9 @@
 //! Methods for discovering Jupyter runtimes on the local machine.
+#[cfg(feature = "tokio-runtime")]
+use tokio::{fs, task::JoinSet, time::timeout};
 
-use crate::jupyter::dirs;
-use tokio::fs;
-use tokio::task::JoinSet;
+#[cfg(feature = "async-dispatcher-runtime")]
+use async_dispatcher::timeout;
 
 use anyhow::{Error, Result};
 
@@ -20,8 +21,9 @@ pub fn is_connection_file(path: &std::path::Path) -> bool {
 /// Get a list of all Jupyter runtimes on the local machine.
 ///
 /// This reads connection files from Jupyter runtime directories from the `dirs` module.
+#[cfg(feature = "tokio-runtime")]
 pub async fn get_jupyter_runtime_instances() -> Vec<JupyterRuntime> {
-    let runtime_dir = dirs::runtime_dir();
+    let runtime_dir = crate::jupyter::dirs::runtime_dir();
 
     let mut join_set = JoinSet::new();
 
@@ -75,7 +77,7 @@ impl JupyterRuntime {
 
     /// Send a message to the kernel to check its status.
     pub async fn check_kernel_info(&self) -> Result<KernelInfoReply, Error> {
-        let res = tokio::time::timeout(std::time::Duration::from_secs(1), async {
+        let res = timeout(std::time::Duration::from_secs(1), async {
             let mut client = match self.attach().await {
                 Ok(client) => client,
                 Err(e) => return Err(anyhow::anyhow!("Failed to attach to runtime: {}", e)),

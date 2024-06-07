@@ -6,7 +6,7 @@ pub mod datatable;
 
 pub use datatable::TabularDataResource;
 
-type JsonObject = serde_json::Map<String, serde_json::Value>;
+pub type JsonObject = serde_json::Map<String, serde_json::Value>;
 
 /// An enumeration representing various MIME (Multipurpose Internet Mail Extensions) types.
 /// These types are used to indicate the nature of the data in a rich content message.

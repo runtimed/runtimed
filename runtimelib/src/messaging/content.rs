@@ -899,6 +899,7 @@ pub struct DebugReply {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum IsCompleteReplyStatus {
     /// The code is incomplete, and the frontend should prompt the user for more
     /// input.

@@ -11,6 +11,7 @@ use anyhow::Error;
 
 use glob::glob;
 
+#[cfg(feature = "tokio-runtime")]
 pub async fn list_instances() -> Vec<client::JupyterRuntime> {
     discovery::get_jupyter_runtime_instances().await
 }
