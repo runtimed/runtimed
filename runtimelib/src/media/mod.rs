@@ -243,12 +243,8 @@ impl Media {
     }
 
     pub fn new(content: Vec<MediaType>) -> Self {
-        Self {
-            content: content.into_iter().collect(),
-        }
+        Self { content }
     }
-
-    // Media::new().with_markdown("Hello, world!")
 
     pub fn markdown(content: &str) -> Self {
         Self::new(vec![MediaType::Markdown(content.to_string())])

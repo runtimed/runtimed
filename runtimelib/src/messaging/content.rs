@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::media::Media;
+use crate::{media::Media, MediaType};
 
 use super::JupyterMessage;
 
@@ -630,6 +630,25 @@ pub struct DisplayData {
     pub transient: Transient,
 }
 
+impl DisplayData {
+    pub fn new(data: Media) -> Self {
+        Self {
+            data,
+            metadata: Default::default(),
+            transient: Default::default(),
+        }
+    }
+}
+
+impl From<Vec<MediaType>> for DisplayData {
+    fn from(content: Vec<MediaType>) -> Self {
+        Self::new(Media {
+            content,
+            ..Default::default()
+        })
+    }
+}
+
 /// A `'update_display_data'` message on the `'iopub'` channel.
 /// See [Update Display Data](https://jupyter-client.readthedocs.io/en/latest/messaging.html#update-display-data).
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -637,6 +656,18 @@ pub struct UpdateDisplayData {
     pub data: Media,
     pub metadata: HashMap<String, Value>,
     pub transient: Transient,
+}
+
+impl UpdateDisplayData {
+    pub fn new(data: Media, display_id: &str) -> Self {
+        Self {
+            data,
+            metadata: Default::default(),
+            transient: Transient {
+                display_id: Some(display_id.to_string()),
+            },
+        }
+    }
 }
 
 /// An `'execute_input'` message on the `'iopub'` channel.
@@ -679,6 +710,17 @@ pub struct ExecuteResult {
     pub data: Media,
     pub metadata: HashMap<String, Value>,
     pub transient: Option<Transient>,
+}
+
+impl ExecuteResult {
+    pub fn new(execution_count: usize, data: Media) -> Self {
+        Self {
+            execution_count,
+            data,
+            metadata: Default::default(),
+            transient: None,
+        }
+    }
 }
 
 /// An `'error'` message on the `'iopub'` channel.
