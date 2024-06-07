@@ -392,10 +392,31 @@ impl Default for ExecuteRequest {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ExecutionCount(pub usize);
+
+impl ExecutionCount {
+    pub fn new(count: usize) -> Self {
+        Self(count)
+    }
+}
+
+impl From<usize> for ExecutionCount {
+    fn from(count: usize) -> Self {
+        Self(count)
+    }
+}
+
+impl Default for ExecutionCount {
+    fn default() -> Self {
+        Self(0)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteReply {
     pub status: ReplyStatus,
-    pub execution_count: usize,
+    pub execution_count: ExecutionCount,
 
     #[serde(default)]
     pub payload: Vec<Payload>,
@@ -687,7 +708,7 @@ impl UpdateDisplayData {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteInput {
     pub code: String,
-    pub execution_count: usize,
+    pub execution_count: ExecutionCount,
 }
 
 /// An `'execute_result'` message on the `'iopub'` channel.
@@ -715,14 +736,14 @@ pub struct ExecuteInput {
 ///
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteResult {
-    pub execution_count: usize,
+    pub execution_count: ExecutionCount,
     pub data: Media,
     pub metadata: HashMap<String, Value>,
     pub transient: Option<Transient>,
 }
 
 impl ExecuteResult {
-    pub fn new(execution_count: usize, data: Media) -> Self {
+    pub fn new(execution_count: ExecutionCount, data: Media) -> Self {
         Self {
             execution_count,
             data,
@@ -732,8 +753,8 @@ impl ExecuteResult {
     }
 }
 
-impl From<(usize, Vec<MediaType>)> for ExecuteResult {
-    fn from((execution_count, content): (usize, Vec<MediaType>)) -> Self {
+impl From<(ExecutionCount, Vec<MediaType>)> for ExecuteResult {
+    fn from((execution_count, content): (ExecutionCount, Vec<MediaType>)) -> Self {
         Self::new(
             execution_count,
             Media {
@@ -744,8 +765,8 @@ impl From<(usize, Vec<MediaType>)> for ExecuteResult {
     }
 }
 
-impl From<(usize, MediaType)> for ExecuteResult {
-    fn from((execution_count, content): (usize, MediaType)) -> Self {
+impl From<(ExecutionCount, MediaType)> for ExecuteResult {
+    fn from((execution_count, content): (ExecutionCount, MediaType)) -> Self {
         Self::new(
             execution_count,
             Media {
@@ -1207,7 +1228,7 @@ mod test {
         let execute_reply: ExecuteReply = serde_json::from_str(raw_execute_reply_content).unwrap();
 
         assert_eq!(execute_reply.status, ReplyStatus::Ok);
-        assert_eq!(execute_reply.execution_count, 1);
+        assert_eq!(execute_reply.execution_count, ExecutionCount::new(1));
 
         let payload = execute_reply.payload.clone();
 
