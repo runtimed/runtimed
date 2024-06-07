@@ -245,17 +245,13 @@ impl Media {
     pub fn new(content: Vec<MediaType>) -> Self {
         Self { content }
     }
+}
 
-    pub fn markdown(content: &str) -> Self {
-        Self::new(vec![MediaType::Markdown(content.to_string())])
-    }
-
-    pub fn html(content: &str) -> Self {
-        Self::new(vec![MediaType::Html(content.to_string())])
-    }
-
-    pub fn text(content: &str) -> Self {
-        Self::new(vec![MediaType::Plain(content.to_string())])
+impl From<MediaType> for Media {
+    fn from(media_type: MediaType) -> Self {
+        Media {
+            content: vec![media_type],
+        }
     }
 }
 

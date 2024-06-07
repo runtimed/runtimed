@@ -556,17 +556,17 @@ pub struct StreamContent {
 }
 
 impl StreamContent {
-    pub fn stdout(text: String) -> Self {
+    pub fn stdout(text: &str) -> Self {
         Self {
             name: Stdio::Stdout,
-            text,
+            text: text.to_string(),
         }
     }
 
-    pub fn stderr(text: String) -> Self {
+    pub fn stderr(text: &str) -> Self {
         Self {
             name: Stdio::Stderr,
-            text,
+            text: text.to_string(),
         }
     }
 }
@@ -649,6 +649,15 @@ impl From<Vec<MediaType>> for DisplayData {
     }
 }
 
+impl From<MediaType> for DisplayData {
+    fn from(content: MediaType) -> Self {
+        Self::new(Media {
+            content: vec![content],
+            ..Default::default()
+        })
+    }
+}
+
 /// A `'update_display_data'` message on the `'iopub'` channel.
 /// See [Update Display Data](https://jupyter-client.readthedocs.io/en/latest/messaging.html#update-display-data).
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -720,6 +729,30 @@ impl ExecuteResult {
             metadata: Default::default(),
             transient: None,
         }
+    }
+}
+
+impl From<(usize, Vec<MediaType>)> for ExecuteResult {
+    fn from((execution_count, content): (usize, Vec<MediaType>)) -> Self {
+        Self::new(
+            execution_count,
+            Media {
+                content,
+                ..Default::default()
+            },
+        )
+    }
+}
+
+impl From<(usize, MediaType)> for ExecuteResult {
+    fn from((execution_count, content): (usize, MediaType)) -> Self {
+        Self::new(
+            execution_count,
+            Media {
+                content: vec![content],
+                ..Default::default()
+            },
+        )
     }
 }
 
