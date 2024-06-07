@@ -116,15 +116,15 @@ impl ConnectionInfo {
         Ok(ports)
     }
 
-    pub fn generate_file_path(self: &Self) -> PathBuf {
+    pub fn generate_file_path(&self) -> PathBuf {
         let kernel_fs_uuid = Uuid::new_v4();
         let connection_file_path: PathBuf =
-            dirs::runtime_dir().join(format!("kernel-{}.json", kernel_fs_uuid.to_string()));
+            dirs::runtime_dir().join(format!("kernel-{}.json", kernel_fs_uuid));
         connection_file_path
     }
 
     /// Write the connection info to a file on disk inside dirs::runtime_dir()
-    pub async fn write(self: &Self, connection_file_path: &PathBuf) -> Result<PathBuf> {
+    pub async fn write(&self, connection_file_path: &PathBuf) -> Result<PathBuf> {
         let content = serde_json::to_string_pretty(&self)?;
         fs::write(&connection_file_path, content).await?;
         Ok(PathBuf::from(connection_file_path))

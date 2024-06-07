@@ -393,6 +393,7 @@ impl Default for ExecuteRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default)]
 pub struct ExecutionCount(pub usize);
 
 impl ExecutionCount {
@@ -407,11 +408,6 @@ impl From<usize> for ExecutionCount {
     }
 }
 
-impl Default for ExecutionCount {
-    fn default() -> Self {
-        Self(0)
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteReply {
@@ -901,6 +897,12 @@ pub struct InterruptReply {
     pub error: Option<ReplyError>,
 }
 
+impl Default for InterruptReply {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InterruptReply {
     pub fn new() -> Self {
         Self {
@@ -1197,11 +1199,11 @@ mod test {
         match msg.content {
             JupyterMessageContent::ExecuteRequest(req) => {
                 assert_eq!(req.code, "import this");
-                assert_eq!(req.silent, false);
-                assert_eq!(req.store_history, true);
+                assert!(!req.silent);
+                assert!(req.store_history);
                 assert_eq!(req.user_expressions, None);
-                assert_eq!(req.allow_stdin, false);
-                assert_eq!(req.stop_on_error, true);
+                assert!(!req.allow_stdin);
+                assert!(req.stop_on_error);
             }
             _ => panic!("Expected ExecuteRequest"),
         }

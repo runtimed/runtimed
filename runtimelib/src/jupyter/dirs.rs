@@ -32,7 +32,7 @@ pub async fn ask_jupyter() -> Result<Value> {
 pub fn system_config_dirs() -> Vec<PathBuf> {
     if cfg!(windows) {
         match env::var("PROGRAMDATA") {
-            Err(_) => return vec![],
+            Err(_) => vec![],
             Ok(program_data) => {
                 vec![PathBuf::from(program_data).join("jupyter")]
             }
@@ -64,10 +64,10 @@ pub fn config_dirs() -> Vec<PathBuf> {
 pub fn system_data_dirs() -> Vec<PathBuf> {
     if cfg!(windows) {
         match env::var("PROGRAMDATA") {
-            Err(_) => return vec![],
+            Err(_) => vec![],
             Ok(program_data) => {
                 let program_data_dir = PathBuf::from(program_data);
-                return vec![program_data_dir.join("jupyter")];
+                vec![program_data_dir.join("jupyter")]
             }
         }
     } else {
