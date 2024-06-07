@@ -8,8 +8,8 @@ pub use datatable::TabularDataResource;
 
 pub type JsonObject = serde_json::Map<String, serde_json::Value>;
 
-/// An enumeration representing various MIME (Multipurpose Internet Mail Extensions) types.
-/// These types are used to indicate the nature of the data in a rich content message.
+/// An enumeration representing various Media types, otherwise known as MIME (Multipurpose Internet Mail Extensions) types.
+/// These types are used to indicate the nature of the data in a rich content message such as `DisplayData`, `UpdateDisplayData`, and `ExecuteResult`.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "type", content = "data")]
@@ -102,7 +102,7 @@ pub enum MediaType {
 
 impl std::hash::Hash for MediaType {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        let mime_type_str = match &self {
+        match &self {
             MediaType::Plain(_) => "text/plain",
             MediaType::Html(_) => "text/html",
             MediaType::Latex(_) => "text/latex",
@@ -128,43 +128,44 @@ impl std::hash::Hash for MediaType {
             MediaType::VegaV5(_) => "application/vnd.vega.v5+json",
             MediaType::Vdom(_) => "application/vdom.v1+json",
             MediaType::Other((key, _)) => key.as_str(),
-        };
-
-        mime_type_str.hash(state);
+        }
+        .hash(state)
     }
 }
 
-/// A `Media` is a collection of data associated with different MIME types.
+/// A `Media` is a collection of data associated with different Media types.
 /// It allows for the representation of rich content that can be displayed in multiple formats.
 /// These are found in the `data` field of a `DisplayData` and `ExecuteResult` messages/output types.
 ///
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct Media {
-    /// A map of MIME types to their corresponding data, represented as JSON `Value`.
+    /// A map of Media types to their corresponding data, represented as JSON `Value`.
     #[serde(
         flatten,
-        deserialize_with = "deserialize_mimebundle",
-        serialize_with = "serialize_mimebundle"
+        deserialize_with = "deserialize_media",
+        serialize_with = "serialize_media"
     )]
     pub content: Vec<MediaType>,
 }
 
-fn deserialize_mimebundle<'de, D>(deserializer: D) -> Result<Vec<MediaType>, D::Error>
+fn deserialize_media<'de, D>(deserializer: D) -> Result<Vec<MediaType>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
+    // Jupyter protocol does pure Map<String, Value> for media types.
+    // Our deserializer goes a step further by having enums that have their data fully typed
     let map: HashMap<String, Value> = HashMap::deserialize(deserializer)?;
     let mut content = Vec::new();
 
     for (key, value) in map {
-        let mut mime_value_map = serde_json::Map::new();
-        mime_value_map.insert("type".to_string(), Value::String(key.clone()));
-        mime_value_map.insert("data".to_string(), value.clone());
-
-        let mime_type: MediaType = match serde_json::from_value(Value::Object(mime_value_map)) {
-            Ok(mime_type) => mime_type,
-            Err(_) => MediaType::Other((key, value)),
-        };
+        let mime_type: MediaType =
+            match serde_json::from_value(Value::Object(serde_json::Map::from_iter([
+                ("type".to_string(), Value::String(key.clone())),
+                ("data".to_string(), value.clone()),
+            ]))) {
+                Ok(mediatype) => mediatype,
+                Err(_) => MediaType::Other((key, value)),
+            };
 
         content.push(mime_type);
     }
@@ -172,7 +173,7 @@ where
     Ok(content)
 }
 
-fn serialize_mimebundle<S>(content: &Vec<MediaType>, serializer: S) -> Result<S::Ok, S::Error>
+fn serialize_media<S>(content: &Vec<MediaType>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
@@ -230,16 +231,16 @@ impl Media {
     pub fn richest(&self, ranker: fn(&MediaType) -> usize) -> Option<&MediaType> {
         self.content
             .iter()
-            .filter_map(|mimetype| {
-                let rank = ranker(mimetype);
+            .filter_map(|mediatype| {
+                let rank = ranker(mediatype);
                 if rank > 0 {
-                    Some((rank, mimetype))
+                    Some((rank, mediatype))
                 } else {
                     None
                 }
             })
             .max_by_key(|(rank, _)| *rank)
-            .map(|(_, mimetype)| mimetype)
+            .map(|(_, mediatype)| mediatype)
     }
 
     pub fn new(content: Vec<MediaType>) -> Self {
@@ -288,7 +289,7 @@ mod test {
 
         let bundle: Media = serde_json::from_str(raw).unwrap();
 
-        let ranker = |mime_type: &MediaType| match mime_type {
+        let ranker = |mediatype: &MediaType| match mediatype {
             MediaType::Plain(_) => 1,
             MediaType::Html(_) => 2,
             _ => 0,
@@ -296,7 +297,7 @@ mod test {
 
         match bundle.richest(ranker) {
             Some(MediaType::Html(data)) => assert_eq!(data, "<h1>Hello, world!</h1>"),
-            _ => panic!("Unexpected mime type"),
+            _ => panic!("Unexpected media type"),
         }
     }
 
@@ -326,7 +327,7 @@ mod test {
 
         let bundle: Media = serde_json::from_str(raw).unwrap();
 
-        let ranker = |mime_type: &MediaType| match mime_type {
+        let ranker = |mediatype: &MediaType| match mediatype {
             MediaType::Html(_) => 1,
             MediaType::Json(_) => 2,
             MediaType::DataTable(_) => 3,
@@ -372,7 +373,7 @@ mod test {
 
         let bundle: Media = serde_json::from_str(raw).unwrap();
 
-        let ranker = |mime_type: &MediaType| match mime_type {
+        let ranker = |mediatype: &MediaType| match mediatype {
             MediaType::Html(_) => 1,
             MediaType::Json(_) => 2,
             MediaType::DataTable(_) => 3,

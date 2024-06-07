@@ -624,7 +624,7 @@ pub struct Transient {
 /// As a side effect of execution, the kernel can send `'display_data'` messages to the UI/client.
 ///
 /// ```rust,ignore
-/// use runtimelib::media::{MimeBundle, MimeType, DisplayData};
+/// use runtimelib::media::{Media, MediaType, DisplayData};
 ///
 /// let execute_request = shell.read().await?;
 ///
@@ -633,7 +633,7 @@ pub struct Transient {
 ///     "text/html": "<h1>Hello, world!</h1>",
 /// }"#;
 ///
-/// let bundle: MimeBundle = serde_json::from_str(raw).unwrap();
+/// let bundle: Media = serde_json::from_str(raw).unwrap();
 ///
 /// let message = DisplayData{
 ///    data: bundle,
