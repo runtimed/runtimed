@@ -1162,7 +1162,7 @@ mod test {
             allow_stdin: false,
             stop_on_error: true,
         };
-        let request_value = serde_json::to_value(&request).unwrap();
+        let request_value = serde_json::to_value(request).unwrap();
 
         let expected_request_value = serde_json::json!({
             "code": "print('Hello, World!')",
@@ -1283,7 +1283,7 @@ mod test {
             ..Default::default()
         };
 
-        let display_data_value = serde_json::to_value(&display_data).unwrap();
+        let display_data_value = serde_json::to_value(display_data).unwrap();
 
         let expected_display_data_value = serde_json::json!({
             "data": {

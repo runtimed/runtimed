@@ -289,10 +289,10 @@ impl JupyterMessage {
         self
     }
 
-    pub fn with_parent(mut self, parent: JupyterMessage) -> Self {
-        self.header.session = parent.header.session.clone();
-        self.parent_header = Some(parent.header);
-        self.zmq_identities = parent.zmq_identities.clone();
+    pub fn with_parent(mut self, parent: &JupyterMessage) -> Self {
+        self.header.session.clone_from(&parent.header.session);
+        self.parent_header = Some(parent.header.clone());
+        self.zmq_identities.clone_from(&parent.zmq_identities);
         self
     }
 
