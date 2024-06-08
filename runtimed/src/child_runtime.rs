@@ -49,7 +49,7 @@ impl ChildRuntime {
             stderr_path,
             exit_status: None,
         })));
-        new.spawn_child_reaper(rt.id.clone(), map.clone());
+        new.spawn_child_reaper(rt.id, map.clone());
         new.spawn_child_signal_handler();
         Ok(new)
     }
@@ -60,7 +60,7 @@ impl ChildRuntime {
         remove_files: &Vec<PathBuf>,
     ) {
         let mut lock = runtime_map.write().await;
-        let rt = lock.remove(&id);
+        let rt = lock.remove(id);
         drop(lock);
         if let Some(rt) = rt {
             match tokio::fs::remove_file(rt.runtime.connection_file).await {

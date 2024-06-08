@@ -1,5 +1,10 @@
-name: Build on Windows
-on: push
+name: Tests (Windows)
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
 jobs:
   build:
     runs-on: windows-latest

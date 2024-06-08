@@ -2,14 +2,14 @@
 #[cfg(feature = "tokio-runtime")]
 use tokio::{fs, task::JoinSet, time::timeout};
 
-#[cfg(feature = "async-dispatcher-runtime")]
-use async_dispatcher::timeout;
-
+#[cfg(feature = "tokio-runtime")]
 use anyhow::{Error, Result};
 
-use crate::jupyter::client::JupyterRuntime;
-
-use crate::messaging::{JupyterMessage, JupyterMessageContent, KernelInfoReply, KernelInfoRequest};
+#[cfg(feature = "tokio-runtime")]
+use crate::{
+    jupyter::client::JupyterRuntime,
+    messaging::{JupyterMessage, JupyterMessageContent, KernelInfoReply, KernelInfoRequest},
+};
 
 /// Check if a path looks like a connection file.
 ///
@@ -49,6 +49,7 @@ pub async fn get_jupyter_runtime_instances() -> Vec<JupyterRuntime> {
     runtimes
 }
 
+#[cfg(feature = "tokio-runtime")]
 impl JupyterRuntime {
     /// Read a connection file from disk and parse it into a JupyterRuntime object,
     /// and set the state of the runtime by attempting to connect to the underlying kernel.
@@ -76,7 +77,7 @@ impl JupyterRuntime {
     }
 
     /// Send a message to the kernel to check its status.
-    pub async fn check_kernel_info(&self) -> Result<KernelInfoReply, Error> {
+    pub async fn check_kernel_info(&self) -> Result<Box<KernelInfoReply>, Error> {
         let res = timeout(std::time::Duration::from_secs(1), async {
             let mut client = match self.attach().await {
                 Ok(client) => client,

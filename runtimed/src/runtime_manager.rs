@@ -155,7 +155,7 @@ impl RuntimeManager {
             .await?;
 
         let child = ChildRuntime::new(k, &runtime, self.lock.clone()).await?;
-        self.update_runtime(runtime.id.clone(), child.clone())
+        self.update_runtime(runtime.id, child.clone())
             .await?;
 
         log::info!("Launched new {kernel_name} runtime with id: {}", runtime.id);
@@ -191,7 +191,7 @@ impl RuntimeManager {
                 ));
             }
             map.insert(
-                runtime.id.clone(),
+                runtime.id,
                 RuntimeInstance {
                     runtime: runtime.clone(),
                     send_tx: mpsc_tx,
@@ -202,7 +202,7 @@ impl RuntimeManager {
         }
 
         // Spawn the task to send messages to the runtime client
-        let id = runtime.id.clone();
+        let id = runtime.id;
         let send_runtime = runtime.clone();
         let db = self.db.clone();
         tokio::spawn(async move {
