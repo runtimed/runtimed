@@ -217,53 +217,51 @@ impl JupyterMessageContent {
     }
 }
 
-pub trait AsChildOf {
-    fn as_child_of(&self, parent: &JupyterMessage) -> JupyterMessage;
-}
-
-macro_rules! impl_as_child_of {
-    ($content_type:path, $variant:ident) => {
-        impl AsChildOf for $content_type {
-            #[doc = concat!("Create a new `JupyterMessage`, assigning the parent for a `", stringify!($content_type), "` message.\n")]
-            ///
-            /// This method creates a new `JupyterMessage` with the right content, parent header, and zmq identities, making
-            /// it suitable for sending over ZeroMQ.
-            ///
-            /// # Example
-            /// ```ignore
-            /// use runtimelib::messaging::{JupyterMessage, JupyterMessageContent, AsChildOf};
-            ///
-            /// let message = connection.recv().await?;
-            ///
-            #[doc = concat!("let child_message = ", stringify!($content_type), "{\n")]
-            ///   // ...
-            /// }.as_child_of(&message);
-            ///
-            /// connection.send(child_message).await?;
-            /// ```
-            #[must_use]
-            fn as_child_of(&self, parent: &JupyterMessage) -> JupyterMessage {
-                JupyterMessage::new(JupyterMessageContent::$variant(self.clone()), Some(parent))
+macro_rules! impl_message_traits {
+    ($($name:ident),*) => {
+        $(
+            impl $name {
+                #[doc = concat!("Create a new `JupyterMessage`, assigning the parent for a `", stringify!($name), "` message.\n")]
+                ///
+                /// This method creates a new `JupyterMessage` with the right content, parent header, and zmq identities, making
+                /// it suitable for sending over ZeroMQ.
+                ///
+                /// # Example
+                /// ```ignore
+                /// use runtimelib::messaging::{JupyterMessage, JupyterMessageContent};
+                ///
+                /// let message = connection.recv().await?;
+                ///
+                #[doc = concat!("let child_message = ", stringify!($name), "{\n")]
+                ///   // ...
+                /// }.as_child_of(&message);
+                ///
+                /// connection.send(child_message).await?;
+                /// ```
+                #[must_use]
+                pub fn as_child_of(&self, parent: &JupyterMessage) -> JupyterMessage {
+                    JupyterMessage::new(self.clone(), Some(parent))
+                }
             }
-        }
 
-        impl From<$content_type> for JupyterMessage {
-            #[doc = concat!("Create a new `JupyterMessage` for a `", stringify!($content_type), "`.\n\n")]
-            /// ⚠️ If you use this method, you must set the zmq identities yourself. If you have a message that
-            /// "caused" your message to be sent, use that message with `as_child_of` instead.
-            #[must_use]
-            fn from(content: $content_type) -> Self {
-                JupyterMessage::new(JupyterMessageContent::$variant(content), None)
+            impl From<$name> for JupyterMessage {
+                #[doc = concat!("Create a new `JupyterMessage` for a `", stringify!($name), "`.\n\n")]
+                /// ⚠️ If you use this method, you must set the zmq identities yourself. If you have a message that
+                /// "caused" your message to be sent, use that message with `as_child_of` instead.
+                #[must_use]
+                fn from(content: $name) -> Self {
+                    JupyterMessage::new(content, None)
+                }
             }
-        }
 
-        impl From<$content_type> for JupyterMessageContent {
-            #[doc = concat!("Create a new `JupyterMessageContent` for a `", stringify!($content_type), "`.\n\n")]
-            #[must_use]
-            fn from(content: $content_type) -> Self {
-                JupyterMessageContent::$variant(content)
+            impl From<$name> for JupyterMessageContent {
+                #[doc = concat!("Create a new `JupyterMessageContent` for a `", stringify!($name), "`.\n\n")]
+                #[must_use]
+                fn from(content: $name) -> Self {
+                    JupyterMessageContent::$name(content)
+                }
             }
-        }
+        )*
     };
 }
 
@@ -273,42 +271,45 @@ impl From<JupyterMessageContent> for JupyterMessage {
     }
 }
 
-impl_as_child_of!(ClearOutput, ClearOutput);
-impl_as_child_of!(CommClose, CommClose);
-impl_as_child_of!(CommInfoReply, CommInfoReply);
-impl_as_child_of!(CommInfoRequest, CommInfoRequest);
-impl_as_child_of!(CommMsg, CommMsg);
-impl_as_child_of!(CommOpen, CommOpen);
-impl_as_child_of!(CompleteReply, CompleteReply);
-impl_as_child_of!(CompleteRequest, CompleteRequest);
-impl_as_child_of!(DebugReply, DebugReply);
-impl_as_child_of!(DebugRequest, DebugRequest);
-impl_as_child_of!(DisplayData, DisplayData);
-impl_as_child_of!(ErrorOutput, ErrorOutput);
-impl_as_child_of!(ExecuteInput, ExecuteInput);
-impl_as_child_of!(ExecuteReply, ExecuteReply);
-impl_as_child_of!(ExecuteRequest, ExecuteRequest);
-impl_as_child_of!(ExecuteResult, ExecuteResult);
-impl_as_child_of!(HistoryReply, HistoryReply);
-impl_as_child_of!(HistoryRequest, HistoryRequest);
-impl_as_child_of!(InputReply, InputReply);
-impl_as_child_of!(InputRequest, InputRequest);
-impl_as_child_of!(InspectReply, InspectReply);
-impl_as_child_of!(InspectRequest, InspectRequest);
-impl_as_child_of!(IsCompleteReply, IsCompleteReply);
-impl_as_child_of!(IsCompleteRequest, IsCompleteRequest);
-impl_as_child_of!(KernelInfoRequest, KernelInfoRequest);
-impl_as_child_of!(ShutdownReply, ShutdownReply);
-impl_as_child_of!(ShutdownRequest, ShutdownRequest);
-impl_as_child_of!(Status, Status);
-impl_as_child_of!(StreamContent, StreamContent);
-impl_as_child_of!(UpdateDisplayData, UpdateDisplayData);
+impl_message_traits!(
+    ClearOutput,
+    CommClose,
+    CommInfoReply,
+    CommInfoRequest,
+    CommMsg,
+    CommOpen,
+    CompleteReply,
+    CompleteRequest,
+    DebugReply,
+    DebugRequest,
+    DisplayData,
+    ErrorOutput,
+    ExecuteInput,
+    ExecuteReply,
+    ExecuteRequest,
+    ExecuteResult,
+    HistoryReply,
+    HistoryRequest,
+    InputReply,
+    InputRequest,
+    InspectReply,
+    InspectRequest,
+    InterruptReply,
+    InterruptRequest,
+    IsCompleteReply,
+    IsCompleteRequest,
+    KernelInfoRequest,
+    ShutdownReply,
+    ShutdownRequest,
+    Status,
+    StreamContent,
+    UpdateDisplayData,
+    UnknownMessage
+);
 
 // KernelInfoReply is a special case due to the Boxing requirement
-// impl_as_child_of!(KernelInfoReply, KernelInfoReply);
-
-impl AsChildOf for KernelInfoReply {
-    fn as_child_of(&self, parent: &JupyterMessage) -> JupyterMessage {
+impl KernelInfoReply {
+    pub fn as_child_of(&self, parent: &JupyterMessage) -> JupyterMessage {
         JupyterMessage::new(
             JupyterMessageContent::KernelInfoReply(Box::new(self.clone())),
             Some(parent),
@@ -354,6 +355,9 @@ pub struct UnknownMessage {
 }
 
 impl UnknownMessage {
+    // Create a reply message for an unknown message, assuming `content` is known.
+    // Useful for when runtimelib does not support the message type.
+    // Send a PR to add support for the message type!
     pub fn reply(&self, content: serde_json::Value) -> JupyterMessageContent {
         JupyterMessageContent::UnknownMessage(UnknownMessage {
             msg_type: self.msg_type.replace("_request", "_reply"),
@@ -406,6 +410,15 @@ fn default_allow_stdin() -> bool {
 
 fn default_stop_on_error() -> bool {
     true
+}
+
+impl ExecuteRequest {
+    pub fn new(code: String) -> Self {
+        Self {
+            code,
+            ..Default::default()
+        }
+    }
 }
 
 impl Default for ExecuteRequest {
@@ -578,7 +591,7 @@ pub enum Stdio {
 /// These are from using `print()`, `console.log()`, or similar. Anything on STDOUT or STDERR.
 ///
 /// ```ignore
-/// use runtimelib::messaging::{StreamContent, Stdio, AsChildOf};
+/// use runtimelib::messaging::{StreamContent, Stdio};
 /// let execute_request = shell.read().await?;
 ///
 /// let message = StreamContent {

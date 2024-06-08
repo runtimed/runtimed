@@ -251,7 +251,10 @@ impl JupyterMessage {
         self.content.message_type()
     }
 
-    pub fn new(content: JupyterMessageContent, parent: Option<&JupyterMessage>) -> JupyterMessage {
+    pub fn new(
+        content: impl Into<JupyterMessageContent>,
+        parent: Option<&JupyterMessage>,
+    ) -> JupyterMessage {
         // Normally a session ID is per client. A higher level wrapper on this API
         // should probably create messages based on a `Session` struct that is stateful.
         // For now, a user can create a message and then set the session ID directly.
@@ -259,6 +262,8 @@ impl JupyterMessage {
             Some(parent) => parent.header.session.clone(),
             None => Uuid::new_v4().to_string(),
         };
+
+        let content = content.into();
 
         let header = Header {
             msg_id: Uuid::new_v4().to_string(),
