@@ -363,9 +363,10 @@ impl UnknownMessage {
 }
 
 /// All reply messages have a `status` field.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum ReplyStatus {
+    #[default]
     Ok,
     Error,
     Aborted,
@@ -445,7 +446,7 @@ pub struct ExecuteReply {
     pub user_expressions: Option<HashMap<String, String>>,
 
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub error: Option<ReplyError>,
+    pub error: Option<Box<ReplyError>>,
 }
 
 /// Payloads are a way to trigger frontend actions from the kernel.
@@ -479,7 +480,6 @@ pub struct KernelInfoRequest {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KernelInfoReply {
-    #[serde(default = "default_status")]
     pub status: ReplyStatus,
     pub protocol_version: String,
     pub implementation: String,
@@ -490,15 +490,11 @@ pub struct KernelInfoReply {
     #[serde(default = "default_debugger")]
     pub debugger: bool,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub error: Option<ReplyError>,
+    pub error: Option<Box<ReplyError>>,
 }
 
 fn default_debugger() -> bool {
     false
-}
-
-fn default_status() -> ReplyStatus {
-    ReplyStatus::Ok
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -668,7 +664,7 @@ pub struct Transient {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct DisplayData {
     pub data: Media,
-    pub metadata: HashMap<String, Value>,
+    pub metadata: serde_json::Map<String, Value>,
     #[serde(default)]
     pub transient: Transient,
 }
@@ -702,7 +698,7 @@ impl From<MediaType> for DisplayData {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct UpdateDisplayData {
     pub data: Media,
-    pub metadata: HashMap<String, Value>,
+    pub metadata: serde_json::Map<String, Value>,
     pub transient: Transient,
 }
 
@@ -756,7 +752,7 @@ pub struct ExecuteInput {
 pub struct ExecuteResult {
     pub execution_count: ExecutionCount,
     pub data: Media,
-    pub metadata: HashMap<String, Value>,
+    pub metadata: serde_json::Map<String, Value>,
     pub transient: Option<Transient>,
 }
 
@@ -831,7 +827,7 @@ pub struct ErrorOutput {
 pub struct CommOpen {
     pub comm_id: String,
     pub target_name: String,
-    pub data: HashMap<String, Value>,
+    pub data: serde_json::Map<String, Value>,
 }
 
 /// A `comm_msg` message on the `'iopub'` channel.
@@ -855,7 +851,7 @@ pub struct CommOpen {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommMsg {
     pub comm_id: String,
-    pub data: HashMap<String, Value>,
+    pub data: serde_json::Map<String, Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -881,9 +877,9 @@ pub struct CommInfo {
 pub struct CommInfoReply {
     pub status: ReplyStatus,
     pub comms: HashMap<CommId, CommInfo>,
-
+    // pub comms: HashMap<CommId, CommInfo>,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub error: Option<ReplyError>,
+    pub error: Option<Box<ReplyError>>,
 }
 
 /// A `comm_close` message on the `'iopub'` channel.
@@ -893,7 +889,7 @@ pub struct CommInfoReply {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommClose {
     pub comm_id: String,
-    pub data: HashMap<String, Value>,
+    pub data: serde_json::Map<String, Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -909,7 +905,7 @@ pub struct InterruptReply {
     pub status: ReplyStatus,
 
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub error: Option<ReplyError>,
+    pub error: Option<Box<ReplyError>>,
 }
 
 impl Default for InterruptReply {
@@ -933,7 +929,7 @@ pub struct ShutdownReply {
     pub status: ReplyStatus,
 
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub error: Option<ReplyError>,
+    pub error: Option<Box<ReplyError>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -948,7 +944,7 @@ pub struct InputReply {
 
     pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub error: Option<ReplyError>,
+    pub error: Option<Box<ReplyError>>,
 }
 
 /// A `'inspect_request'` message on the `'shell'` channel.
@@ -974,11 +970,11 @@ pub struct InspectRequest {
 pub struct InspectReply {
     pub found: bool,
     pub data: Media,
-    pub metadata: HashMap<String, Value>,
+    pub metadata: serde_json::Map<String, Value>,
 
     pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub error: Option<ReplyError>,
+    pub error: Option<Box<ReplyError>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -992,11 +988,11 @@ pub struct CompleteReply {
     pub matches: Vec<String>,
     pub cursor_start: usize,
     pub cursor_end: usize,
-    pub metadata: HashMap<String, Value>,
+    pub metadata: serde_json::Map<String, Value>,
 
     pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub error: Option<ReplyError>,
+    pub error: Option<Box<ReplyError>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -1063,17 +1059,25 @@ impl IsCompleteReply {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct HistoryRequest {
-    pub output: bool,
-    pub raw: bool,
-    // TODO: Implement this as an enum
-    pub hist_access_type: String,
-    pub session: Option<usize>,
-    pub start: Option<usize>,
-    pub stop: Option<usize>,
-    pub n: Option<usize>,
-    pub pattern: Option<String>,
-    pub unique: Option<bool>,
+#[serde(tag = "hist_access_type")]
+pub enum HistoryRequest {
+    #[serde(rename = "range")]
+    Range {
+        session: Option<i32>,
+        start: i32,
+        stop: i32,
+        output: bool,
+        raw: bool,
+    },
+    #[serde(rename = "tail")]
+    Tail { n: i32, output: bool, raw: bool },
+    #[serde(rename = "search")]
+    Search {
+        pattern: String,
+        unique: bool,
+        output: bool,
+        raw: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -1093,7 +1097,7 @@ pub struct HistoryReply {
 
     pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub error: Option<ReplyError>,
+    pub error: Option<Box<ReplyError>>,
 }
 
 impl HistoryReply {
@@ -1300,5 +1304,62 @@ mod test {
         });
 
         assert_eq!(display_data_value, expected_display_data_value);
+    }
+
+    use std::mem::size_of;
+
+    macro_rules! size_of_variant {
+        ($variant:ty) => {
+            let size = size_of::<$variant>();
+            println!("The size of {} is: {} bytes", stringify!($variant), size);
+
+            assert!(size <= 96);
+        };
+    }
+
+    #[test]
+    fn test_enum_variant_sizes() {
+        size_of_variant!(ClearOutput);
+        size_of_variant!(CommClose);
+        size_of_variant!(CommInfoReply);
+        size_of_variant!(CommInfoRequest);
+        size_of_variant!(CommMsg);
+        size_of_variant!(CommOpen);
+        size_of_variant!(CompleteReply);
+        size_of_variant!(CompleteRequest);
+        size_of_variant!(DebugReply);
+        size_of_variant!(DebugRequest);
+        size_of_variant!(DisplayData);
+        size_of_variant!(ErrorOutput);
+        size_of_variant!(ExecuteInput);
+        size_of_variant!(ExecuteReply);
+        size_of_variant!(ExecuteRequest);
+        size_of_variant!(ExecuteResult);
+        size_of_variant!(HistoryReply);
+        size_of_variant!(HistoryRequest);
+        size_of_variant!(InputReply);
+        size_of_variant!(InputRequest);
+        size_of_variant!(InspectReply);
+        size_of_variant!(InspectRequest);
+        size_of_variant!(InterruptReply);
+        size_of_variant!(InterruptRequest);
+        size_of_variant!(IsCompleteReply);
+        size_of_variant!(IsCompleteRequest);
+        size_of_variant!(Box<KernelInfoReply>);
+        size_of_variant!(KernelInfoRequest);
+        size_of_variant!(ShutdownReply);
+        size_of_variant!(ShutdownRequest);
+        size_of_variant!(Status);
+        size_of_variant!(StreamContent);
+        size_of_variant!(UnknownMessage);
+        size_of_variant!(UpdateDisplayData);
+    }
+
+    #[test]
+    fn test_jupyter_message_content_enum_size() {
+        let size = size_of::<JupyterMessageContent>();
+        println!("The size of JupyterMessageContent is: {}", size);
+        assert!(size > 0);
+        assert!(size <= 96);
     }
 }
