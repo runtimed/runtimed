@@ -668,7 +668,7 @@ pub struct Transient {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct DisplayData {
     pub data: Media,
-    pub metadata: HashMap<String, Value>,
+    pub metadata: serde_json::Map<String, Value>,
     #[serde(default)]
     pub transient: Transient,
 }
@@ -702,7 +702,7 @@ impl From<MediaType> for DisplayData {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct UpdateDisplayData {
     pub data: Media,
-    pub metadata: HashMap<String, Value>,
+    pub metadata: serde_json::Map<String, Value>,
     pub transient: Transient,
 }
 
@@ -756,7 +756,7 @@ pub struct ExecuteInput {
 pub struct ExecuteResult {
     pub execution_count: ExecutionCount,
     pub data: Media,
-    pub metadata: HashMap<String, Value>,
+    pub metadata: serde_json::Map<String, Value>,
     pub transient: Option<Transient>,
 }
 
@@ -831,7 +831,7 @@ pub struct ErrorOutput {
 pub struct CommOpen {
     pub comm_id: String,
     pub target_name: String,
-    pub data: HashMap<String, Value>,
+    pub data: serde_json::Map<String, Value>,
 }
 
 /// A `comm_msg` message on the `'iopub'` channel.
@@ -855,7 +855,7 @@ pub struct CommOpen {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommMsg {
     pub comm_id: String,
-    pub data: HashMap<String, Value>,
+    pub data: serde_json::Map<String, Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -893,7 +893,7 @@ pub struct CommInfoReply {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommClose {
     pub comm_id: String,
-    pub data: HashMap<String, Value>,
+    pub data: serde_json::Map<String, Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -974,7 +974,7 @@ pub struct InspectRequest {
 pub struct InspectReply {
     pub found: bool,
     pub data: Media,
-    pub metadata: HashMap<String, Value>,
+    pub metadata: serde_json::Map<String, Value>,
 
     pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
@@ -992,7 +992,7 @@ pub struct CompleteReply {
     pub matches: Vec<String>,
     pub cursor_start: usize,
     pub cursor_end: usize,
-    pub metadata: HashMap<String, Value>,
+    pub metadata: serde_json::Map<String, Value>,
 
     pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
