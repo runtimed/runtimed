@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 use crate::{media::Media, MediaType};
@@ -374,8 +375,8 @@ pub enum ReplyStatus {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ReplyError {
-    pub ename: String,
-    pub evalue: String,
+    pub ename: Cow<'static, str>,
+    pub evalue: Cow<'static, str>,
     pub traceback: Vec<String>,
 }
 
@@ -446,7 +447,7 @@ pub struct ExecuteReply {
     pub user_expressions: Option<HashMap<String, String>>,
 
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub error: Option<ReplyError>,
+    pub error: Option<Box<ReplyError>>,
 }
 
 /// Payloads are a way to trigger frontend actions from the kernel.
@@ -490,7 +491,7 @@ pub struct KernelInfoReply {
     #[serde(default = "default_debugger")]
     pub debugger: bool,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub error: Option<ReplyError>,
+    pub error: Option<Box<ReplyError>>,
 }
 
 fn default_debugger() -> bool {
@@ -860,9 +861,9 @@ pub struct CommInfoRequest {
 }
 
 #[derive(Eq, Hash, PartialEq, Serialize, Deserialize, Debug, Clone)]
-pub struct CommId(String);
+pub struct CommId(Cow<'static, str>);
 
-impl From<CommId> for String {
+impl From<CommId> for Cow<'static, str> {
     fn from(comm_id: CommId) -> Self {
         comm_id.0
     }
@@ -870,7 +871,7 @@ impl From<CommId> for String {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommInfo {
-    pub target_name: String,
+    pub target_name: Cow<'static, str>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -879,7 +880,7 @@ pub struct CommInfoReply {
     pub comms: HashMap<CommId, CommInfo>,
 
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub error: Option<ReplyError>,
+    pub error: Option<Box<ReplyError>>,
 }
 
 /// A `comm_close` message on the `'iopub'` channel.
@@ -905,7 +906,7 @@ pub struct InterruptReply {
     pub status: ReplyStatus,
 
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub error: Option<ReplyError>,
+    pub error: Option<Box<ReplyError>>,
 }
 
 impl Default for InterruptReply {
@@ -929,7 +930,7 @@ pub struct ShutdownReply {
     pub status: ReplyStatus,
 
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub error: Option<ReplyError>,
+    pub error: Option<Box<ReplyError>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -944,7 +945,7 @@ pub struct InputReply {
 
     pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub error: Option<ReplyError>,
+    pub error: Option<Box<ReplyError>>,
 }
 
 /// A `'inspect_request'` message on the `'shell'` channel.
@@ -974,7 +975,7 @@ pub struct InspectReply {
 
     pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub error: Option<ReplyError>,
+    pub error: Option<Box<ReplyError>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -992,7 +993,7 @@ pub struct CompleteReply {
 
     pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub error: Option<ReplyError>,
+    pub error: Option<Box<ReplyError>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -1089,7 +1090,7 @@ pub struct HistoryReply {
 
     pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub error: Option<ReplyError>,
+    pub error: Option<Box<ReplyError>>,
 }
 
 impl HistoryReply {
@@ -1296,5 +1297,62 @@ mod test {
         });
 
         assert_eq!(display_data_value, expected_display_data_value);
+    }
+
+    use std::mem::size_of;
+
+    macro_rules! size_of_variant {
+        ($variant:ty) => {
+            let size = size_of::<$variant>();
+            println!("The size of {} is: {} bytes", stringify!($variant), size);
+
+            assert!(size < 128);
+        };
+    }
+
+    #[test]
+    fn test_enum_variant_sizes() {
+        size_of_variant!(ClearOutput);
+        size_of_variant!(CommClose);
+        size_of_variant!(CommInfoReply);
+        size_of_variant!(CommInfoRequest);
+        size_of_variant!(CommMsg);
+        size_of_variant!(CommOpen);
+        size_of_variant!(CompleteReply);
+        size_of_variant!(CompleteRequest);
+        size_of_variant!(DebugReply);
+        size_of_variant!(DebugRequest);
+        size_of_variant!(DisplayData);
+        size_of_variant!(ErrorOutput);
+        size_of_variant!(ExecuteInput);
+        size_of_variant!(ExecuteReply);
+        size_of_variant!(ExecuteRequest);
+        size_of_variant!(ExecuteResult);
+        size_of_variant!(HistoryReply);
+        size_of_variant!(HistoryRequest);
+        size_of_variant!(InputReply);
+        size_of_variant!(InputRequest);
+        size_of_variant!(InspectReply);
+        size_of_variant!(InspectRequest);
+        size_of_variant!(InterruptReply);
+        size_of_variant!(InterruptRequest);
+        size_of_variant!(IsCompleteReply);
+        size_of_variant!(IsCompleteRequest);
+        size_of_variant!(Box<KernelInfoReply>);
+        size_of_variant!(KernelInfoRequest);
+        size_of_variant!(ShutdownReply);
+        size_of_variant!(ShutdownRequest);
+        size_of_variant!(Status);
+        size_of_variant!(StreamContent);
+        size_of_variant!(UnknownMessage);
+        size_of_variant!(UpdateDisplayData);
+    }
+
+    #[test]
+    fn test_jupyter_message_content_enum_size() {
+        let size = size_of::<JupyterMessageContent>();
+        println!("The size of JupyterMessageContent is: {}", size);
+        assert!(size > 0);
+        assert!(size <= 128);
     }
 }
