@@ -1059,17 +1059,25 @@ impl IsCompleteReply {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct HistoryRequest {
-    pub output: bool,
-    pub raw: bool,
-    // TODO: Implement this as an enum
-    pub hist_access_type: String,
-    pub session: Option<usize>,
-    pub start: Option<usize>,
-    pub stop: Option<usize>,
-    pub n: Option<usize>,
-    pub pattern: Option<String>,
-    pub unique: Option<bool>,
+#[serde(tag = "hist_access_type")]
+pub enum HistoryRequest {
+    #[serde(rename = "range")]
+    Range {
+        session: Option<i32>,
+        start: i32,
+        stop: i32,
+        output: bool,
+        raw: bool,
+    },
+    #[serde(rename = "tail")]
+    Tail { n: i32, output: bool, raw: bool },
+    #[serde(rename = "search")]
+    Search {
+        pattern: String,
+        unique: bool,
+        output: bool,
+        raw: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -1305,7 +1313,7 @@ mod test {
             let size = size_of::<$variant>();
             println!("The size of {} is: {} bytes", stringify!($variant), size);
 
-            assert!(size < 128);
+            assert!(size < 100);
         };
     }
 
