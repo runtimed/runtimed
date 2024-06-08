@@ -363,9 +363,10 @@ impl UnknownMessage {
 }
 
 /// All reply messages have a `status` field.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum ReplyStatus {
+    #[default]
     Ok,
     Error,
     Aborted,
@@ -479,7 +480,6 @@ pub struct KernelInfoRequest {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KernelInfoReply {
-    #[serde(default = "default_status")]
     pub status: ReplyStatus,
     pub protocol_version: String,
     pub implementation: String,
@@ -495,10 +495,6 @@ pub struct KernelInfoReply {
 
 fn default_debugger() -> bool {
     false
-}
-
-fn default_status() -> ReplyStatus {
-    ReplyStatus::Ok
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
