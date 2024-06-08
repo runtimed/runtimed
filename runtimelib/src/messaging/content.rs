@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::borrow::Cow;
 use std::collections::HashMap;
 
 use crate::{media::Media, MediaType};
@@ -375,8 +374,8 @@ pub enum ReplyStatus {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ReplyError {
-    pub ename: Cow<'static, str>,
-    pub evalue: Cow<'static, str>,
+    pub ename: String,
+    pub evalue: String,
     pub traceback: Vec<String>,
 }
 
@@ -861,9 +860,9 @@ pub struct CommInfoRequest {
 }
 
 #[derive(Eq, Hash, PartialEq, Serialize, Deserialize, Debug, Clone)]
-pub struct CommId(Cow<'static, str>);
+pub struct CommId(String);
 
-impl From<CommId> for Cow<'static, str> {
+impl From<CommId> for String {
     fn from(comm_id: CommId) -> Self {
         comm_id.0
     }
@@ -871,14 +870,14 @@ impl From<CommId> for Cow<'static, str> {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommInfo {
-    pub target_name: Cow<'static, str>,
+    pub target_name: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommInfoReply {
     pub status: ReplyStatus,
     pub comms: HashMap<CommId, CommInfo>,
-
+    // pub comms: HashMap<CommId, CommInfo>,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
 }
