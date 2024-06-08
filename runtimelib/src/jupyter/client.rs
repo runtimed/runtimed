@@ -16,11 +16,7 @@ use crate::messaging::{
 use tokio::{fs, net::TcpListener};
 
 #[cfg(feature = "async-dispatcher-runtime")]
-use async_dispatcher::timeout;
-#[cfg(feature = "async-dispatcher-runtime")]
 use async_std::{fs, net::TcpListener};
-#[cfg(feature = "async-dispatcher-runtime")]
-use futures::join;
 
 use serde::{Deserialize, Serialize};
 use serde_json;

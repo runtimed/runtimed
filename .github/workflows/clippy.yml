@@ -13,7 +13,11 @@ env:
 jobs:
   clippy_check:
     runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: "-Dwarnings"
     steps:
       - uses: actions/checkout@v4
-      - name: Run Clippy
-        run: cargo clippy --all-targets --all-features
+      - name: Clippy check runtimelib with async-dispatcher-runtime
+        run: cargo clippy -p runtimelib --all-targets --no-default-features --features async-dispatcher-runtime
+      - name: Clippy check all packages with tokio-runtime
+        run: cargo clippy --all-targets --no-default-features --features tokio-runtime

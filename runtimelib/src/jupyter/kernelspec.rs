@@ -10,7 +10,7 @@ use std::process::Stdio;
 use tokio::{fs, io::AsyncReadExt, process::Command};
 
 #[cfg(feature = "async-dispatcher-runtime")]
-use smol::{fs, io::AsyncReadExt, process::Command};
+use smol::process::Command;
 
 /// A pointer to a kernelspec directory, with name and fully deserialized specification
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -134,6 +134,7 @@ pub async fn read_kernelspec_jsons(data_dir: &Path) -> Vec<KernelspecDir> {
     kernelspecs
 }
 
+#[cfg(feature = "tokio-runtime")]
 async fn read_kernelspec_json(json_file_path: &Path) -> Result<JupyterKernelspec> {
     let mut file = fs::File::open(json_file_path).await?;
     let mut contents = vec![];
