@@ -1313,7 +1313,7 @@ mod test {
             let size = size_of::<$variant>();
             println!("The size of {} is: {} bytes", stringify!($variant), size);
 
-            assert!(size < 100);
+            assert!(size <= 96);
         };
     }
 
@@ -1360,6 +1360,6 @@ mod test {
         let size = size_of::<JupyterMessageContent>();
         println!("The size of JupyterMessageContent is: {}", size);
         assert!(size > 0);
-        assert!(size <= 128);
+        assert!(size <= 96);
     }
 }
