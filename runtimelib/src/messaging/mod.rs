@@ -96,6 +96,16 @@ impl KernelHeartbeatConnection {
     }
 }
 
+impl ClientHeartbeatConnection {
+    pub async fn single_heartbeat(&mut self) -> Result<(), anyhow::Error> {
+        self.socket
+            .send(zeromq::ZmqMessage::from(b"ping".to_vec()))
+            .await?;
+        let _msg = self.socket.recv().await?;
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct RawMessage {
     zmq_identities: Vec<Bytes>,
