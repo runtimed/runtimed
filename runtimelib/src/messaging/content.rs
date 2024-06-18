@@ -838,7 +838,7 @@ pub struct ErrorOutput {
 /// immediately reply with a `comm_close` message to avoid an inconsistent state.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommOpen {
-    pub comm_id: String,
+    pub comm_id: CommId,
     pub target_name: String,
     pub data: serde_json::Map<String, Value>,
 }
@@ -863,7 +863,7 @@ pub struct CommOpen {
 ///
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommMsg {
-    pub comm_id: String,
+    pub comm_id: CommId,
     pub data: serde_json::Map<String, Value>,
 }
 
@@ -873,11 +873,17 @@ pub struct CommInfoRequest {
 }
 
 #[derive(Eq, Hash, PartialEq, Serialize, Deserialize, Debug, Clone)]
-pub struct CommId(String);
+pub struct CommId(pub String);
 
 impl From<CommId> for String {
     fn from(comm_id: CommId) -> Self {
         comm_id.0
+    }
+}
+
+impl From<String> for CommId {
+    fn from(comm_id: String) -> Self {
+        Self(comm_id)
     }
 }
 
@@ -901,7 +907,7 @@ pub struct CommInfoReply {
 /// be notified. This is done with a comm_close message.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommClose {
-    pub comm_id: String,
+    pub comm_id: CommId,
     pub data: serde_json::Map<String, Value>,
 }
 
