@@ -55,21 +55,27 @@ pub struct Connection<S> {
     pub socket: S,
     /// Will be None if our key was empty (digest authentication disabled).
     pub mac: Option<hmac::Key>,
+    pub session_id: String,
 }
 
 impl<S: zeromq::Socket> Connection<S> {
-    pub fn new(socket: S, key: &str) -> Self {
+    pub fn new(socket: S, key: &str, session_id: &str) -> Self {
         let mac = if key.is_empty() {
             None
         } else {
             Some(hmac::Key::new(hmac::HMAC_SHA256, key.as_bytes()))
         };
-        Connection { socket, mac }
+        Connection {
+            socket,
+            mac,
+            session_id: session_id.to_string(),
+        }
     }
 }
 
 impl<S: zeromq::SocketSend> Connection<S> {
     pub async fn send(&mut self, message: JupyterMessage) -> Result<(), anyhow::Error> {
+        let message = message.with_session(&self.session_id);
         let raw_message: RawMessage = message.into_raw_message()?;
         let zmq_message = raw_message.into_zmq_message(&self.mac)?;
 
