@@ -160,38 +160,48 @@ impl ConnectionInfo {
         format!("{}://{}:{}", self.transport, self.ip, self.hb_port)
     }
 
-    pub async fn create_kernel_iopub_connection(&self) -> anyhow::Result<KernelIoPubConnection> {
+    pub async fn create_kernel_iopub_connection(
+        &self,
+        session_id: &str,
+    ) -> anyhow::Result<KernelIoPubConnection> {
         let endpoint = self.iopub_url();
 
         let mut socket = zeromq::PubSocket::new();
         socket.bind(&endpoint).await?;
-        anyhow::Ok(Connection::new(socket, &self.key))
+        anyhow::Ok(Connection::new(socket, &self.key, session_id))
     }
 
-    pub async fn create_kernel_shell_connection(&self) -> anyhow::Result<KernelShellConnection> {
+    pub async fn create_kernel_shell_connection(
+        &self,
+        session_id: &str,
+    ) -> anyhow::Result<KernelShellConnection> {
         let endpoint = self.shell_url();
 
         let mut socket = zeromq::RouterSocket::new();
         socket.bind(&endpoint).await?;
-        anyhow::Ok(Connection::new(socket, &self.key))
+        anyhow::Ok(Connection::new(socket, &self.key, session_id))
     }
 
     pub async fn create_kernel_control_connection(
         &self,
+        session_id: &str,
     ) -> anyhow::Result<KernelControlConnection> {
         let endpoint = self.control_url();
 
         let mut socket = zeromq::RouterSocket::new();
         socket.bind(&endpoint).await?;
-        anyhow::Ok(Connection::new(socket, &self.key))
+        anyhow::Ok(Connection::new(socket, &self.key, session_id))
     }
 
-    pub async fn create_kernel_stdin_connection(&self) -> anyhow::Result<KernelStdinConnection> {
+    pub async fn create_kernel_stdin_connection(
+        &self,
+        session_id: &str,
+    ) -> anyhow::Result<KernelStdinConnection> {
         let endpoint = self.stdin_url();
 
         let mut socket = zeromq::RouterSocket::new();
         socket.bind(&endpoint).await?;
-        anyhow::Ok(Connection::new(socket, &self.key))
+        anyhow::Ok(Connection::new(socket, &self.key, session_id))
     }
 
     pub async fn create_kernel_heartbeat_connection(
@@ -207,6 +217,7 @@ impl ConnectionInfo {
     pub async fn create_client_iopub_connection(
         &self,
         topic: &str,
+        session_id: &str,
     ) -> anyhow::Result<ClientIoPubConnection> {
         let endpoint = self.iopub_url();
 
@@ -214,33 +225,40 @@ impl ConnectionInfo {
         socket.subscribe(topic).await?;
 
         socket.connect(&endpoint).await?;
-        anyhow::Ok(Connection::new(socket, &self.key))
+        anyhow::Ok(Connection::new(socket, &self.key, session_id))
     }
 
-    pub async fn create_client_shell_connection(&self) -> anyhow::Result<ClientShellConnection> {
+    pub async fn create_client_shell_connection(
+        &self,
+        session_id: &str,
+    ) -> anyhow::Result<ClientShellConnection> {
         let endpoint = self.shell_url();
 
         let mut socket = zeromq::DealerSocket::new();
         socket.connect(&endpoint).await?;
-        anyhow::Ok(Connection::new(socket, &self.key))
+        anyhow::Ok(Connection::new(socket, &self.key, session_id))
     }
 
     pub async fn create_client_control_connection(
         &self,
+        session_id: &str,
     ) -> anyhow::Result<ClientControlConnection> {
         let endpoint = self.control_url();
 
         let mut socket = zeromq::DealerSocket::new();
         socket.connect(&endpoint).await?;
-        anyhow::Ok(Connection::new(socket, &self.key))
+        anyhow::Ok(Connection::new(socket, &self.key, session_id))
     }
 
-    pub async fn create_client_stdin_connection(&self) -> anyhow::Result<ClientStdinConnection> {
+    pub async fn create_client_stdin_connection(
+        &self,
+        session_id: &str,
+    ) -> anyhow::Result<ClientStdinConnection> {
         let endpoint = self.stdin_url();
 
         let mut socket = zeromq::DealerSocket::new();
         socket.connect(&endpoint).await?;
-        anyhow::Ok(Connection::new(socket, &self.key))
+        anyhow::Ok(Connection::new(socket, &self.key, session_id))
     }
 
     pub async fn create_client_heartbeat_connection(
@@ -322,35 +340,42 @@ impl JupyterRuntime {
             Err(e) => return Err(anyhow!("Error subscribing to iopub: {}", e)),
         }
 
-        let mut iopub_connection = Connection::new(iopub_socket, &self.connection_info.key);
+        let session_id = Uuid::new_v4().to_string();
+
+        let mut iopub_connection =
+            Connection::new(iopub_socket, &self.connection_info.key, &session_id);
         iopub_connection
             .socket
             .connect(&self.connection_info.iopub_url())
             .await?;
 
         let shell_socket = zeromq::DealerSocket::new();
-        let mut shell_connection = Connection::new(shell_socket, &self.connection_info.key);
+        let mut shell_connection =
+            Connection::new(shell_socket, &self.connection_info.key, &session_id);
         shell_connection
             .socket
             .connect(&self.connection_info.shell_url())
             .await?;
 
         let stdin_socket = zeromq::DealerSocket::new();
-        let mut stdin_connection = Connection::new(stdin_socket, &self.connection_info.key);
+        let mut stdin_connection =
+            Connection::new(stdin_socket, &self.connection_info.key, &session_id);
         stdin_connection
             .socket
             .connect(&self.connection_info.stdin_url())
             .await?;
 
         let control_socket = zeromq::DealerSocket::new();
-        let mut control_connection = Connection::new(control_socket, &self.connection_info.key);
+        let mut control_connection =
+            Connection::new(control_socket, &self.connection_info.key, &session_id);
         control_connection
             .socket
             .connect(&self.connection_info.control_url())
             .await?;
 
         let heartbeat_socket = zeromq::ReqSocket::new();
-        let mut heartbeat_connection = Connection::new(heartbeat_socket, &self.connection_info.key);
+        let mut heartbeat_connection =
+            Connection::new(heartbeat_socket, &self.connection_info.key, &session_id);
         heartbeat_connection
             .socket
             .connect(&self.connection_info.hb_url())
