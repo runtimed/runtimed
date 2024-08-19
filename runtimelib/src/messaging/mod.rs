@@ -200,11 +200,32 @@ pub struct JupyterMessage {
     #[serde(skip_serializing)]
     zmq_identities: Vec<Bytes>,
     pub header: Header,
+    #[serde(serialize_with = "serialize_parent_header")]
     pub parent_header: Option<Header>,
     pub metadata: Value,
     pub content: JupyterMessageContent,
     #[serde(skip_serializing)]
     pub buffers: Vec<Bytes>,
+}
+
+/// Serializes the `parent_header`.
+///
+/// Treats `None` as an empty object to conform to Jupyter's messaging guidelines:
+///
+/// > If there is no parent, an empty dict should be used.
+/// >
+/// > — https://jupyter-client.readthedocs.io/en/latest/messaging.html#parent-header
+fn serialize_parent_header<S>(
+    parent_header: &Option<Header>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match parent_header {
+        Some(header) => header.serialize(serializer),
+        None => serde_json::Map::new().serialize(serializer),
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

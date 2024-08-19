@@ -155,8 +155,7 @@ impl RuntimeManager {
             .await?;
 
         let child = ChildRuntime::new(k, &runtime, self.lock.clone()).await?;
-        self.update_runtime(runtime.id, child.clone())
-            .await?;
+        self.update_runtime(runtime.id, child.clone()).await?;
 
         log::info!("Launched new {kernel_name} runtime with id: {}", runtime.id);
         Ok(runtime.id)

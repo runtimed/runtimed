@@ -1409,4 +1409,20 @@ mod test {
         assert!(size > 0);
         assert!(size <= 96);
     }
+
+    #[test]
+    fn test_jupyter_message_parent_header_serializes_to_empty_dict() {
+        let request = ExecuteRequest {
+            code: "1 + 1".to_string(),
+            ..Default::default()
+        };
+        let message = JupyterMessage::from(request);
+
+        let serialized_message = serde_json::to_value(message).unwrap();
+
+        // Test that the `parent_header` field is an empty object.
+        let parent_header = serialized_message.get("parent_header").unwrap();
+        assert!(parent_header.is_object());
+        assert!(parent_header.as_object().unwrap().is_empty());
+    }
 }
