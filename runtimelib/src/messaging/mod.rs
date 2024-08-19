@@ -223,7 +223,7 @@ where
     S: serde::Serializer,
 {
     match parent_header {
-        Some(header) => header.serialize(serializer),
+        Some(parent_header) => parent_header.serialize(serializer),
         None => serde_json::Map::new().serialize(serializer),
     }
 }
