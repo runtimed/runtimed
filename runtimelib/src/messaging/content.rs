@@ -397,11 +397,28 @@ pub struct ExecuteRequest {
     pub code: String,
     pub silent: bool,
     pub store_history: bool,
+    #[serde(serialize_with = "serialize_user_expressions")]
     pub user_expressions: Option<HashMap<String, String>>,
     #[serde(default = "default_allow_stdin")]
     pub allow_stdin: bool,
     #[serde(default = "default_stop_on_error")]
     pub stop_on_error: bool,
+}
+
+/// Serializes the `user_expressions`.
+///
+/// Treats `None` as an empty object to conform to Jupyter's messaging guidelines.
+fn serialize_user_expressions<S>(
+    user_expressions: &Option<HashMap<String, String>>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match user_expressions {
+        Some(user_expressions) => user_expressions.serialize(serializer),
+        None => serde_json::Map::new().serialize(serializer),
+    }
 }
 
 fn default_allow_stdin() -> bool {
@@ -1210,6 +1227,30 @@ mod test {
             silent: false,
             store_history: true,
             user_expressions: Some(HashMap::new()),
+            allow_stdin: false,
+            stop_on_error: true,
+        };
+        let request_value = serde_json::to_value(request).unwrap();
+
+        let expected_request_value = serde_json::json!({
+            "code": "print('Hello, World!')",
+            "silent": false,
+            "store_history": true,
+            "user_expressions": {},
+            "allow_stdin": false,
+            "stop_on_error": true
+        });
+
+        assert_eq!(request_value, expected_request_value);
+    }
+
+    #[test]
+    fn test_execute_request_user_expressions_serializes_to_empty_dict() {
+        let request = ExecuteRequest {
+            code: "print('Hello, World!')".to_string(),
+            silent: false,
+            store_history: true,
+            user_expressions: None,
             allow_stdin: false,
             stop_on_error: true,
         };
