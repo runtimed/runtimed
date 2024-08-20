@@ -351,7 +351,11 @@ impl JupyterMessage {
     pub fn into_raw_message(&self) -> Result<RawMessage, anyhow::Error> {
         let mut jparts: Vec<Bytes> = vec![
             serde_json::to_vec(&self.header)?.into(),
-            serde_json::to_vec(&self.parent_header)?.into(),
+            if let Some(parent_header) = self.parent_header.as_ref() {
+                serde_json::to_vec(parent_header)?.into()
+            } else {
+                serde_json::to_vec(&serde_json::Map::new())?.into()
+            },
             serde_json::to_vec(&self.metadata)?.into(),
             serde_json::to_vec(&self.content)?.into(),
         ];
@@ -374,7 +378,11 @@ impl fmt::Debug for JupyterMessage {
         writeln!(
             f,
             "Parent header: {}",
-            serde_json::to_string_pretty(&self.parent_header).unwrap()
+            if let Some(parent_header) = self.parent_header.as_ref() {
+                serde_json::to_string_pretty(parent_header).unwrap()
+            } else {
+                serde_json::to_string_pretty(&serde_json::Map::new()).unwrap()
+            }
         )?;
         writeln!(
             f,
