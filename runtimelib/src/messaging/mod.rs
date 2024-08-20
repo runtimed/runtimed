@@ -200,11 +200,32 @@ pub struct JupyterMessage {
     #[serde(skip_serializing)]
     zmq_identities: Vec<Bytes>,
     pub header: Header,
+    #[serde(serialize_with = "serialize_parent_header")]
     pub parent_header: Option<Header>,
     pub metadata: Value,
     pub content: JupyterMessageContent,
     #[serde(skip_serializing)]
     pub buffers: Vec<Bytes>,
+}
+
+/// Serializes the `parent_header`.
+///
+/// Treats `None` as an empty object to conform to Jupyter's messaging guidelines:
+///
+/// > If there is no parent, an empty dict should be used.
+/// >
+/// > — https://jupyter-client.readthedocs.io/en/latest/messaging.html#parent-header
+fn serialize_parent_header<S>(
+    parent_header: &Option<Header>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match parent_header {
+        Some(parent_header) => parent_header.serialize(serializer),
+        None => serde_json::Map::new().serialize(serializer),
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -330,7 +351,11 @@ impl JupyterMessage {
     pub fn into_raw_message(&self) -> Result<RawMessage, anyhow::Error> {
         let mut jparts: Vec<Bytes> = vec![
             serde_json::to_vec(&self.header)?.into(),
-            serde_json::to_vec(&self.parent_header)?.into(),
+            if let Some(parent_header) = self.parent_header.as_ref() {
+                serde_json::to_vec(parent_header)?.into()
+            } else {
+                serde_json::to_vec(&serde_json::Map::new())?.into()
+            },
             serde_json::to_vec(&self.metadata)?.into(),
             serde_json::to_vec(&self.content)?.into(),
         ];
@@ -353,7 +378,11 @@ impl fmt::Debug for JupyterMessage {
         writeln!(
             f,
             "Parent header: {}",
-            serde_json::to_string_pretty(&self.parent_header).unwrap()
+            if let Some(parent_header) = self.parent_header.as_ref() {
+                serde_json::to_string_pretty(parent_header).unwrap()
+            } else {
+                serde_json::to_string_pretty(&serde_json::Map::new()).unwrap()
+            }
         )?;
         writeln!(
             f,
