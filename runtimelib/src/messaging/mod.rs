@@ -195,17 +195,28 @@ impl RawMessage {
     }
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Channel {
+    Shell,
+    Control,
+    Stdin,
+    IOPub,
+    Heartbeat,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
 pub struct JupyterMessage {
-    #[serde(skip_serializing)]
+    #[serde(skip_serializing, skip_deserializing)]
     zmq_identities: Vec<Bytes>,
     pub header: Header,
     #[serde(serialize_with = "serialize_parent_header")]
     pub parent_header: Option<Header>,
     pub metadata: Value,
     pub content: JupyterMessageContent,
-    #[serde(skip_serializing)]
+    #[serde(skip_serializing, skip_deserializing)]
     pub buffers: Vec<Bytes>,
+    pub channel: Option<Channel>,
 }
 
 /// Serializes the `parent_header`.
@@ -240,7 +251,47 @@ pub struct Header {
 
 const DELIMITER: &[u8] = b"<IDS|MSG>";
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct UnknownJupyterMessage {
+    pub header: Header,
+    pub parent_header: Option<Header>,
+    pub metadata: Value,
+    pub content: Value,
+    #[serde(skip_serializing, skip_deserializing)]
+    pub buffers: Vec<Bytes>,
+}
+
 impl JupyterMessage {
+    pub fn from_value(message: Value) -> Result<JupyterMessage, anyhow::Error> {
+        let message = serde_json::from_value::<UnknownJupyterMessage>(message)?;
+
+        let content =
+            JupyterMessageContent::from_type_and_content(&message.header.msg_type, message.content);
+
+        let content = match content {
+            Ok(content) => content,
+            Err(err) => {
+                return Err(anyhow!(
+                    "Error deserializing content for msg_type `{}`: {}",
+                    &message.header.msg_type,
+                    err
+                ));
+            }
+        };
+
+        let message = JupyterMessage {
+            zmq_identities: Vec::new(),
+            header: message.header,
+            parent_header: message.parent_header,
+            metadata: message.metadata,
+            content,
+            buffers: message.buffers,
+            channel: None,
+        };
+
+        Ok(message)
+    }
+
     fn from_raw_message(raw_message: RawMessage) -> Result<JupyterMessage, anyhow::Error> {
         if raw_message.jparts.len() < 4 {
             // Be explicit with error here
@@ -279,6 +330,7 @@ impl JupyterMessage {
             } else {
                 vec![]
             },
+            channel: None,
         };
 
         Ok(message)
@@ -318,6 +370,7 @@ impl JupyterMessage {
             metadata: json!({}),
             content,
             buffers: Vec::new(),
+            channel: None,
         }
     }
 
