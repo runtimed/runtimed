@@ -1,5 +1,5 @@
 [workspace]
 
-members = ["runtimed", "runt", "runtimelib"]
+members = ["runtimed", "runt", "runtimelib", "jupyter-web"]
 
 resolver = "2"
