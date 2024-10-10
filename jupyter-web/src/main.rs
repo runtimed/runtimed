@@ -19,9 +19,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Extract the base URL and token
     let base_url = format!(
-        "{}://{}{}",
+        "{}://{}{}{}",
         parsed_url.scheme(),
         parsed_url.host_str().unwrap_or("localhost"),
+        parsed_url
+            .port()
+            .map(|p| format!(":{}", p))
+            .unwrap_or_default(),
         parsed_url.path().trim_end_matches("/tree")
     );
 
@@ -33,30 +37,47 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let kernels_url = format!("{}/api/kernels", base_url);
 
-    let client = Client::new();
+    println!("Connecting to: {}", kernels_url);
+
+    let client = Client::builder()
+        .danger_accept_invalid_certs(true) // Note: This is not recommended for production use
+        .build()?;
+
     let response = client
         .get(&kernels_url)
         .header("Authorization", format!("Token {}", token))
         .send()
-        .await?;
+        .await;
 
-    if !response.status().is_success() {
-        eprintln!(
-            "Failed to connect to Jupyter server. Status: {}",
-            response.status()
-        );
-        exit(1);
-    }
+    match response {
+        Ok(resp) => {
+            if !resp.status().is_success() {
+                eprintln!(
+                    "Failed to connect to Jupyter server. Status: {}",
+                    resp.status()
+                );
+                eprintln!("Response body: {}", resp.text().await?);
+                exit(1);
+            }
 
-    let kernels: Vec<Value> = response.json().await?;
+            let kernels: Vec<Value> = resp.json().await?;
 
-    println!("Available kernels:");
-    for kernel in kernels {
-        println!(
-            "ID: {}, Name: {}",
-            kernel["id"].as_str().unwrap_or("Unknown"),
-            kernel["name"].as_str().unwrap_or("Unknown")
-        );
+            println!("Available kernels:");
+            for kernel in kernels {
+                println!(
+                    "ID: {}, Name: {}",
+                    kernel["id"].as_str().unwrap_or("Unknown"),
+                    kernel["name"].as_str().unwrap_or("Unknown")
+                );
+            }
+        }
+        Err(e) => {
+            eprintln!("Error connecting to Jupyter server: {:?}", e);
+            if let Some(url) = e.url() {
+                eprintln!("Failed URL: {}", url);
+            }
+            exit(1);
+        }
     }
 
     Ok(())
