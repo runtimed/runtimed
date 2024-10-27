@@ -86,8 +86,14 @@ pub struct Notebook {
 pub struct Metadata {
     pub kernelspec: Option<KernelSpec>,
     pub language_info: Option<LanguageInfo>,
+    pub authors: Option<Vec<Author>>,
     #[serde(flatten)]
     pub additional: HashMap<String, serde_json::Value>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Author {
+    pub name: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -241,12 +247,32 @@ where
 pub struct CellMetadata {
     pub id: Option<String>,
     pub collapsed: Option<bool>,
-    pub scrolled: Option<serde_json::Value>,
+    pub scrolled: Option<bool>,
     pub deletable: Option<bool>,
     pub editable: Option<bool>,
     pub format: Option<String>,
     pub name: Option<String>,
     pub tags: Option<Vec<String>>,
+    pub jupyter: Option<JupyterCellMetadata>,
+    pub execution: Option<ExecutionMetadata>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct JupyterCellMetadata {
+    pub source_hidden: Option<bool>,
+    pub outputs_hidden: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ExecutionMetadata {
+    #[serde(rename = "iopub.execute_input")]
+    pub iopub_execute_input: Option<String>,
+    #[serde(rename = "iopub.status.busy")]
+    pub iopub_status_busy: Option<String>,
+    #[serde(rename = "shell.execute_reply")]
+    pub shell_execute_reply: Option<String>,
+    #[serde(rename = "iopub.status.idle")]
+    pub iopub_status_idle: Option<String>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
