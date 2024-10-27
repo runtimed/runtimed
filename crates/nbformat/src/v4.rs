@@ -3,7 +3,10 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use core::fmt;
-use std::fmt::{Display, Formatter};
+use std::{
+    collections::HashMap,
+    fmt::{Display, Formatter},
+};
 
 use runtimelib::{DisplayData, ErrorOutput, ExecuteResult, StreamContent};
 
@@ -20,6 +23,8 @@ pub struct Notebook {
 pub struct DeserializedMetadata {
     pub kernelspec: Option<DeserializedKernelSpec>,
     pub language_info: Option<DeserializedLanguageInfo>,
+    #[serde(flatten)]
+    pub additional: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -146,7 +151,7 @@ pub struct DeserializedCellMetadata {
     tags: Option<Vec<String>>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "output_type")]
 pub enum DeserializedOutput {
     #[serde(rename = "stream")]
