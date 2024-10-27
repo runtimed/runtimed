@@ -1,5 +1,6 @@
-use nbformat::parse_notebook;
-use nbformat::v4::{Cell, CellId, Notebook, Output};
+use nbformat::legacy::{Cell as LegacyCell, Notebook as LegacyNotebook};
+use nbformat::v4::{Cell, CellId, Notebook as Notebook4, Output};
+use nbformat::{parse_notebook, Notebook};
 use std::fs;
 use std::path::Path;
 
@@ -8,12 +9,18 @@ fn read_notebook(path: &str) -> String {
 }
 
 #[test]
-fn test_parse_basic_notebook() {
+fn test_parse_legacy_v4_notebook() {
     let notebook_json = read_notebook("tests/notebooks/test4.ipynb");
     let notebook = parse_notebook(&notebook_json).expect("Failed to parse notebook");
 
+    let notebook = if let Notebook::Legacy(notebook) = notebook {
+        notebook
+    } else {
+        panic!("Expected v4.1 - v4.4 notebook");
+    };
+
     assert_eq!(notebook.nbformat, 4);
-    assert_eq!(notebook.nbformat_minor, 0);
+    assert_eq!(notebook.nbformat_minor, 1);
 
     assert_eq!(notebook.cells.len(), 9);
 
@@ -22,7 +29,7 @@ fn test_parse_basic_notebook() {
 
     // Check first cell (markdown)
     let first_cell = &notebook.cells[0];
-    if let Cell::Markdown { source, .. } = first_cell {
+    if let LegacyCell::Markdown { source, .. } = first_cell {
         assert_eq!(source, &vec!["# nbconvert latex test"]);
     } else {
         panic!("First cell should be markdown");
@@ -30,7 +37,7 @@ fn test_parse_basic_notebook() {
 
     // Check a code cell
     let code_cell = &notebook.cells[3];
-    if let Cell::Code {
+    if let LegacyCell::Code {
         source,
         execution_count,
         outputs,
@@ -54,6 +61,12 @@ fn test_parse_basic_notebook() {
 fn test_parse_v4_5_notebook() {
     let notebook_json = read_notebook("tests/notebooks/test4.5.ipynb");
     let notebook = parse_notebook(&notebook_json).expect("Failed to parse notebook");
+
+    let notebook = if let Notebook::V4(notebook) = notebook {
+        notebook
+    } else {
+        panic!("Expected v4.1 - v4.4 notebook");
+    };
 
     assert_eq!(notebook.nbformat, 4);
     assert_eq!(notebook.nbformat_minor, 5);
@@ -82,9 +95,7 @@ fn test_parse_v4_5_notebook() {
         outputs,
     } = code_cell
     {
-        assert!(id.is_some());
-
-        assert!(*id == Some(CellId("38f37a24".to_string())));
+        assert_eq!(id.as_str(), "38f37a24");
         // assert!(metadata.id.is_some());
         assert!(execution_count.is_some());
         assert!(!source.is_empty());
@@ -106,8 +117,7 @@ fn test_parse_v4_5_notebook() {
         attachments,
     } = markdown_cell
     {
-        assert!(id.is_some());
-        // assert!(metadata.id.is_some());
+        assert_eq!(id.as_str(), "2fcdfa53");
         assert!(!source.is_empty());
         assert!(attachments.is_none() || attachments.as_ref().unwrap().is_object());
     } else {
@@ -132,7 +142,7 @@ fn test_open_all_notebooks_in_dir() {
                 || path_str.starts_with("tests/notebooks/invalid")
                 || path_str.starts_with("tests/notebooks/no_min_version")
             {
-                dbg!(&notebook);
+                // dbg!(&notebook);
                 assert!(notebook.is_err(), "Expected error for {}", path_str);
             } else {
                 assert!(notebook.is_ok(), "Failed to parse notebook: {}", path_str);

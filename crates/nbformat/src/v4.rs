@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -76,7 +76,6 @@ where
 #[derive(Deserialize, Debug)]
 pub struct Notebook {
     pub metadata: Metadata,
-    // todo!(): make always `4` somehow (???)
     pub nbformat: i32,
     pub nbformat_minor: i32,
     #[serde(deserialize_with = "deserialize_cells")]
@@ -112,8 +111,29 @@ pub enum CodemirrorMode {
     Object(Value),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub struct CellId(pub String);
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+pub struct CellId(String);
+
+impl CellId {
+    fn is_valid(s: &str) -> bool {
+        !s.is_empty()
+            && s.len() <= 64
+            && s.chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    }
+
+    pub fn new(s: &str) -> Result<Self, &'static str> {
+        if Self::is_valid(s) {
+            Ok(CellId(s.to_string()))
+        } else {
+            Err("Invalid cell ID")
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
 
 impl Display for CellId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -121,27 +141,45 @@ impl Display for CellId {
     }
 }
 
+impl Serialize for CellId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for CellId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        CellId::new(&s).map_err(de::Error::custom)
+    }
+}
+
 impl From<Uuid> for CellId {
     fn from(uuid: Uuid) -> Self {
-        Self(uuid.to_string())
+        // Assume UUID is always valid for CellId
+        CellId(uuid.to_string())
     }
 }
 
-impl From<String> for CellId {
-    fn from(string: String) -> Self {
-        Self(string)
+impl TryFrom<String> for CellId {
+    type Error = &'static str;
+
+    fn try_from(string: String) -> Result<Self, Self::Error> {
+        CellId::new(&string)
     }
 }
 
-impl From<Option<String>> for CellId {
-    fn from(string: Option<String>) -> Self {
-        if string.is_some() {
-            string.into()
-        } else {
-            CellId {
-                0: Uuid::new_v4().to_string(),
-            }
-        }
+impl<'a> TryFrom<&'a str> for CellId {
+    type Error = &'static str;
+
+    fn try_from(s: &'a str) -> Result<Self, Self::Error> {
+        CellId::new(s)
     }
 }
 
@@ -157,7 +195,7 @@ pub enum CellType {
 pub enum Cell {
     #[serde(rename = "markdown")]
     Markdown {
-        id: Option<CellId>,
+        id: CellId,
         metadata: CellMetadata,
         source: Vec<String>,
         #[serde(default)]
@@ -165,7 +203,7 @@ pub enum Cell {
     },
     #[serde(rename = "code")]
     Code {
-        id: Option<CellId>,
+        id: CellId,
         metadata: CellMetadata,
         execution_count: Option<i32>,
         source: Vec<String>,
@@ -174,7 +212,7 @@ pub enum Cell {
     },
     #[serde(rename = "raw")]
     Raw {
-        id: Option<CellId>,
+        id: CellId,
         metadata: CellMetadata,
         source: Vec<String>,
     },
