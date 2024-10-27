@@ -123,9 +123,20 @@ fn test_open_all_notebooks_in_dir() {
         let path = entry.path();
         let path_str = path.to_str().expect("Failed to convert path to string");
         if path_str.ends_with(".ipynb") {
+            // If the file starts with `test3`, let's check that we got an error
             let notebook_json = read_notebook(path_str);
-            let notebook: Notebook = serde_json::from_str(&notebook_json)
-                .expect(&format!("Failed to parse notebook: {}", path_str));
+            let notebook = parse_notebook(&notebook_json);
+
+            println!("Parsing notebook: {}", path_str);
+            if path_str.starts_with("tests/notebooks/test3")
+                || path_str.starts_with("tests/notebooks/invalid")
+                || path_str.starts_with("tests/notebooks/no_min_version")
+            {
+                dbg!(&notebook);
+                assert!(notebook.is_err(), "Expected error for {}", path_str);
+            } else {
+                assert!(notebook.is_ok(), "Failed to parse notebook: {}", path_str);
+            }
         }
     }
 }
