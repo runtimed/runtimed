@@ -76,6 +76,7 @@ where
 #[derive(Deserialize, Debug)]
 pub struct Notebook {
     pub metadata: Metadata,
+    // todo!(): make always `4` somehow (???)
     pub nbformat: i32,
     pub nbformat_minor: i32,
     #[serde(deserialize_with = "deserialize_cells")]
@@ -221,8 +222,11 @@ pub enum Output {
         #[serde(deserialize_with = "deserialize_multiline_string")]
         text: MultilineString,
     },
+    // todo!(): transient does not belong _in_ nbformat, though it is on the raw
+    // jupyter protocol. We'll need to accept a subset here.
     #[serde(rename = "display_data")]
     DisplayData(DisplayData),
+    // todo!() Same goes for handling execute result
     #[serde(rename = "execute_result")]
     ExecuteResult(ExecuteResult),
     #[serde(rename = "error")]

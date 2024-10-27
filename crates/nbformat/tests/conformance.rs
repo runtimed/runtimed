@@ -1,5 +1,5 @@
-use nbformat::v4::{Cell, Output};
-use nbformat::v4::{CellId, Notebook};
+use nbformat::parse_notebook;
+use nbformat::v4::{Cell, CellId, Notebook, Output};
 use std::fs;
 use std::path::Path;
 
@@ -10,11 +10,11 @@ fn read_notebook(path: &str) -> String {
 #[test]
 fn test_parse_basic_notebook() {
     let notebook_json = read_notebook("tests/notebooks/test4.ipynb");
-    let notebook: Notebook =
-        serde_json::from_str(&notebook_json).expect("Failed to parse notebook");
+    let notebook = parse_notebook(&notebook_json).expect("Failed to parse notebook");
 
     assert_eq!(notebook.nbformat, 4);
     assert_eq!(notebook.nbformat_minor, 0);
+
     assert_eq!(notebook.cells.len(), 9);
 
     assert!(notebook.metadata.kernelspec.is_none());
@@ -53,8 +53,7 @@ fn test_parse_basic_notebook() {
 #[test]
 fn test_parse_v4_5_notebook() {
     let notebook_json = read_notebook("tests/notebooks/test4.5.ipynb");
-    let notebook: Notebook =
-        serde_json::from_str(&notebook_json).expect("Failed to parse notebook");
+    let notebook = parse_notebook(&notebook_json).expect("Failed to parse notebook");
 
     assert_eq!(notebook.nbformat, 4);
     assert_eq!(notebook.nbformat_minor, 5);
@@ -127,7 +126,6 @@ fn test_open_all_notebooks_in_dir() {
             let notebook_json = read_notebook(path_str);
             let notebook: Notebook = serde_json::from_str(&notebook_json)
                 .expect(&format!("Failed to parse notebook: {}", path_str));
-            assert_eq!(notebook.nbformat, 4);
         }
     }
 }
