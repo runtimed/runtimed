@@ -7,8 +7,70 @@ use std::{
     collections::HashMap,
     fmt::{Display, Formatter},
 };
+#[derive(Debug, Clone, PartialEq)]
+pub struct MultilineString(pub String);
+
+impl Serialize for MultilineString {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for MultilineString {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(MultilineString(s))
+    }
+}
 
 use runtimelib::{DisplayData, ErrorOutput, ExecuteResult, StreamContent};
+fn deserialize_multiline_string<'de, D>(deserializer: D) -> Result<MultilineString, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct MultilineStringVisitor;
+
+    impl<'de> serde::de::Visitor<'de> for MultilineStringVisitor {
+        type Value = MultilineString;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("string or array of strings")
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Ok(MultilineString(value.to_string()))
+        }
+
+        fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Ok(MultilineString(value))
+        }
+
+        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+        where
+            A: serde::de::SeqAccess<'de>,
+        {
+            let mut result = String::new();
+            while let Some(s) = seq.next_element::<String>()? {
+                result.push_str(&s);
+            }
+            Ok(MultilineString(result))
+        }
+    }
+
+    deserializer.deserialize_any(MultilineStringVisitor)
+}
 
 #[derive(Deserialize, Debug)]
 pub struct Notebook {
@@ -155,7 +217,11 @@ pub struct DeserializedCellMetadata {
 #[serde(tag = "output_type")]
 pub enum DeserializedOutput {
     #[serde(rename = "stream")]
-    Stream(StreamContent),
+    Stream {
+        name: String,
+        #[serde(deserialize_with = "deserialize_multiline_string")]
+        text: MultilineString,
+    },
     #[serde(rename = "display_data")]
     DisplayData(DisplayData),
     #[serde(rename = "execute_result")]
