@@ -2,11 +2,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
+use runtimelib::{DisplayData, ErrorOutput, ExecuteResult};
+
 use core::fmt;
 use std::{
     collections::HashMap,
     fmt::{Display, Formatter},
 };
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct MultilineString(pub String);
 
@@ -28,8 +31,6 @@ impl<'de> Deserialize<'de> for MultilineString {
         Ok(MultilineString(s))
     }
 }
-
-use runtimelib::{DisplayData, ErrorOutput, ExecuteResult, StreamContent};
 fn deserialize_multiline_string<'de, D>(deserializer: D) -> Result<MultilineString, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -155,7 +156,7 @@ pub enum CellType {
 pub enum DeserializedCell {
     #[serde(rename = "markdown")]
     Markdown {
-        id: Option<String>,
+        id: Option<CellId>,
         metadata: DeserializedCellMetadata,
         source: Vec<String>,
         #[serde(default)]
@@ -163,7 +164,7 @@ pub enum DeserializedCell {
     },
     #[serde(rename = "code")]
     Code {
-        id: Option<String>,
+        id: Option<CellId>,
         metadata: DeserializedCellMetadata,
         execution_count: Option<i32>,
         source: Vec<String>,
@@ -172,7 +173,7 @@ pub enum DeserializedCell {
     },
     #[serde(rename = "raw")]
     Raw {
-        id: Option<String>,
+        id: Option<CellId>,
         metadata: DeserializedCellMetadata,
         source: Vec<String>,
     },
@@ -203,14 +204,14 @@ where
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DeserializedCellMetadata {
-    id: Option<String>,
-    collapsed: Option<bool>,
-    scrolled: Option<serde_json::Value>,
-    deletable: Option<bool>,
-    editable: Option<bool>,
-    format: Option<String>,
-    name: Option<String>,
-    tags: Option<Vec<String>>,
+    pub id: Option<String>,
+    pub collapsed: Option<bool>,
+    pub scrolled: Option<serde_json::Value>,
+    pub deletable: Option<bool>,
+    pub editable: Option<bool>,
+    pub format: Option<String>,
+    pub name: Option<String>,
+    pub tags: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
