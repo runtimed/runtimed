@@ -22,14 +22,14 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-runtimelib = "0.15.0"
+runtimelib = "0.15.1"
 ```
 
 By default, RuntimeLib uses Tokio as its async runtime. If you want to use the async-dispatcher runtime instead, you can enable it with the following feature flag:
 
 ```toml
 [dependencies]
-runtimelib = { version = "0.15.0", features = ["async-dispatcher-runtime"] }
+runtimelib = { version = "0.15.1", features = ["async-dispatcher-runtime"] }
 ```
 
 
