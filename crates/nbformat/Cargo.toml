@@ -2,6 +2,9 @@
 name = "nbformat"
 version = "0.1.0"
 edition = "2021"
+description = "Parse Jupyter Notebooks"
+repository = "https://github.com/runtimed/runtimed"
+license = "BSD-3-Clause"
 
 [dependencies]
 chrono = "0.4"
