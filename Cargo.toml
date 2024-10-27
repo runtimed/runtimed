@@ -1,5 +1,10 @@
 [workspace]
 
-members = ["runtimed", "runt", "runtimelib", "jupyter-web"]
+members = [
+    "crates/runtimed",
+    "crates/runt",
+    "crates/runtimelib",
+    "crates/jupyter-websocket-client",
+]
 
 resolver = "2"

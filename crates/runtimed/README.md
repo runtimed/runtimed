@@ -1,3 +1,6 @@
+# `runtimed`
+
+NOTE: This crate, including its SQL setup and Dockerfile are no longer actively maintained. They're kept as a reference for now until full cleanup.
 
 ## Development - getting started
 
