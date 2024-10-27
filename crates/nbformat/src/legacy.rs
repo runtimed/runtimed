@@ -1,0 +1,62 @@
+use crate::v4::{deserialize_outputs, CellId, CellMetadata, Metadata, Output};
+use serde::Deserialize;
+use serde_json::Value;
+
+#[derive(Deserialize, Debug)]
+pub struct Notebook {
+    pub metadata: Metadata,
+    pub nbformat: i32,
+    // Only 1-4 are supported via legacy at this time
+    pub nbformat_minor: i32,
+    #[serde(deserialize_with = "deserialize_cells")]
+    pub cells: Vec<Cell>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "cell_type")]
+pub enum Cell {
+    #[serde(rename = "markdown")]
+    Markdown {
+        id: Option<CellId>,
+        metadata: CellMetadata,
+        source: Vec<String>,
+        #[serde(default)]
+        attachments: Option<Value>,
+    },
+    #[serde(rename = "code")]
+    Code {
+        id: Option<CellId>,
+        metadata: CellMetadata,
+        execution_count: Option<i32>,
+        source: Vec<String>,
+        #[serde(deserialize_with = "deserialize_outputs")]
+        outputs: Vec<Output>,
+    },
+    #[serde(rename = "raw")]
+    Raw {
+        id: Option<CellId>,
+        metadata: CellMetadata,
+        source: Vec<String>,
+    },
+}
+
+pub fn deserialize_cells<'de, D>(deserializer: D) -> Result<Vec<Cell>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let cells: Vec<serde_json::Value> = Deserialize::deserialize(deserializer)?;
+    cells
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, cell)| match serde_json::from_value::<Cell>(cell) {
+            Ok(cell) => Some(Ok(cell)),
+            Err(e) => {
+                eprintln!(
+                    "Warning: Failed to deserialize cell at index {}: {}",
+                    index, e
+                );
+                None
+            }
+        })
+        .collect()
+}

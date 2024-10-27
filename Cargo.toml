@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+    "crates/nbformat",
     "crates/runtimed",
     "crates/runt",
     "crates/runtimelib",
