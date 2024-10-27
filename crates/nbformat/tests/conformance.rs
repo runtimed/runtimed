@@ -138,11 +138,16 @@ fn test_open_all_notebooks_in_dir() {
             let notebook = parse_notebook(&notebook_json);
 
             println!("Parsing notebook: {}", path_str);
-            if path_str.starts_with("tests/notebooks/test3")
+            if path_str.contains("invalid_cell_id") {
+                assert!(
+                    matches!(notebook, Err(nbformat::NotebookError::JsonError(_))),
+                    "Expected JsonError for invalid cell ID in {}",
+                    path_str
+                );
+            } else if path_str.starts_with("tests/notebooks/test3")
                 || path_str.starts_with("tests/notebooks/invalid")
                 || path_str.starts_with("tests/notebooks/no_min_version")
             {
-                // dbg!(&notebook);
                 assert!(notebook.is_err(), "Expected error for {}", path_str);
             } else {
                 assert!(notebook.is_ok(), "Failed to parse notebook: {}", path_str);

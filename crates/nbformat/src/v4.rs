@@ -226,15 +226,13 @@ where
     cells
         .into_iter()
         .enumerate()
-        .filter_map(|(index, cell)| match serde_json::from_value::<Cell>(cell) {
-            Ok(cell) => Some(Ok(cell)),
-            Err(e) => {
-                eprintln!(
-                    "Warning: Failed to deserialize cell at index {}: {}",
+        .map(|(index, cell)| {
+            serde_json::from_value::<Cell>(cell).map_err(|e| {
+                de::Error::custom(format!(
+                    "Failed to deserialize cell at index {}: {}",
                     index, e
-                );
-                None
-            }
+                ))
+            })
         })
         .collect()
 }
