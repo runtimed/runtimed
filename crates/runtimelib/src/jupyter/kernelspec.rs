@@ -12,7 +12,7 @@ use tokio::{fs, io::AsyncReadExt, process::Command};
 #[cfg(feature = "async-dispatcher-runtime")]
 use smol::process::Command;
 
-/// A pointer to a kernelspec directory, with name and fully deserialized specification
+/// A pointer to a kernelspec directory, with name and fully  specification
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct KernelspecDir {
     pub kernel_name: String,

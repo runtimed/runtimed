@@ -1,5 +1,5 @@
+use nbformat::v4::{Cell, Output};
 use nbformat::v4::{CellId, Notebook};
-use nbformat::v4::{DeserializedCell, DeserializedOutput};
 use std::fs;
 use std::path::Path;
 
@@ -22,7 +22,7 @@ fn test_parse_basic_notebook() {
 
     // Check first cell (markdown)
     let first_cell = &notebook.cells[0];
-    if let DeserializedCell::Markdown { source, .. } = first_cell {
+    if let Cell::Markdown { source, .. } = first_cell {
         assert_eq!(source, &vec!["# nbconvert latex test"]);
     } else {
         panic!("First cell should be markdown");
@@ -30,7 +30,7 @@ fn test_parse_basic_notebook() {
 
     // Check a code cell
     let code_cell = &notebook.cells[3];
-    if let DeserializedCell::Code {
+    if let Cell::Code {
         source,
         execution_count,
         outputs,
@@ -40,7 +40,7 @@ fn test_parse_basic_notebook() {
         assert_eq!(source, &vec!["print(\"hello\")"]);
         assert_eq!(*execution_count, Some(1));
         assert_eq!(outputs.len(), 1);
-        if let DeserializedOutput::Stream { name, text } = &outputs[0] {
+        if let Output::Stream { name, text } = &outputs[0] {
             assert_eq!(name, "stdout");
             assert_eq!(text.0, "hello\n");
         } else {
@@ -73,9 +73,9 @@ fn test_parse_v4_5_notebook() {
     let code_cell = notebook
         .cells
         .iter()
-        .find(|cell| matches!(cell, DeserializedCell::Code { .. }))
+        .find(|cell| matches!(cell, Cell::Code { .. }))
         .unwrap();
-    if let DeserializedCell::Code {
+    if let Cell::Code {
         id,
         metadata,
         execution_count,
@@ -98,9 +98,9 @@ fn test_parse_v4_5_notebook() {
     let markdown_cell = notebook
         .cells
         .iter()
-        .find(|cell| matches!(cell, DeserializedCell::Markdown { .. }))
+        .find(|cell| matches!(cell, Cell::Markdown { .. }))
         .unwrap();
-    if let DeserializedCell::Markdown {
+    if let Cell::Markdown {
         id,
         metadata,
         source,
@@ -113,5 +113,21 @@ fn test_parse_v4_5_notebook() {
         assert!(attachments.is_none() || attachments.as_ref().unwrap().is_object());
     } else {
         panic!("Expected markdown cell");
+    }
+}
+
+#[test]
+fn test_open_all_notebooks_in_dir() {
+    let dir = Path::new("tests/notebooks");
+    for entry in fs::read_dir(dir).expect("Failed to read directory") {
+        let entry = entry.expect("Failed to read entry");
+        let path = entry.path();
+        let path_str = path.to_str().expect("Failed to convert path to string");
+        if path_str.ends_with(".ipynb") {
+            let notebook_json = read_notebook(path_str);
+            let notebook: Notebook = serde_json::from_str(&notebook_json)
+                .expect(&format!("Failed to parse notebook: {}", path_str));
+            assert_eq!(notebook.nbformat, 4);
+        }
     }
 }

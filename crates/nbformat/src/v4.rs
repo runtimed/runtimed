@@ -75,29 +75,29 @@ where
 
 #[derive(Deserialize, Debug)]
 pub struct Notebook {
-    pub metadata: DeserializedMetadata,
+    pub metadata: Metadata,
     pub nbformat: i32,
     pub nbformat_minor: i32,
     #[serde(deserialize_with = "deserialize_cells")]
-    pub cells: Vec<DeserializedCell>,
+    pub cells: Vec<Cell>,
 }
 
 #[derive(Deserialize, Debug)]
-pub struct DeserializedMetadata {
-    pub kernelspec: Option<DeserializedKernelSpec>,
-    pub language_info: Option<DeserializedLanguageInfo>,
+pub struct Metadata {
+    pub kernelspec: Option<KernelSpec>,
+    pub language_info: Option<LanguageInfo>,
     #[serde(flatten)]
     pub additional: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Deserialize, Debug)]
-pub struct DeserializedKernelSpec {
+pub struct KernelSpec {
     pub name: String,
     pub language: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
-pub struct DeserializedLanguageInfo {
+pub struct LanguageInfo {
     pub name: String,
     pub version: Option<String>,
     #[serde(default)]
@@ -153,11 +153,11 @@ pub enum CellType {
 
 #[derive(Deserialize, Debug)]
 #[serde(tag = "cell_type")]
-pub enum DeserializedCell {
+pub enum Cell {
     #[serde(rename = "markdown")]
     Markdown {
         id: Option<CellId>,
-        metadata: DeserializedCellMetadata,
+        metadata: CellMetadata,
         source: Vec<String>,
         #[serde(default)]
         attachments: Option<Value>,
@@ -165,21 +165,21 @@ pub enum DeserializedCell {
     #[serde(rename = "code")]
     Code {
         id: Option<CellId>,
-        metadata: DeserializedCellMetadata,
+        metadata: CellMetadata,
         execution_count: Option<i32>,
         source: Vec<String>,
         #[serde(deserialize_with = "deserialize_outputs")]
-        outputs: Vec<DeserializedOutput>,
+        outputs: Vec<Output>,
     },
     #[serde(rename = "raw")]
     Raw {
         id: Option<CellId>,
-        metadata: DeserializedCellMetadata,
+        metadata: CellMetadata,
         source: Vec<String>,
     },
 }
 
-pub fn deserialize_cells<'de, D>(deserializer: D) -> Result<Vec<DeserializedCell>, D::Error>
+pub fn deserialize_cells<'de, D>(deserializer: D) -> Result<Vec<Cell>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -187,23 +187,21 @@ where
     cells
         .into_iter()
         .enumerate()
-        .filter_map(
-            |(index, cell)| match serde_json::from_value::<DeserializedCell>(cell) {
-                Ok(cell) => Some(Ok(cell)),
-                Err(e) => {
-                    eprintln!(
-                        "Warning: Failed to deserialize cell at index {}: {}",
-                        index, e
-                    );
-                    None
-                }
-            },
-        )
+        .filter_map(|(index, cell)| match serde_json::from_value::<Cell>(cell) {
+            Ok(cell) => Some(Ok(cell)),
+            Err(e) => {
+                eprintln!(
+                    "Warning: Failed to deserialize cell at index {}: {}",
+                    index, e
+                );
+                None
+            }
+        })
         .collect()
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct DeserializedCellMetadata {
+pub struct CellMetadata {
     pub id: Option<String>,
     pub collapsed: Option<bool>,
     pub scrolled: Option<serde_json::Value>,
@@ -216,7 +214,7 @@ pub struct DeserializedCellMetadata {
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "output_type")]
-pub enum DeserializedOutput {
+pub enum Output {
     #[serde(rename = "stream")]
     Stream {
         name: String,
@@ -231,7 +229,7 @@ pub enum DeserializedOutput {
     Error(ErrorOutput),
 }
 
-pub fn deserialize_outputs<'de, D>(deserializer: D) -> Result<Vec<DeserializedOutput>, D::Error>
+pub fn deserialize_outputs<'de, D>(deserializer: D) -> Result<Vec<Output>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -239,8 +237,8 @@ where
     outputs
         .into_iter()
         .enumerate()
-        .filter_map(|(index, output)| {
-            match serde_json::from_value::<DeserializedOutput>(output.clone()) {
+        .filter_map(
+            |(index, output)| match serde_json::from_value::<Output>(output.clone()) {
                 Ok(output) => Some(Ok(output)),
                 Err(e) => {
                     eprintln!(
@@ -253,7 +251,7 @@ where
                     );
                     None
                 }
-            }
-        })
+            },
+        )
         .collect()
 }
