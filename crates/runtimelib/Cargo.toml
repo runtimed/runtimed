@@ -5,7 +5,7 @@ edition = "2021"
 description = "Jupyter runtime library"
 repository = "https://github.com/runtimed/runtimed"
 license = "BSD-3-Clause"
-readme = "../README.md"
+readme = "./README.md"
 
 [dependencies]
 zeromq = { version = "0.4", default-features = false, features = [
