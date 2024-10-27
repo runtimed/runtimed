@@ -41,7 +41,7 @@ async fn main() -> Result<(), Error> {
         .await?;
 
     log::debug!("Running migrations");
-    sqlx::migrate!("../migrations").run(&dbpool).await?;
+    sqlx::migrate!("./migrations").run(&dbpool).await?;
 
     log::debug!("Database connected and migrations run");
 
