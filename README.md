@@ -2,23 +2,15 @@
 
 ![lilrunt](https://github.com/runtimed/runtimed/assets/836375/f5d36136-5154-4c2c-b968-4354c29670b1)
 
-RuntimeD is a daemon for REPLs built on top of Jupyter kernels. It's purpose built for exposing interactive computing primitives to large language models whether hosted or local.
-
-The main CLI for interfacing with `runtimed` is `runt`.
+The runtimed project is tooling for working with Jupyter. If you want to interact directly with jupyter kernels, use `runtimelib`. Everything else is in development.
 
 ### Goal
 
-The goal of `runt` is to provide simple, easy to use, and powerful access to interactive computing. We want to enable a new generation of builders to:
+The goal of `runtimed` is to provide simple, easy to use, and powerful access to interactive computing. We want to enable a new generation of builders to:
 
 - Create new notebook applications
 - Create new kinds of REPLs
 - Allow large language models to reason about code and data
-
-There are three main interfaces:
-
-- `runt` - a CLI for managing runtimes
-- `runtimed` - a daemon for working with the interactive computing runtimes
-- `runtimelib` - a rust library for interfacing with runtimes directly
 
 ## Getting Started with `runtimelib`
 
