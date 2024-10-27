@@ -13,5 +13,4 @@ async-tungstenite = { version = "0.22", features = ["tokio-runtime"] }
 futures = "0.3"
 serde = { version = "1.0.196", features = ["derive"] }
 uuid = { version = "1.7.0", features = ["serde", "v5"] }
-
-runtimelib = { path = "../runtimelib" }
+runtimelib = { path = "../runtimelib", version = "0.15.0" }
