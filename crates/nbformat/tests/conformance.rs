@@ -1,5 +1,5 @@
-use nbformat::legacy::{Cell as LegacyCell, Notebook as LegacyNotebook};
-use nbformat::v4::{Cell, CellId, Notebook as Notebook4, Output};
+use nbformat::legacy::Cell as LegacyCell;
+use nbformat::v4::{Cell, Output};
 use nbformat::{parse_notebook, Notebook};
 use std::fs;
 use std::path::Path;
@@ -70,7 +70,7 @@ fn test_parse_v4_5_notebook() {
 
     assert_eq!(notebook.nbformat, 4);
     assert_eq!(notebook.nbformat_minor, 5);
-    assert!(notebook.cells.len() > 0);
+    assert!(!notebook.cells.is_empty());
 
     // Check metadata
     assert!(notebook.metadata.kernelspec.is_some());
@@ -89,7 +89,7 @@ fn test_parse_v4_5_notebook() {
         .unwrap();
     if let Cell::Code {
         id,
-        metadata,
+        metadata: _,
         execution_count,
         source,
         outputs,
@@ -112,7 +112,7 @@ fn test_parse_v4_5_notebook() {
         .unwrap();
     if let Cell::Markdown {
         id,
-        metadata,
+        metadata: _,
         source,
         attachments,
     } = markdown_cell
@@ -138,13 +138,15 @@ fn test_open_all_notebooks_in_dir() {
             let notebook = parse_notebook(&notebook_json);
 
             println!("Parsing notebook: {}", path_str);
-            if path_str.contains("invalid_cell_id") {
+            if path_str.contains("invalid_cell_id") || path_str.contains("invalid_metadata") {
                 assert!(
                     matches!(notebook, Err(nbformat::NotebookError::JsonError(_))),
-                    "Expected JsonError for invalid cell ID in {}",
+                    "Expected JsonError for invalid data in {}",
                     path_str
                 );
-            } else if path_str.starts_with("tests/notebooks/test3")
+            } else if path_str.starts_with("tests/notebooks/test2")
+                || path_str.starts_with("tests/notebooks/test3")
+                || path_str.starts_with("tests/notebooks/test4plus")
                 || path_str.starts_with("tests/notebooks/invalid")
                 || path_str.starts_with("tests/notebooks/no_min_version")
             {

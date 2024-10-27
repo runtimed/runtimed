@@ -224,12 +224,29 @@ pub enum Cell {
     },
 }
 
+use std::collections::HashSet;
+
+fn validate_unique_cell_ids(cells: &[Cell]) -> Result<(), String> {
+    let mut seen_ids = HashSet::new();
+    for cell in cells {
+        let id = match cell {
+            Cell::Markdown { id, .. } => id,
+            Cell::Code { id, .. } => id,
+            Cell::Raw { id, .. } => id,
+        };
+        if !seen_ids.insert(id) {
+            return Err(format!("Duplicate Cell ID found: {}", id));
+        }
+    }
+    Ok(())
+}
+
 pub fn deserialize_cells<'de, D>(deserializer: D) -> Result<Vec<Cell>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
     let cells: Vec<serde_json::Value> = Deserialize::deserialize(deserializer)?;
-    cells
+    let deserialized_cells: Vec<Cell> = cells
         .into_iter()
         .enumerate()
         .map(|(index, cell)| {
@@ -240,7 +257,10 @@ where
                 ))
             })
         })
-        .collect()
+        .collect::<Result<_, _>>()?;
+
+    validate_unique_cell_ids(&deserialized_cells).map_err(de::Error::custom)?;
+    Ok(deserialized_cells)
 }
 
 #[derive(Serialize, Deserialize, Debug)]

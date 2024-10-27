@@ -9,6 +9,8 @@ pub enum NotebookError {
     UnsupportedVersion(i32, i32),
     #[error("JSON parsing error: {0}")]
     JsonError(#[from] serde_json::Error),
+    #[error("Validation error: {0}")]
+    ValidationError(String),
 }
 
 #[derive(Debug)]
