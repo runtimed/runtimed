@@ -56,7 +56,7 @@ pub enum MediaType {
     /// Data table in JSON format, requires both a `data` and `schema`.
     /// Example: `{data: [{'ghost': true, 'says': "boo"}], schema: {fields: [{name: 'ghost', type: 'boolean'}, {name: 'says', type: 'string'}]}}`.
     #[serde(rename = "application/vnd.dataresource+json")]
-    DataTable(TabularDataResource),
+    DataTable(Box<TabularDataResource>),
     /// Plotly JSON Schema for for rendering graphs and charts.
     #[serde(rename = "application/vnd.plotly.v1+json")]
     Plotly(JsonObject),
