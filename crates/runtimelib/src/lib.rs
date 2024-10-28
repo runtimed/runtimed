@@ -1,9 +1,10 @@
 pub mod jupyter;
-pub mod media;
 pub mod messaging;
 
+pub use jupyter_serde::media::*;
+
 pub use jupyter::*;
-pub use media::*;
+
 pub use messaging::*;
 
 use anyhow::anyhow;

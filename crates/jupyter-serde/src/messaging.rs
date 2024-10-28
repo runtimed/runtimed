@@ -265,12 +265,6 @@ impl_message_content_traits!(
     UnknownMessage
 );
 
-impl From<KernelInfoReply> for JupyterMessageContent {
-    fn from(content: KernelInfoReply) -> Self {
-        JupyterMessageContent::KernelInfoReply(Box::new(content))
-    }
-}
-
 /// Unknown message types are a workaround for generically unknown messages.
 ///
 /// ```rust
@@ -291,6 +285,18 @@ pub struct UnknownMessage {
     pub msg_type: String,
     #[serde(flatten)]
     pub content: Value,
+}
+
+impl UnknownMessage {
+    // Create a reply message for an unknown message, assuming `content` is known.
+    // Useful for when runtimelib does not support the message type.
+    // Send a PR to add support for the message type!
+    pub fn reply(&self, content: serde_json::Value) -> JupyterMessageContent {
+        JupyterMessageContent::UnknownMessage(UnknownMessage {
+            msg_type: self.msg_type.replace("_request", "_reply"),
+            content,
+        })
+    }
 }
 
 /// All reply messages have a `status` field.
@@ -476,6 +482,12 @@ pub struct KernelInfoReply {
     pub debugger: bool,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
+}
+
+impl From<KernelInfoReply> for JupyterMessageContent {
+    fn from(content: KernelInfoReply) -> Self {
+        JupyterMessageContent::KernelInfoReply(Box::new(content))
+    }
 }
 
 fn default_debugger() -> bool {

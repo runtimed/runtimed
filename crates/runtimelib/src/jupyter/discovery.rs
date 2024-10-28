@@ -5,11 +5,12 @@ use tokio::{fs, task::JoinSet, time::timeout};
 #[cfg(feature = "tokio-runtime")]
 use anyhow::{Error, Result};
 
-#[cfg(feature = "tokio-runtime")]
 use crate::{
     jupyter::client::JupyterRuntime,
-    messaging::{JupyterMessage, JupyterMessageContent, KernelInfoReply, KernelInfoRequest},
+    messaging::{JupyterMessage, KernelInfoReply, KernelInfoRequest},
 };
+#[cfg(feature = "tokio-runtime")]
+use jupyter_serde::messaging::JupyterMessageContent;
 
 /// Check if a path looks like a connection file.
 ///

@@ -7,10 +7,14 @@ use jupyter_serde::messaging::JupyterMessageContent;
 
 use super::JupyterMessage;
 
+pub trait AsChildOf {
+    fn as_child_of(&self, parent: &JupyterMessage) -> JupyterMessage;
+}
+
 macro_rules! impl_message_traits {
     ($($name:ident),*) => {
         $(
-            impl $name {
+            impl AsChildOf for $name {
                 #[doc = concat!("Create a new `JupyterMessage`, assigning the parent for a `", stringify!($name), "` message.\n")]
                 ///
                 /// This method creates a new `JupyterMessage` with the right content, parent header, and zmq identities, making
@@ -29,7 +33,7 @@ macro_rules! impl_message_traits {
                 /// connection.send(child_message).await?;
                 /// ```
                 #[must_use]
-                pub fn as_child_of(&self, parent: &JupyterMessage) -> JupyterMessage {
+                fn as_child_of(&self, parent: &JupyterMessage) -> JupyterMessage {
                     JupyterMessage::new(self.clone(), Some(parent))
                 }
             }
@@ -106,46 +110,6 @@ impl From<KernelInfoReply> for JupyterMessage {
             JupyterMessageContent::KernelInfoReply(Box::new(content)),
             None,
         )
-    }
-}
-
-impl From<KernelInfoReply> for JupyterMessageContent {
-    fn from(content: KernelInfoReply) -> Self {
-        JupyterMessageContent::KernelInfoReply(Box::new(content))
-    }
-}
-
-/// Unknown message types are a workaround for generically unknown messages.
-///
-/// ```rust
-/// use runtimelib::messaging::{JupyterMessage, JupyterMessageContent, UnknownMessage};
-/// use serde_json::json;
-///
-/// let msg = UnknownMessage {
-///     msg_type: "example_request".to_string(),
-///     content: json!({ "key": "value" }),
-/// };
-///
-/// let reply_msg = msg.reply(json!({ "status": "ok" }));
-/// ```
-///
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct UnknownMessage {
-    #[serde(skip_serializing, skip_deserializing)]
-    pub msg_type: String,
-    #[serde(flatten)]
-    pub content: Value,
-}
-
-impl UnknownMessage {
-    // Create a reply message for an unknown message, assuming `content` is known.
-    // Useful for when runtimelib does not support the message type.
-    // Send a PR to add support for the message type!
-    pub fn reply(&self, content: serde_json::Value) -> JupyterMessageContent {
-        JupyterMessageContent::UnknownMessage(UnknownMessage {
-            msg_type: self.msg_type.replace("_request", "_reply"),
-            content,
-        })
     }
 }
 
