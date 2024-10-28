@@ -2,7 +2,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use uuid::Uuid;
 
-use runtimelib::{DisplayData, ErrorOutput, ExecuteResult};
+use jupyter_serde::messaging::{DisplayData, ErrorOutput, ExecuteResult};
 
 use core::fmt;
 use std::{

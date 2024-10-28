@@ -215,6 +215,56 @@ impl JupyterMessageContent {
     }
 }
 
+macro_rules! impl_message_content_traits {
+    ($($name:ident),*) => {
+        $(
+            impl From<$name> for JupyterMessageContent {
+                #[doc = concat!("Create a new `JupyterMessageContent` for a `", stringify!($name), "`.\n\n")]
+                #[must_use]
+                fn from(content: $name) -> Self {
+                    JupyterMessageContent::$name(content)
+                }
+            }
+        )*
+    };
+}
+
+impl_message_content_traits!(
+    ClearOutput,
+    CommClose,
+    CommInfoReply,
+    CommInfoRequest,
+    CommMsg,
+    CommOpen,
+    CompleteReply,
+    CompleteRequest,
+    DebugReply,
+    DebugRequest,
+    DisplayData,
+    ErrorOutput,
+    ExecuteInput,
+    ExecuteReply,
+    ExecuteRequest,
+    ExecuteResult,
+    HistoryReply,
+    HistoryRequest,
+    InputReply,
+    InputRequest,
+    InspectReply,
+    InspectRequest,
+    InterruptReply,
+    InterruptRequest,
+    IsCompleteReply,
+    IsCompleteRequest,
+    KernelInfoRequest,
+    ShutdownReply,
+    ShutdownRequest,
+    Status,
+    StreamContent,
+    UpdateDisplayData,
+    UnknownMessage
+);
+
 impl From<KernelInfoReply> for JupyterMessageContent {
     fn from(content: KernelInfoReply) -> Self {
         JupyterMessageContent::KernelInfoReply(Box::new(content))
