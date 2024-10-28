@@ -4,6 +4,7 @@ members = [
     "crates/nbformat",
     "crates/runtimelib",
     "crates/jupyter-serde",
+    "crates/sidecar",
     "crates/jupyter-websocket-client",
 ]
 
