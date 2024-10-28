@@ -9,7 +9,7 @@ use crate::client::JupyterClient;
 
 use anyhow::Result;
 use futures::{SinkExt as _, StreamExt as _};
-use runtimelib::ExecutionState;
+use jupyter_serde::messaging::ExecutionState;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -60,11 +60,12 @@ async fn main() -> Result<()> {
 
     let (mut w, mut r) = jupyter_websocket.split();
 
-    w.send(runtimelib::KernelInfoRequest {}.into()).await?;
+    w.send(jupyter_serde::messaging::KernelInfoRequest {}.into())
+        .await?;
 
     while let Some(response) = r.next().await.transpose()? {
         match response.content {
-            runtimelib::JupyterMessageContent::KernelInfoReply(kernel_info_reply) => {
+            jupyter_serde::messaging::JupyterMessageContent::KernelInfoReply(kernel_info_reply) => {
                 println!("Received kernel_info_reply");
                 println!("{:?}", kernel_info_reply);
                 break;
@@ -77,7 +78,7 @@ async fn main() -> Result<()> {
     }
 
     w.send(
-        runtimelib::ExecuteRequest {
+        jupyter_serde::messaging::ExecuteRequest {
             code: "print('Hello, world!')".to_string(),
             silent: false,
             store_history: true,
@@ -91,7 +92,7 @@ async fn main() -> Result<()> {
 
     while let Some(response) = r.next().await.transpose()? {
         match response.content {
-            runtimelib::JupyterMessageContent::Status(status) => {
+            jupyter_serde::messaging::JupyterMessageContent::Status(status) => {
                 println!("Received status");
                 println!("{:?}", status);
 

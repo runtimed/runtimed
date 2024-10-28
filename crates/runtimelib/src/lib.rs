@@ -2,6 +2,7 @@ pub mod jupyter;
 pub mod messaging;
 
 pub use jupyter_serde::media::*;
+pub use jupyter_serde::messaging::*;
 
 pub use jupyter::*;
 
@@ -12,10 +13,10 @@ use anyhow::Error;
 
 use glob::glob;
 
-#[cfg(feature = "tokio-runtime")]
-pub async fn list_instances() -> Vec<client::JupyterRuntime> {
-    discovery::get_jupyter_runtime_instances().await
-}
+// #[cfg(feature = "tokio-runtime")]
+// pub async fn list_instances() -> Vec<client::JupyterRuntime> {
+//     discovery::get_jupyter_runtime_instances().await
+// }
 
 pub async fn attach(id: String) -> Result<client::JupyterClient, Error> {
     // Goal: Attach to a running instance based on the connection file

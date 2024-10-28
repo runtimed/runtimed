@@ -341,7 +341,7 @@ mod tests {
             state: "testing".to_string(),
             id: RuntimeId::new(PathBuf::from("test")),
             connection_file: PathBuf::from("test"),
-            kernel_info: None,
+            // kernel_info: None,
         };
 
         manager.insert(&runtime, None).await.unwrap();

@@ -8,7 +8,7 @@ use crate::jupyter::dirs;
 use crate::messaging::{
     ClientControlConnection, ClientHeartbeatConnection, ClientIoPubConnection,
     ClientShellConnection, ClientStdinConnection, Connection, JupyterMessage,
-    KernelControlConnection, KernelHeartbeatConnection, KernelInfoReply, KernelIoPubConnection,
+    KernelControlConnection, KernelHeartbeatConnection, KernelIoPubConnection,
     KernelShellConnection, KernelStdinConnection,
 };
 
@@ -301,7 +301,7 @@ pub struct JupyterRuntime {
     pub id: RuntimeId,
     // TODO: create an enum for activity state
     pub state: String,
-    pub kernel_info: Option<Box<KernelInfoReply>>,
+    // pub kernel_info: Option<Box<KernelInfoReply>>,
 }
 
 impl JupyterRuntime {
@@ -321,7 +321,7 @@ impl JupyterRuntime {
             connection_file,
             id,
             state: "idle".to_string(),
-            kernel_info: None,
+            // kernel_info: None,
         }
     }
 

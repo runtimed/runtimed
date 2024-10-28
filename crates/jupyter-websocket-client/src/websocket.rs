@@ -4,13 +4,136 @@ use async_tungstenite::{
 };
 use futures::{Sink, SinkExt as _, Stream, StreamExt};
 
-use runtimelib::JupyterMessage;
+use bytes::Bytes;
+use jupyter_serde::messaging::{JupyterMessageContent, *};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::pin::Pin;
 use std::task::{Context as TaskContext, Poll};
 
 pub struct JupyterWebSocket {
     inner: WebSocketStream<ConnectStream>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Channel {
+    Shell,
+    Control,
+    Stdin,
+    IOPub,
+    Heartbeat,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+pub struct JupyterMessage {
+    pub header: Value, // todo
+    pub parent_header: Option<Value>,
+    pub metadata: Value,
+    pub content: JupyterMessageContent,
+    #[serde(skip_serializing, skip_deserializing)]
+    pub buffers: Vec<Bytes>,
+    pub channel: Option<Channel>,
+}
+
+impl JupyterMessage {
+    pub fn new(content: JupyterMessageContent, channel: Option<Channel>) -> Self {
+        JupyterMessage {
+            header: Value::Null,
+            parent_header: None,
+            metadata: Value::Null,
+            content,
+            buffers: Vec::new(),
+            channel,
+        }
+    }
+}
+
+impl From<JupyterMessageContent> for JupyterMessage {
+    fn from(content: JupyterMessageContent) -> Self {
+        JupyterMessage::new(content, None)
+    }
+}
+
+pub trait IntoJupyterMessage {
+    fn into_jupyter_message(self) -> JupyterMessage;
+    fn as_child_of(&self, parent: &JupyterMessage) -> JupyterMessage;
+}
+
+macro_rules! impl_message_traits {
+    ($($name:ident),*) => {
+        $(
+            impl IntoJupyterMessage for $name {
+                #[doc = concat!("Create a new `JupyterMessage`, assigning the parent for a `", stringify!($name), "` message.\n")]
+                ///
+                /// This method creates a new `JupyterMessage` with the right content, parent header, and zmq identities, making
+                /// it suitable for sending over ZeroMQ.
+                ///
+                /// # Example
+                /// ```ignore
+                /// use runtimelib::messaging::{JupyterMessage, JupyterMessageContent};
+                ///
+                /// let message = connection.recv().await?;
+                ///
+                #[doc = concat!("let child_message = ", stringify!($name), "{\n")]
+                ///   // ...
+                /// }.as_child_of(&message);
+                ///
+                /// connection.send(child_message).await?;
+                /// ```
+                #[must_use]
+                fn as_child_of(&self, parent: &JupyterMessage) -> JupyterMessage {
+                    JupyterMessage::new(self.clone(), Some(parent))
+                }
+
+                #[doc = concat!("Create a new `JupyterMessage` for a `", stringify!($name), "`.\n\n")]
+                /// This method creates a new `JupyterMessage` with the right content, parent header, and zmq identities, making
+                /// it suitable for sending over ZeroMQ.
+                #[must_use]
+                fn into_jupyter_message(self) -> JupyterMessage {
+                    JupyterMessage::new(self, None)
+                }
+            }
+
+        )*
+    };
+}
+
+impl_message_traits!(
+    ClearOutput,
+    CommClose,
+    CommInfoReply,
+    CommInfoRequest,
+    CommMsg,
+    CommOpen,
+    CompleteReply,
+    CompleteRequest,
+    DebugReply,
+    DebugRequest,
+    DisplayData,
+    ErrorOutput,
+    ExecuteInput,
+    ExecuteReply,
+    ExecuteRequest,
+    ExecuteResult,
+    HistoryReply,
+    HistoryRequest,
+    InputReply,
+    InputRequest,
+    InspectReply,
+    InspectRequest,
+    InterruptReply,
+    InterruptRequest,
+    IsCompleteReply,
+    IsCompleteRequest,
+    KernelInfoRequest,
+    ShutdownReply,
+    ShutdownRequest,
+    Status,
+    StreamContent,
+    UpdateDisplayData,
+    UnknownMessage
+);
 
 impl Stream for JupyterWebSocket {
     type Item = Result<JupyterMessage>;
@@ -22,7 +145,7 @@ impl Stream for JupyterWebSocket {
                     serde_json::from_str(&text)
                         .context("Failed to parse JSON")
                         .and_then(|value| {
-                            JupyterMessage::from_value(value)
+                            serde_json::from_value::<JupyterMessage>(value)
                                 .context("Failed to create JupyterMessage")
                         }),
                 )),

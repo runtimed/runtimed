@@ -9,6 +9,7 @@ use anyhow::bail;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use data_encoding::HEXLOWER;
+use jupyter_serde::messaging::JupyterMessageContent;
 use ring::hmac;
 use serde::{Deserialize, Serialize};
 use serde_json;
