@@ -256,10 +256,6 @@ impl From<MediaType> for Media {
     }
 }
 
-// Backwards compatibility with previous versions and Jupyter naming
-pub type MimeBundle = Media;
-pub type MimeType = MediaType;
-
 #[cfg(test)]
 mod test {
     use datatable::TableSchemaField;
