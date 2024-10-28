@@ -6,6 +6,7 @@ members = [
     "crates/runt",
     "crates/runtimelib",
     "crates/jupyter-websocket-client",
+    "crates/jupyter-serde",
 ]
 
 resolver = "2"
