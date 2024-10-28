@@ -1,0 +1,15 @@
+[package]
+name = "jupyter-serde"
+version = "0.1.0"
+edition = "2021"
+description = "Jupyter types for serialization and deserialization"
+repository = "https://github.com/runtimed/runtimed"
+license = "BSD-3-Clause"
+
+[dependencies]
+chrono = "0.4"
+anyhow = "1.0.80"
+serde_json = "1.0.113"
+serde = { version = "1.0.196", features = ["derive"] }
+thiserror = "1.0"
+uuid = { version = "1.7.0", features = ["serde", "v5"] }
