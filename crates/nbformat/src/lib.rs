@@ -32,3 +32,60 @@ pub fn parse_notebook(json: &str) -> Result<Notebook, NotebookError> {
         _ => Err(NotebookError::UnsupportedVersion(nbformat, nbformat_minor)),
     }
 }
+
+pub fn upgrade_legacy_notebook(legacy_notebook: legacy::Notebook) -> anyhow::Result<v4::Notebook> {
+    let cells: Vec<v4::Cell> = legacy_notebook
+        .cells
+        .into_iter()
+        .map(|cell: legacy::Cell| match cell {
+            legacy::Cell::Markdown {
+                id,
+                metadata,
+                source,
+                attachments,
+            } => v4::Cell::Markdown {
+                id: id.unwrap_or_else(|| uuid::Uuid::new_v4().into()),
+                metadata,
+                source,
+                attachments,
+            },
+            legacy::Cell::Code {
+                id,
+                metadata,
+                execution_count,
+                source,
+                outputs,
+            } => v4::Cell::Code {
+                id: id.unwrap_or_else(|| uuid::Uuid::new_v4().into()),
+                metadata,
+                execution_count,
+                source,
+                outputs,
+            },
+            legacy::Cell::Raw {
+                id,
+                metadata,
+                source,
+            } => v4::Cell::Raw {
+                id: id.unwrap_or_else(|| uuid::Uuid::new_v4().into()),
+                metadata,
+                source,
+            },
+        })
+        .collect();
+
+    // If any of the cell IDs are not unique, bail
+    let mut seen_ids = std::collections::HashSet::new();
+    for cell in &cells {
+        if !seen_ids.insert(cell.id()) {
+            return Err(anyhow::anyhow!("Duplicate Cell ID found: {}", cell.id()));
+        }
+    }
+
+    Ok(v4::Notebook {
+        cells,
+        metadata: legacy_notebook.metadata,
+        nbformat: 4,
+        nbformat_minor: 5,
+    })
+}
