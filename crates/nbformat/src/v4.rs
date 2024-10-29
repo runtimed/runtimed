@@ -94,7 +94,7 @@ where
     deserializer.deserialize_any(MultilineStringVisitor)
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct Notebook {
     pub metadata: Metadata,
     pub nbformat: i32,
@@ -103,7 +103,7 @@ pub struct Notebook {
     pub cells: Vec<Cell>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct Metadata {
     pub kernelspec: Option<KernelSpec>,
     pub language_info: Option<LanguageInfo>,
@@ -112,18 +112,18 @@ pub struct Metadata {
     pub additional: HashMap<String, serde_json::Value>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct Author {
     pub name: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct KernelSpec {
     pub name: String,
     pub language: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct LanguageInfo {
     pub name: String,
     pub version: Option<String>,
@@ -131,7 +131,7 @@ pub struct LanguageInfo {
     pub codemirror_mode: Option<CodemirrorMode>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug)]
 #[serde(untagged)]
 pub enum CodemirrorMode {
     String(String),
@@ -217,7 +217,7 @@ pub enum CellType {
     Raw,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug)]
 #[serde(tag = "cell_type")]
 pub enum Cell {
     #[serde(rename = "markdown")]
@@ -284,7 +284,7 @@ where
     Ok(deserialized_cells)
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct CellMetadata {
     pub id: Option<String>,
     pub collapsed: Option<bool>,
@@ -298,13 +298,13 @@ pub struct CellMetadata {
     pub execution: Option<ExecutionMetadata>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct JupyterCellMetadata {
     pub source_hidden: Option<bool>,
     pub outputs_hidden: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ExecutionMetadata {
     #[serde(rename = "iopub.execute_input")]
     pub iopub_execute_input: Option<String>,
@@ -316,7 +316,7 @@ pub struct ExecutionMetadata {
     pub iopub_status_idle: Option<String>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Clone, Deserialize, Debug)]
 #[serde(tag = "output_type")]
 pub enum Output {
     #[serde(rename = "stream")]
