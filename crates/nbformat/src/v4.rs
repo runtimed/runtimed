@@ -2,13 +2,34 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use uuid::Uuid;
 
-use runtimelib::{DisplayData, ErrorOutput, ExecuteResult};
+// use runtimelib::{DisplayData, ErrorOutput, ExecuteResult};
+use jupyter_serde::{media::Media, ExecutionCount};
 
 use core::fmt;
 use std::{
     collections::HashMap,
     fmt::{Display, Formatter},
 };
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct DisplayData {
+    pub data: Media,
+    pub metadata: serde_json::Map<String, Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ExecuteResult {
+    pub execution_count: ExecutionCount,
+    pub data: Media,
+    pub metadata: serde_json::Map<String, Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ErrorOutput {
+    pub ename: String,
+    pub evalue: String,
+    pub traceback: Vec<String>,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MultilineString(pub String);
