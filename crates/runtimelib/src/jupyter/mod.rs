@@ -1,6 +1,5 @@
 pub mod client;
 pub mod dirs;
-pub mod discovery;
 pub mod kernelspec;
 
 pub use kernelspec::KernelspecDir;

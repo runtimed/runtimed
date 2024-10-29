@@ -8,7 +8,7 @@ use crate::jupyter::dirs;
 use crate::messaging::{
     ClientControlConnection, ClientHeartbeatConnection, ClientIoPubConnection,
     ClientShellConnection, ClientStdinConnection, Connection, JupyterMessage,
-    KernelControlConnection, KernelHeartbeatConnection, KernelInfoReply, KernelIoPubConnection,
+    KernelControlConnection, KernelHeartbeatConnection, KernelIoPubConnection,
     KernelShellConnection, KernelStdinConnection,
 };
 
@@ -28,14 +28,7 @@ use zeromq::Socket;
 
 use anyhow::anyhow;
 use anyhow::{Context, Result};
-use std::fmt::{Display, Formatter};
 use std::net::{IpAddr, SocketAddr};
-
-#[cfg(unix)]
-use std::os::unix::ffi::OsStrExt;
-
-#[cfg(windows)]
-use std::os::windows::ffi::OsStrExt;
 
 use std::path::PathBuf;
 
@@ -269,125 +262,6 @@ impl ConnectionInfo {
         let mut socket = zeromq::ReqSocket::new();
         socket.connect(&endpoint).await?;
         anyhow::Ok(ClientHeartbeatConnection { socket })
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash, Copy, PartialOrd)]
-pub struct RuntimeId(pub Uuid);
-
-impl RuntimeId {
-    pub fn new(connection_file: PathBuf) -> Self {
-        Self(Uuid::new_v5(
-            &Uuid::NAMESPACE_URL,
-            #[cfg(unix)]
-            connection_file.as_os_str().as_bytes(),
-            #[cfg(windows)]
-            connection_file.as_os_str().as_encoded_bytes(),
-        ))
-    }
-}
-
-impl Display for RuntimeId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-/// A Jupyter runtime, representing the state of a running kernel
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct JupyterRuntime {
-    pub connection_info: ConnectionInfo,
-    pub connection_file: PathBuf,
-    pub id: RuntimeId,
-    // TODO: create an enum for activity state
-    pub state: String,
-    pub kernel_info: Option<Box<KernelInfoReply>>,
-}
-
-impl JupyterRuntime {
-    /// Create a new JupyterRuntime from an on-disk connection file
-    pub async fn from_path(connection_file: PathBuf) -> Result<Self> {
-        let connection_info = ConnectionInfo::from_path(&connection_file).await?;
-        Ok(Self::new(connection_info, connection_file))
-    }
-
-    /// Create a new JupyterRuntime from a connection file and an existing ConnectionInfo object
-    /// This does not read from the connection_file path, but assumes that the ConnectionInfo
-    /// object was read from it already.
-    pub fn new(connection_info: ConnectionInfo, connection_file: PathBuf) -> Self {
-        let id = RuntimeId::new(connection_file.clone());
-        Self {
-            connection_info,
-            connection_file,
-            id,
-            state: "idle".to_string(),
-            kernel_info: None,
-        }
-    }
-
-    pub async fn remove_connection_file(&self) -> Result<()> {
-        fs::remove_file(&self.connection_file)
-            .await
-            .context("Failed to remove connection file")
-    }
-
-    /// Connect the ZeroMQ sockets to a running kernel, and return
-    /// a `JupyterClient` object that can be used to interact with the kernel.
-    pub async fn attach(&self) -> Result<JupyterClient> {
-        let mut iopub_socket = zeromq::SubSocket::new();
-        match iopub_socket.subscribe("").await {
-            Ok(_) => (),
-            Err(e) => return Err(anyhow!("Error subscribing to iopub: {}", e)),
-        }
-
-        let session_id = Uuid::new_v4().to_string();
-
-        let mut iopub_connection =
-            Connection::new(iopub_socket, &self.connection_info.key, &session_id);
-        iopub_connection
-            .socket
-            .connect(&self.connection_info.iopub_url())
-            .await?;
-
-        let shell_socket = zeromq::DealerSocket::new();
-        let mut shell_connection =
-            Connection::new(shell_socket, &self.connection_info.key, &session_id);
-        shell_connection
-            .socket
-            .connect(&self.connection_info.shell_url())
-            .await?;
-
-        let stdin_socket = zeromq::DealerSocket::new();
-        let mut stdin_connection =
-            Connection::new(stdin_socket, &self.connection_info.key, &session_id);
-        stdin_connection
-            .socket
-            .connect(&self.connection_info.stdin_url())
-            .await?;
-
-        let control_socket = zeromq::DealerSocket::new();
-        let mut control_connection =
-            Connection::new(control_socket, &self.connection_info.key, &session_id);
-        control_connection
-            .socket
-            .connect(&self.connection_info.control_url())
-            .await?;
-
-        let heartbeat_socket = zeromq::ReqSocket::new();
-        let mut heartbeat_connection =
-            Connection::new(heartbeat_socket, &self.connection_info.key, &session_id);
-        heartbeat_connection
-            .socket
-            .connect(&self.connection_info.hb_url())
-            .await?;
-
-        Ok(JupyterClient {
-            iopub: iopub_connection,
-            shell: shell_connection,
-            stdin: stdin_connection,
-            control: control_connection,
-            heartbeat: heartbeat_connection,
-        })
     }
 }
 
