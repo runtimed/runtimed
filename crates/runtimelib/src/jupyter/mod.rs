@@ -29,14 +29,4 @@ mod tests {
             assert!(!data_dirs.is_empty(), "Data dirs should not be empty");
         });
     }
-
-    #[test]
-    fn check_for_runtimes() {
-        let rt = Runtime::new().unwrap();
-        rt.block_on(async {
-            let jupyter_runtimes = discovery::get_jupyter_runtime_instances().await;
-
-            println!("Jupyter runtimes: {:?}", jupyter_runtimes)
-        })
-    }
 }

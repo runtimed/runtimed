@@ -26,7 +26,6 @@ use uuid::Uuid;
 use zeromq;
 use zeromq::Socket;
 
-use anyhow::anyhow;
 use anyhow::{Context, Result};
 use std::net::{IpAddr, SocketAddr};
 
@@ -295,7 +294,7 @@ impl JupyterClient {
 
         match timeout(timeout_duration, close_sockets).await {
             Ok(_) => Ok(()),
-            Err(_) => Err(anyhow!("Timeout reached while closing sockets.")),
+            Err(_) => Err(anyhow::anyhow!("Timeout reached while closing sockets.")),
         }
     }
 
