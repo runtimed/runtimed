@@ -1,6 +1,6 @@
 [package]
 name = "nbformat"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 description = "Parse Jupyter Notebooks"
 repository = "https://github.com/runtimed/runtimed"
