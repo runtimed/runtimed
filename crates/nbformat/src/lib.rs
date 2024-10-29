@@ -74,6 +74,14 @@ pub fn upgrade_legacy_notebook(legacy_notebook: legacy::Notebook) -> anyhow::Res
         })
         .collect();
 
+    // If any of the cell IDs are not unique, bail
+    let mut seen_ids = std::collections::HashSet::new();
+    for cell in &cells {
+        if !seen_ids.insert(cell.id()) {
+            return Err(anyhow::anyhow!("Duplicate Cell ID found: {}", cell.id()));
+        }
+    }
+
     Ok(v4::Notebook {
         cells,
         metadata: legacy_notebook.metadata,

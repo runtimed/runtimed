@@ -245,6 +245,32 @@ pub enum Cell {
     },
 }
 
+impl Cell {
+    pub fn id(&self) -> &CellId {
+        match self {
+            Cell::Markdown { id, .. } => id,
+            Cell::Code { id, .. } => id,
+            Cell::Raw { id, .. } => id,
+        }
+    }
+
+    pub fn metadata(&self) -> &CellMetadata {
+        match self {
+            Cell::Markdown { metadata, .. } => metadata,
+            Cell::Code { metadata, .. } => metadata,
+            Cell::Raw { metadata, .. } => metadata,
+        }
+    }
+
+    pub fn source(&self) -> &[String] {
+        match self {
+            Cell::Markdown { source, .. } => source,
+            Cell::Code { source, .. } => source,
+            Cell::Raw { source, .. } => source,
+        }
+    }
+}
+
 use std::collections::HashSet;
 
 fn validate_unique_cell_ids(cells: &[Cell]) -> Result<(), String> {
