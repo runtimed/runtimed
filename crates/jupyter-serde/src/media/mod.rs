@@ -203,7 +203,7 @@ impl Media {
     /// # Examples
     ///
     /// ```rust
-    /// use runtimelib::media::{Media, MediaType};
+    /// use jupyter_serde::media::{Media, MediaType};
     ///
     /// let raw = r#"{
     ///    "text/plain": "FancyThing()",
