@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -158,14 +158,43 @@ where
     let mut content = Vec::new();
 
     for (key, value) in map {
-        let mime_type: MediaType =
-            match serde_json::from_value(Value::Object(serde_json::Map::from_iter([
-                ("type".to_string(), Value::String(key.clone())),
-                ("data".to_string(), value.clone()),
-            ]))) {
-                Ok(mediatype) => mediatype,
-                Err(_) => MediaType::Other((key, value)),
-            };
+        let mime_type: MediaType = match key.as_str() {
+            "text/plain"
+            | "text/html"
+            | "text/latex"
+            | "application/javascript"
+            | "text/markdown"
+            | "image/svg+xml" => {
+                let text: String = match value {
+                    Value::String(s) => s,
+                    Value::Array(arr) => arr
+                        .into_iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect::<Vec<String>>()
+                        .join(""),
+                    _ => return Err(de::Error::custom("Invalid value for text-based media type")),
+                };
+                match key.as_str() {
+                    "text/plain" => MediaType::Plain(text),
+                    "text/html" => MediaType::Html(text),
+                    "text/latex" => MediaType::Latex(text),
+                    "application/javascript" => MediaType::Javascript(text),
+                    "text/markdown" => MediaType::Markdown(text),
+                    "image/svg+xml" => MediaType::Svg(text),
+                    _ => unreachable!(),
+                }
+            }
+            _ => {
+                // Handle other media types as before
+                match serde_json::from_value(Value::Object(serde_json::Map::from_iter([
+                    ("type".to_string(), Value::String(key.clone())),
+                    ("data".to_string(), value.clone()),
+                ]))) {
+                    Ok(mediatype) => mediatype,
+                    Err(_) => MediaType::Other((key, value)),
+                }
+            }
+        };
 
         content.push(mime_type);
     }
@@ -421,5 +450,38 @@ mod test {
         let bundle: Media = serde_json::from_str(raw).unwrap();
         let richest = bundle.richest(|_| 0);
         assert_eq!(richest, None);
+    }
+
+    #[test]
+    fn ensure_array_of_text_processed() {
+        let raw = r#"{
+            "text/plain": ["Hello, world!"],
+            "text/html": "<h1>Hello, world!</h1>"
+        }"#;
+
+        let bundle: Media = serde_json::from_str(raw).unwrap();
+
+        assert_eq!(bundle.content.len(), 2);
+        assert!(bundle
+            .content
+            .contains(&MediaType::Plain("Hello, world!".to_string())));
+        assert!(bundle
+            .content
+            .contains(&MediaType::Html("<h1>Hello, world!</h1>".to_string())));
+
+        let raw = r#"{
+            "text/plain": ["Hello, world!\n", "Welcome to zombo.com"],
+            "text/html": ["<h1>\n", "  Hello, world!\n", "</h1>"]
+        }"#;
+
+        let bundle: Media = serde_json::from_str(raw).unwrap();
+
+        assert_eq!(bundle.content.len(), 2);
+        assert!(bundle.content.contains(&MediaType::Plain(
+            "Hello, world!\nWelcome to zombo.com".to_string()
+        )));
+        assert!(bundle
+            .content
+            .contains(&MediaType::Html("<h1>\n  Hello, world!\n</h1>".to_string())));
     }
 }
