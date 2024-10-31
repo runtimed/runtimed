@@ -1,6 +1,6 @@
 [package]
 name = "nbformat"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 description = "Parse Jupyter Notebooks"
 repository = "https://github.com/runtimed/runtimed"
@@ -9,7 +9,7 @@ license = "BSD-3-Clause"
 [dependencies]
 chrono = "0.4"
 anyhow = "1.0.80"
-jupyter-serde = { version = "0.2.0", path = "../jupyter-serde" }
+jupyter-serde = { version = "0.2.1", path = "../jupyter-serde" }
 serde_json = "1.0.113"
 serde = { version = "1.0.196", features = ["derive"] }
 thiserror = "1.0"
