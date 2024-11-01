@@ -32,7 +32,6 @@ glob = "0.3.1"
 base64 = "0.22.0"
 
 [features]
-default = ["tokio-runtime"]
 async-dispatcher-runtime = [
     "zeromq/async-dispatcher-runtime",
     "async-dispatcher",

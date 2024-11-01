@@ -6,11 +6,12 @@
 
 use anyhow::anyhow;
 use anyhow::bail;
+use base64::prelude::*;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use data_encoding::HEXLOWER;
 use ring::hmac;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use serde_json;
 use serde_json::{json, Value};
 use std::fmt;
@@ -214,9 +215,20 @@ pub struct JupyterMessage {
     pub parent_header: Option<Header>,
     pub metadata: Value,
     pub content: JupyterMessageContent,
-    #[serde(skip_serializing, skip_deserializing)]
+    #[serde(serialize_with = "serialize_base64", skip_deserializing)]
     pub buffers: Vec<Bytes>,
     pub channel: Option<Channel>,
+}
+
+// Custom serializer for Base64 encoding for buffers
+fn serialize_base64<S>(data: &[Bytes], serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    data.iter()
+        .map(|bytes| BASE64_STANDARD.encode(bytes))
+        .collect::<Vec<_>>()
+        .serialize(serializer)
 }
 
 /// Serializes the `parent_header`.
