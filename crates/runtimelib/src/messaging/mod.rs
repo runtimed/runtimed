@@ -218,20 +218,9 @@ pub struct JupyterMessage {
     pub parent_header: Option<Header>,
     pub metadata: Value,
     pub content: JupyterMessageContent,
-    #[serde(serialize_with = "serialize_base64", skip_deserializing)]
+    #[serde(skip_serializing, skip_deserializing)]
     pub buffers: Vec<Bytes>,
     pub channel: Option<Channel>,
-}
-
-// Custom serializer for Base64 encoding for buffers
-fn serialize_base64<S>(data: &[Bytes], serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    data.iter()
-        .map(|bytes| BASE64_STANDARD.encode(bytes))
-        .collect::<Vec<_>>()
-        .serialize(serializer)
 }
 
 /// Serializes the `parent_header`.
