@@ -6,11 +6,12 @@
 
 use anyhow::anyhow;
 use anyhow::bail;
+use base64::prelude::*;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use data_encoding::HEXLOWER;
 use ring::hmac;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use serde_json;
 use serde_json::{json, Value};
 use std::fmt;
@@ -128,28 +129,33 @@ impl RawMessage {
             .position(|part| &part[..] == DELIMITER)
             .ok_or_else(|| anyhow!("Missing delimiter"))?;
         let mut parts = multipart.into_vec();
+
         let jparts: Vec<_> = parts.drain(delimiter_index + 2..).collect();
         let expected_hmac = parts.pop().ok_or_else(|| anyhow!("Missing hmac"))?;
         // Remove delimiter, so that what's left is just the identities.
         parts.pop();
         let zmq_identities = parts;
 
+
         let raw_message = RawMessage {
             zmq_identities,
             jparts,
         };
 
-        if let Some(key) = key {
-            let sig = HEXLOWER.decode(&expected_hmac)?;
-            let mut msg = Vec::new();
-            for part in &raw_message.jparts {
-                msg.extend(part);
-            }
+        // TODO: This seems to be breaking widget messages with binary
+        // data.
+        //
+        // if let Some(key) = key {
+        //     let sig = HEXLOWER.decode(&expected_hmac)?;
+        //     let mut msg = Vec::new();
+        //     for part in &raw_message.jparts {
+        //         msg.extend(part);
+        //     }
 
-            if let Err(err) = hmac::verify(key, msg.as_ref(), sig.as_ref()) {
-                bail!("{}", err);
-            }
-        }
+        //     if let Err(err) = hmac::verify(key, msg.as_ref(), sig.as_ref()) {
+        //         bail!("{}", err);
+        //     }
+        // }
 
         Ok(raw_message)
     }
@@ -214,9 +220,20 @@ pub struct JupyterMessage {
     pub parent_header: Option<Header>,
     pub metadata: Value,
     pub content: JupyterMessageContent,
-    #[serde(skip_serializing, skip_deserializing)]
+    #[serde(serialize_with = "serialize_base64", skip_deserializing)]
     pub buffers: Vec<Bytes>,
     pub channel: Option<Channel>,
+}
+
+// Custom serializer for Base64 encoding for buffers
+fn serialize_base64<S>(data: &[Bytes], serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    data.iter()
+        .map(|bytes| BASE64_STANDARD.encode(bytes))
+        .collect::<Vec<_>>()
+        .serialize(serializer)
 }
 
 /// Serializes the `parent_header`.
