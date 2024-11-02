@@ -6,12 +6,11 @@
 
 use anyhow::anyhow;
 use anyhow::bail;
-use base64::prelude::*;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use data_encoding::HEXLOWER;
 use ring::hmac;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use serde_json;
 use serde_json::{json, Value};
 use std::fmt;
