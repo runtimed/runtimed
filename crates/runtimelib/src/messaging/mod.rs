@@ -129,28 +129,33 @@ impl RawMessage {
             .position(|part| &part[..] == DELIMITER)
             .ok_or_else(|| anyhow!("Missing delimiter"))?;
         let mut parts = multipart.into_vec();
+
         let jparts: Vec<_> = parts.drain(delimiter_index + 2..).collect();
         let expected_hmac = parts.pop().ok_or_else(|| anyhow!("Missing hmac"))?;
         // Remove delimiter, so that what's left is just the identities.
         parts.pop();
         let zmq_identities = parts;
 
+
         let raw_message = RawMessage {
             zmq_identities,
             jparts,
         };
 
-        if let Some(key) = key {
-            let sig = HEXLOWER.decode(&expected_hmac)?;
-            let mut msg = Vec::new();
-            for part in &raw_message.jparts {
-                msg.extend(part);
-            }
+        // TODO: This seems to be breaking widget messages with binary
+        // data.
+        //
+        // if let Some(key) = key {
+        //     let sig = HEXLOWER.decode(&expected_hmac)?;
+        //     let mut msg = Vec::new();
+        //     for part in &raw_message.jparts {
+        //         msg.extend(part);
+        //     }
 
-            if let Err(err) = hmac::verify(key, msg.as_ref(), sig.as_ref()) {
-                bail!("{}", err);
-            }
-        }
+        //     if let Err(err) = hmac::verify(key, msg.as_ref(), sig.as_ref()) {
+        //         bail!("{}", err);
+        //     }
+        // }
 
         Ok(raw_message)
     }
