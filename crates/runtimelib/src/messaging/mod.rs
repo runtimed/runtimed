@@ -212,7 +212,7 @@ pub enum Channel {
 #[derive(Deserialize, Serialize, Clone)]
 pub struct JupyterMessage {
     #[serde(skip_serializing, skip_deserializing)]
-    zmq_identities: Vec<Bytes>,
+    pub zmq_identities: Vec<Bytes>,
     pub header: Header,
     #[serde(serialize_with = "serialize_parent_header")]
     pub parent_header: Option<Header>,
