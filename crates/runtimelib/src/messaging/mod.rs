@@ -136,26 +136,24 @@ impl RawMessage {
         parts.pop();
         let zmq_identities = parts;
 
-
         let raw_message = RawMessage {
             zmq_identities,
             jparts,
         };
 
-        // TODO: This seems to be breaking widget messages with binary
-        // data.
-        //
-        // if let Some(key) = key {
-        //     let sig = HEXLOWER.decode(&expected_hmac)?;
-        //     let mut msg = Vec::new();
-        //     for part in &raw_message.jparts {
-        //         msg.extend(part);
-        //     }
+        if let Some(key) = key {
+            let sig = HEXLOWER.decode(&expected_hmac)?;
+            let mut msg = Vec::new();
+            // Only include header, parent_header, metadata, and content in the HMAC.
+            // Buffers are not included
+            for part in &raw_message.jparts[..4] {
+                msg.extend(part);
+            }
 
-        //     if let Err(err) = hmac::verify(key, msg.as_ref(), sig.as_ref()) {
-        //         bail!("{}", err);
-        //     }
-        // }
+            if let Err(err) = hmac::verify(key, msg.as_ref(), sig.as_ref()) {
+                bail!("{}", err);
+            }
+        }
 
         Ok(raw_message)
     }
