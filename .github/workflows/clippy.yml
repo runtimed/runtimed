@@ -17,6 +17,10 @@ jobs:
       RUSTFLAGS: "-Dwarnings"
     steps:
       - uses: actions/checkout@v4
+      - name: Set up environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev
       - name: Clippy check runtimelib with async-dispatcher-runtime
         run: cargo clippy -p runtimelib --all-targets --no-default-features --features async-dispatcher-runtime
       - name: Clippy check all packages with tokio-runtime
