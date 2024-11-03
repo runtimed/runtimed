@@ -128,6 +128,7 @@ impl RawMessage {
             .position(|part| &part[..] == DELIMITER)
             .ok_or_else(|| anyhow!("Missing delimiter"))?;
         let mut parts = multipart.into_vec();
+
         let jparts: Vec<_> = parts.drain(delimiter_index + 2..).collect();
         let expected_hmac = parts.pop().ok_or_else(|| anyhow!("Missing hmac"))?;
         // Remove delimiter, so that what's left is just the identities.
@@ -142,7 +143,9 @@ impl RawMessage {
         if let Some(key) = key {
             let sig = HEXLOWER.decode(&expected_hmac)?;
             let mut msg = Vec::new();
-            for part in &raw_message.jparts {
+            // Only include header, parent_header, metadata, and content in the HMAC.
+            // Buffers are not included
+            for part in &raw_message.jparts[..4] {
                 msg.extend(part);
             }
 
@@ -208,7 +211,7 @@ pub enum Channel {
 #[derive(Deserialize, Serialize, Clone)]
 pub struct JupyterMessage {
     #[serde(skip_serializing, skip_deserializing)]
-    zmq_identities: Vec<Bytes>,
+    pub zmq_identities: Vec<Bytes>,
     pub header: Header,
     #[serde(serialize_with = "serialize_parent_header")]
     pub parent_header: Option<Header>,
