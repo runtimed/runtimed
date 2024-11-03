@@ -25,10 +25,10 @@ jobs:
         run: cargo --version
 
       - name: Build
-        run: cargo build -p runtimelib --verbose
+        run: cargo build -p runtimelib --verbose --features tokio-runtime
 
       - name: Run tests
-        run: cargo test -p runtimelib --verbose
+        run: cargo test -p runtimelib --verbose --features tokio-runtime
 
       - name: Run Doc Tests
-        run: cargo test -p runtimelib --doc --verbose
+        run: cargo test -p runtimelib --doc --verbose --features tokio-runtime
