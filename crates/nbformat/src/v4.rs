@@ -105,8 +105,11 @@ pub struct Notebook {
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct Metadata {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub kernelspec: Option<KernelSpec>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub language_info: Option<LanguageInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub authors: Option<Vec<Author>>,
     #[serde(flatten)]
     pub additional: HashMap<String, serde_json::Value>,
@@ -312,15 +315,25 @@ where
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct CellMetadata {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub collapsed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub scrolled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub deletable: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub editable: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub format: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tags: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub jupyter: Option<JupyterCellMetadata>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub execution: Option<ExecutionMetadata>,
 }
 
