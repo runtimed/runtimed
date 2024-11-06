@@ -94,7 +94,7 @@ where
     deserializer.deserialize_any(MultilineStringVisitor)
 }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Notebook {
     pub metadata: Metadata,
     pub nbformat: i32,
@@ -103,7 +103,7 @@ pub struct Notebook {
     pub cells: Vec<Cell>,
 }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct Metadata {
     pub kernelspec: Option<KernelSpec>,
     pub language_info: Option<LanguageInfo>,
@@ -112,18 +112,18 @@ pub struct Metadata {
     pub additional: HashMap<String, serde_json::Value>,
 }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Author {
     pub name: String,
 }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct KernelSpec {
     pub name: String,
     pub language: Option<String>,
 }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct LanguageInfo {
     pub name: String,
     pub version: Option<String>,
@@ -131,7 +131,7 @@ pub struct LanguageInfo {
     pub codemirror_mode: Option<CodemirrorMode>,
 }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug, Serialize)]
 #[serde(untagged)]
 pub enum CodemirrorMode {
     String(String),
@@ -217,7 +217,7 @@ pub enum CellType {
     Raw,
 }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(tag = "cell_type")]
 pub enum Cell {
     #[serde(rename = "markdown")]
@@ -342,7 +342,7 @@ pub struct ExecutionMetadata {
     pub iopub_status_idle: Option<String>,
 }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(tag = "output_type")]
 pub enum Output {
     #[serde(rename = "stream")]
