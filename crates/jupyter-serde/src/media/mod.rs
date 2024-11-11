@@ -143,7 +143,7 @@ pub struct Media {
     #[serde(
         flatten,
         deserialize_with = "deserialize_media",
-        serialize_with = "serialize_media"
+        serialize_with = "serialize_media_for_wire"
     )]
     pub content: Vec<MediaType>,
 }
@@ -202,23 +202,80 @@ where
     Ok(content)
 }
 
-fn serialize_media<S>(content: &Vec<MediaType>, serializer: S) -> Result<S::Ok, S::Error>
+pub fn serialize_media_for_wire<S>(
+    content: &Vec<MediaType>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serialize_media_with_options(content, serializer, false)
+}
+
+pub fn serialize_media_for_notebook<S>(media: &Media, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serialize_media_with_options(&media.content, serializer, true)
+}
+
+pub fn serialize_media_with_options<S>(
+    content: &Vec<MediaType>,
+    serializer: S,
+    with_multiline: bool,
+) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
     let mut map = HashMap::new();
 
-    for media_type in content {
-        let serialized = serde_json::to_value(media_type);
+    // todo: multiline handling is for all non json types. We shouldn't key off of the media types that are known at compile time. The spec says use `Value` when the media type is `.*json`.
 
-        // Skip any that don't serialize properly, to degrade gracefully.
-        if let Ok(Value::Object(obj)) = serialized {
-            if let Some(Value::String(key)) = obj.get("type") {
-                if let Some(data) = obj.get("data") {
-                    map.insert(key.clone(), data.clone());
+    for media_type in content {
+        let (key, value) = match media_type {
+            MediaType::Plain(text)
+            | MediaType::Html(text)
+            | MediaType::Latex(text)
+            | MediaType::Javascript(text)
+            | MediaType::Markdown(text)
+            | MediaType::Svg(text) => {
+                let key = match media_type {
+                    MediaType::Plain(_) => "text/plain",
+                    MediaType::Html(_) => "text/html",
+                    MediaType::Latex(_) => "text/latex",
+                    MediaType::Javascript(_) => "application/javascript",
+                    MediaType::Markdown(_) => "text/markdown",
+                    MediaType::Svg(_) => "image/svg+xml",
+                    _ => unreachable!(),
+                };
+                let value = if with_multiline {
+                    Value::Array(
+                        text.lines()
+                            .map(|line| Value::String(format!("{}\n", line)))
+                            .collect(),
+                    )
+                } else {
+                    Value::String(text.clone())
+                };
+                (key.to_string(), value)
+            }
+            _ => {
+                let serialized =
+                    serde_json::to_value(media_type).map_err(serde::ser::Error::custom)?;
+                if let Value::Object(obj) = serialized {
+                    if let (Some(Value::String(key)), Some(data)) =
+                        (obj.get("type"), obj.get("data"))
+                    {
+                        (key.clone(), data.clone())
+                    } else {
+                        continue;
+                    }
+                } else {
+                    continue;
                 }
             }
-        }
+        };
+        map.insert(key, value);
     }
 
     map.serialize(serializer)
