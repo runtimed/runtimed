@@ -94,7 +94,7 @@ where
     deserializer.deserialize_any(MultilineStringVisitor)
 }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Notebook {
     pub metadata: Metadata,
     pub nbformat: i32,
@@ -103,27 +103,30 @@ pub struct Notebook {
     pub cells: Vec<Cell>,
 }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct Metadata {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub kernelspec: Option<KernelSpec>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub language_info: Option<LanguageInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub authors: Option<Vec<Author>>,
     #[serde(flatten)]
     pub additional: HashMap<String, serde_json::Value>,
 }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Author {
     pub name: String,
 }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct KernelSpec {
     pub name: String,
     pub language: Option<String>,
 }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct LanguageInfo {
     pub name: String,
     pub version: Option<String>,
@@ -131,7 +134,7 @@ pub struct LanguageInfo {
     pub codemirror_mode: Option<CodemirrorMode>,
 }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug, Serialize)]
 #[serde(untagged)]
 pub enum CodemirrorMode {
     String(String),
@@ -217,7 +220,7 @@ pub enum CellType {
     Raw,
 }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(tag = "cell_type")]
 pub enum Cell {
     #[serde(rename = "markdown")]
@@ -312,21 +315,33 @@ where
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct CellMetadata {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub collapsed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub scrolled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub deletable: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub editable: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub format: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tags: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub jupyter: Option<JupyterCellMetadata>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub execution: Option<ExecutionMetadata>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct JupyterCellMetadata {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub source_hidden: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub outputs_hidden: Option<bool>,
 }
 
@@ -342,7 +357,7 @@ pub struct ExecutionMetadata {
     pub iopub_status_idle: Option<String>,
 }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(tag = "output_type")]
 pub enum Output {
     #[serde(rename = "stream")]
