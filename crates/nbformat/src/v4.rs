@@ -39,7 +39,8 @@ impl Serialize for MultilineString {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_str(&self.0)
+        let lines: Vec<String> = self.0.lines().map(|line| format!("{}\n", line)).collect();
+        serializer.collect_seq(lines)
     }
 }
 
