@@ -33,6 +33,16 @@ pub fn parse_notebook(json: &str) -> Result<Notebook, NotebookError> {
     }
 }
 
+pub fn serialize_notebook(notebook: &Notebook) -> Result<String, NotebookError> {
+    match notebook {
+        Notebook::V4(notebook) => Ok(serde_json::to_string(notebook)?),
+        Notebook::Legacy(notebook) => Err(NotebookError::UnsupportedVersion(
+            notebook.nbformat,
+            notebook.nbformat_minor,
+        )),
+    }
+}
+
 pub fn upgrade_legacy_notebook(legacy_notebook: legacy::Notebook) -> anyhow::Result<v4::Notebook> {
     let cells: Vec<v4::Cell> = legacy_notebook
         .cells
