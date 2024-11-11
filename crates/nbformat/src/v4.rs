@@ -228,7 +228,7 @@ pub enum Cell {
         id: CellId,
         metadata: CellMetadata,
         source: Vec<String>,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         attachments: Option<Value>,
     },
     #[serde(rename = "code")]
