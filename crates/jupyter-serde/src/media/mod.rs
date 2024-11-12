@@ -348,6 +348,12 @@ impl From<MediaType> for Media {
     }
 }
 
+impl From<Vec<MediaType>> for Media {
+    fn from(content: Vec<MediaType>) -> Self {
+        Media { content }
+    }
+}
+
 // Backwards compatibility with previous versions and Jupyter naming
 pub type MimeBundle = Media;
 pub type MimeType = MediaType;

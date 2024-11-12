@@ -699,15 +699,13 @@ impl DisplayData {
 
 impl From<Vec<MediaType>> for DisplayData {
     fn from(content: Vec<MediaType>) -> Self {
-        Self::new(Media { content })
+        Self::new(Media::new(content))
     }
 }
 
 impl From<MediaType> for DisplayData {
     fn from(content: MediaType) -> Self {
-        Self::new(Media {
-            content: vec![content],
-        })
+        Self::new(Media::new(vec![content]))
     }
 }
 
@@ -787,18 +785,13 @@ impl ExecuteResult {
 
 impl From<(ExecutionCount, Vec<MediaType>)> for ExecuteResult {
     fn from((execution_count, content): (ExecutionCount, Vec<MediaType>)) -> Self {
-        Self::new(execution_count, Media { content })
+        Self::new(execution_count, content.into())
     }
 }
 
 impl From<(ExecutionCount, MediaType)> for ExecuteResult {
     fn from((execution_count, content): (ExecutionCount, MediaType)) -> Self {
-        Self::new(
-            execution_count,
-            Media {
-                content: vec![content],
-            },
-        )
+        Self::new(execution_count, content.into())
     }
 }
 
