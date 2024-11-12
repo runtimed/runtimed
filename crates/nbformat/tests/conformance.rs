@@ -218,5 +218,13 @@ mod test {
         if let Err(diff) = compare_notebook_json(&original_value, &serialized_value) {
             panic!("Serialization mismatch: {}", diff);
         }
+
+        println!("Structures match in contents!");
+
+        println!("Original:\n\n{}", notebook_json);
+        println!("Serialized:\n\n{}", serialized);
+
+        // Now for the hardest part -- seeing if we can get exact text back
+        assert_eq!(notebook_json, serialized);
     }
 }

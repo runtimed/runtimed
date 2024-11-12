@@ -249,11 +249,18 @@ where
                     _ => unreachable!(),
                 };
                 let value = if with_multiline {
-                    Value::Array(
-                        text.lines()
-                            .map(|line| Value::String(format!("{}\n", line)))
-                            .collect(),
-                    )
+                    let lines: Vec<&str> = text.lines().collect();
+
+                    if lines.len() > 1 {
+                        let entries = lines
+                            .iter()
+                            .map(|line| Value::String(format!("{}\n", line)));
+
+                        let array = Value::Array(entries.collect());
+                        array
+                    } else {
+                        Value::Array(vec![Value::String(text.clone())])
+                    }
                 } else {
                     Value::String(text.clone())
                 };
