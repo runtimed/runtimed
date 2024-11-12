@@ -265,6 +265,8 @@ where
                 };
                 (key.to_string(), value)
             }
+            // Keep unknown media types as is
+            MediaType::Other((key, value)) => (key.clone(), value.clone()),
             _ => {
                 let serialized =
                     serde_json::to_value(media_type).map_err(serde::ser::Error::custom)?;
