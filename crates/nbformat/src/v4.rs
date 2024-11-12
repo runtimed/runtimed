@@ -374,6 +374,11 @@ pub struct ExecutionMetadata {
         skip_serializing_if = "Option::is_none"
     )]
     pub shell_execute_reply: Option<String>,
+    #[serde(
+        rename = "shell.execute_reply.started",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub shell_execute_reply_started: Option<String>,
     #[serde(rename = "iopub.status.idle", skip_serializing_if = "Option::is_none")]
     pub iopub_status_idle: Option<String>,
     // For retaining any additional fields introduced by other jupyter clients
