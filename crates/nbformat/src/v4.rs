@@ -120,6 +120,8 @@ pub struct Metadata {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Author {
     pub name: String,
+    #[serde(flatten)]
+    pub additional: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -127,6 +129,8 @@ pub struct KernelSpec {
     pub display_name: String,
     pub name: String,
     pub language: Option<String>,
+    #[serde(flatten)]
+    pub additional: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -340,6 +344,7 @@ pub struct CellMetadata {
     pub jupyter: Option<JupyterCellMetadata>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub execution: Option<ExecutionMetadata>,
+    // For retaining any additional fields introduced by other jupyter clients
     #[serde(flatten)]
     pub additional: HashMap<String, serde_json::Value>,
 }
@@ -350,18 +355,35 @@ pub struct JupyterCellMetadata {
     pub source_hidden: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub outputs_hidden: Option<bool>,
+    // For retaining any additional fields introduced by other jupyter clients
+    #[serde(flatten)]
+    pub additional: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ExecutionMetadata {
-    #[serde(rename = "iopub.execute_input")]
+    #[serde(
+        rename = "iopub.execute_input",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub iopub_execute_input: Option<String>,
-    #[serde(rename = "iopub.status.busy")]
+    #[serde(rename = "iopub.status.busy", skip_serializing_if = "Option::is_none")]
     pub iopub_status_busy: Option<String>,
-    #[serde(rename = "shell.execute_reply")]
+    #[serde(
+        rename = "shell.execute_reply",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub shell_execute_reply: Option<String>,
-    #[serde(rename = "iopub.status.idle")]
+    #[serde(
+        rename = "shell.execute_reply.started",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub shell_execute_reply_started: Option<String>,
+    #[serde(rename = "iopub.status.idle", skip_serializing_if = "Option::is_none")]
     pub iopub_status_idle: Option<String>,
+    // For retaining any additional fields introduced by other jupyter clients
+    #[serde(flatten)]
+    pub additional: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
