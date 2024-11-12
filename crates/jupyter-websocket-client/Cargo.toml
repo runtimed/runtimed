@@ -7,14 +7,14 @@ repository = "https://github.com/runtimed/runtimed"
 license = "BSD-3-Clause"
 
 [dependencies]
-anyhow = "1.0.80"
-serde_json = "1.0.113"
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+futures = { workspace = true }
+uuid = { workspace = true }
 tokio = { version = "1.36.0", features = ["full"] }
 reqwest = { version = "0.12.8", features = ["json"] }
 jupyter-serde = { path = "../jupyter-serde", version = "0.2.1" }
 url = "2.5.2"
 async-tungstenite = { version = "0.22", features = ["tokio-runtime"] }
-futures = "0.3"
-serde = { version = "1.0.196", features = ["derive"] }
-uuid = { version = "1.7.0", features = ["serde", "v5"] }
 runtimelib = { path = "../runtimelib", version = "0.16.1" }
