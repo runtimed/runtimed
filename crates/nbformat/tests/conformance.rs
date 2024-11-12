@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test {
     use nbformat::legacy::Cell as LegacyCell;
-    use nbformat::v4::{Cell, Output};
+    use nbformat::v4::{Cell, CellId, Output};
     use nbformat::{parse_notebook, serialize_notebook, Notebook};
     use serde_json::Value;
     use std::fs;
@@ -398,7 +398,7 @@ mod test {
      "data": {
       "image/png": [
        "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9Qz0AEYBxVSF+F\n",
-       "AAh KDveksOjmAAAAAElFTkSuQmCC\n"
+       "AAhKDveksOjmAAAAAElFTkSuQmCC\n"
       ],
       "text/plain": [
        "<IPython.core.display.Image at 0x111275490>"
@@ -423,6 +423,54 @@ mod test {
 "###;
 
         let notebook = parse_notebook(notebook_json).expect("Failed to parse notebook");
+
+        match &notebook {
+            Notebook::V4(notebook) => {
+                if let Cell::Code { id, outputs, .. } = &notebook.cells[8] {
+                    assert_eq!(id, &CellId::new("example-9").unwrap());
+                    let output = outputs[0].clone();
+                    match output {
+                        Output::Stream { .. } => panic!("Expected image output"),
+                        Output::DisplayData(..) => panic!("Expected image result"),
+                        Output::ExecuteResult(execute_result) => {
+                            let content = execute_result.data.content;
+
+                            for media in content {
+                                match media {
+                                    jupyter_serde::media::MediaType::Png(data) => {
+                                        assert_eq!(
+                                            data,
+                                            "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9Qz0AEYBxVSF+F\nAAhKDveksOjmAAAAAElFTkSuQmCC\n"
+                                        );
+                                    }
+                                    jupyter_serde::media::MediaType::Plain(data) => {
+                                        assert_eq!(
+                                            data,
+                                            "<IPython.core.display.Image at 0x111275490>"
+                                        );
+                                    }
+                                    jupyter_serde::media::MediaType::Other((mimetype, value)) => {
+                                        panic!(
+                                            "Unexpected othering of media type: {} {:?}",
+                                            mimetype, value
+                                        );
+                                    }
+                                    _ => {
+                                        dbg!(&media);
+
+                                        panic!("Unexpected mime type")
+                                    }
+                                }
+                            }
+                        }
+                        Output::Error(..) => panic!("Expected image result"),
+                    }
+                } else {
+                    panic!("Expected code cell");
+                }
+            }
+            Notebook::Legacy(_) => panic!("Expected V4 notebook, got legacy"),
+        }
 
         let serialized = serialize_notebook(&notebook).expect("Failed to serialize notebook");
 

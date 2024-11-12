@@ -158,45 +158,59 @@ where
     let mut content = Vec::new();
 
     for (key, value) in map {
-        let mime_type: MediaType = match key.as_str() {
-            "text/plain"
-            | "text/html"
-            | "text/latex"
-            | "application/javascript"
-            | "text/markdown"
-            | "image/svg+xml" => {
-                let text: String = match value {
-                    Value::String(s) => s,
-                    Value::Array(arr) => arr
-                        .into_iter()
-                        .filter_map(|v| v.as_str().map(String::from))
-                        .collect::<Vec<String>>()
-                        .join(""),
-                    _ => return Err(de::Error::custom("Invalid value for text-based media type")),
-                };
-                match key.as_str() {
-                    "text/plain" => MediaType::Plain(text),
-                    "text/html" => MediaType::Html(text),
-                    "text/latex" => MediaType::Latex(text),
-                    "application/javascript" => MediaType::Javascript(text),
-                    "text/markdown" => MediaType::Markdown(text),
-                    "image/svg+xml" => MediaType::Svg(text),
-                    _ => unreachable!(),
-                }
-            }
-            _ => {
-                // Handle other media types as before
+        // Check if the key matches ^application/(.*\\+)?json$ in order to skip the multiline string handling
+        if key.starts_with("application/") && key.ends_with("json") {
+            let media_type =
                 match serde_json::from_value(Value::Object(serde_json::Map::from_iter([
                     ("type".to_string(), Value::String(key.clone())),
                     ("data".to_string(), value.clone()),
                 ]))) {
                     Ok(mediatype) => mediatype,
                     Err(_) => MediaType::Other((key, value)),
-                }
-            }
+                };
+            content.push(media_type);
+            continue;
+        }
+
+        // Now we know we're getting a plain string or an array of strings
+        let text: String = match value.clone() {
+            Value::String(s) => s,
+            Value::Array(arr) => arr
+                .into_iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect::<Vec<String>>()
+                .join(""),
+            _ => return Err(de::Error::custom("Invalid value for text-based media type")),
         };
 
-        content.push(mime_type);
+        if key.starts_with("image/") {
+            // If we ever want to turn this into Vec<u8> we could do that here. We would need to strip all the whitespace from the base64
+            // encoded image too though. `let text = text.replace("\n", "").replace(" ", "");`
+            // For consistency with other notebook frontends though, we'll keep it the same
+
+            let mediatype: MediaType = match key.as_str() {
+                "image/png" => MediaType::Png(text),
+                "image/jpeg" => MediaType::Jpeg(text),
+                "image/gif" => MediaType::Gif(text),
+                _ => MediaType::Other((key.clone(), value)),
+            };
+            content.push(mediatype);
+            continue;
+        }
+
+        let mediatype: MediaType = match key.as_str() {
+            "text/plain" => MediaType::Plain(text),
+            "text/html" => MediaType::Html(text),
+            "text/latex" => MediaType::Latex(text),
+            "application/javascript" => MediaType::Javascript(text),
+            "text/markdown" => MediaType::Markdown(text),
+            "image/svg+xml" => MediaType::Svg(text),
+
+            // Keep unknown mediatypes exactly as they were
+            _ => MediaType::Other((key.clone(), value)),
+        };
+
+        content.push(mediatype);
     }
 
     Ok(content)
@@ -228,8 +242,6 @@ where
     S: serde::Serializer,
 {
     let mut map = HashMap::new();
-
-    // todo: multiline handling is for all non json types. We shouldn't key off of the media types that are known at compile time. The spec says use `Value` when the media type is `.*json`.
 
     for media_type in content {
         let (key, value) = match media_type {
@@ -263,6 +275,38 @@ where
                 } else {
                     Value::String(text.clone())
                 };
+                (key.to_string(), value)
+            }
+            // ** Treat images in a special way **
+            // Jupyter, in practice, will attempt to keep the multiline version of the image around if it was written in
+            // that way. We'd have to do extra tracking in order to keep this enum consistent, so this is an area
+            // where we may wish to diverge from practice (not protocol or schema, just practice).
+            //
+            // As an example, some frontends will convert images to base64 and then split them into 80 character chunks
+            // with newlines interspersed. We could perform the chunking but then in many cases we will no longer match.
+            MediaType::Jpeg(text) | MediaType::Png(text) | MediaType::Gif(text) => {
+                let key = match media_type {
+                    MediaType::Jpeg(_) => "image/jpeg",
+                    MediaType::Png(_) => "image/png",
+                    MediaType::Gif(_) => "image/gif",
+                    _ => unreachable!(),
+                };
+                let value = if with_multiline {
+                    let lines: Vec<&str> = text.lines().collect();
+
+                    if lines.len() > 1 {
+                        let entries = lines
+                            .iter()
+                            .map(|line| Value::String(format!("{}\n", line)));
+
+                        Value::Array(entries.collect())
+                    } else {
+                        Value::String(text.clone())
+                    }
+                } else {
+                    Value::String(text.clone())
+                };
+
                 (key.to_string(), value)
             }
             // Keep unknown media types as is
