@@ -253,4 +253,190 @@ mod test {
         // between the original and the serialized.
         // assert_eq!(notebook_json, serialized);
     }
+
+    #[test]
+    fn test_unknown_media_types() {
+        let notebook_json = r###"{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "example-1",
+   "metadata": {},
+   "source": [
+    "# nbconvert latex test"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "example-2",
+   "metadata": {},
+   "source": [
+    "**Lorem ipsum** dolor sit amet, consectetur adipiscing elit. Nunc luctus bibendum felis dictum sodales. Ut suscipit, orci ut interdum imperdiet, purus ligula mollis *justo*, non malesuada nisl augue eget lorem. Donec bibendum, erat sit amet porttitor aliquam, urna lorem ornare libero, in vehicula diam diam ut ante. Nam non urna rhoncus, accumsan elit sit amet, mollis tellus. Vestibulum nec tellus metus. Vestibulum tempor, ligula et vehicula rhoncus, sapien turpis faucibus lorem, id dapibus turpis mauris ac orci. Sed volutpat vestibulum venenatis."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "example-3",
+   "metadata": {},
+   "source": [
+    "## Printed Using Python"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "example-4",
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "hello\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(\"hello\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "example-5",
+   "metadata": {},
+   "source": [
+    "## Pyout"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "id": "example-6",
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "\n",
+       "<script>\n",
+       "console.log(\"hello\");\n",
+       "</script>\n",
+       "<b>HTML</b>\n"
+      ],
+      "text/plain": [
+       "<IPython.core.display.HTML at 0x1112757d0>"
+      ]
+     },
+     "execution_count": 3,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "from IPython.display import HTML\n",
+    "\n",
+    "HTML(\n",
+    "    \"\"\"\n",
+    "<script>\n",
+    "console.log(\"hello\");\n",
+    "</script>\n",
+    "<b>HTML</b>\n",
+    "\"\"\"\n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "id": "example-7",
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "application/javascript": [
+       "console.log(\"hi\");"
+      ],
+      "text/hokey": [
+       "fake output"
+      ],
+      "text/plain": [
+       "<IPython.core.display.Javascript at 0x1112b4b50>"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "%%javascript\n",
+    "console.log(\"hi\");"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "example-8",
+   "metadata": {},
+   "source": [
+    "# Image"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "id": "example-9",
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "image/png": [
+       "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9Qz0AEYBxVSF+F\n",
+       "AAh KDveksOjmAAAAAElFTkSuQmCC\n"
+      ],
+      "text/plain": [
+       "<IPython.core.display.Image at 0x111275490>"
+      ]
+     },
+     "execution_count": 6,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "from IPython.display import Image\n",
+    "\n",
+    "Image(\"fake.png\")"
+   ]
+  }
+ ],
+ "metadata": {},
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
+"###;
+
+        let notebook = parse_notebook(&notebook_json).expect("Failed to parse notebook");
+
+        let serialized = serialize_notebook(&notebook).expect("Failed to serialize notebook");
+
+        let original_value: Value =
+            serde_json::from_str(&notebook_json).expect("Failed to parse original JSON");
+        let serialized_value: Value =
+            serde_json::from_str(&serialized).expect("Failed to parse serialized JSON");
+
+        if let Err(diff) = compare_notebook_json(&original_value, &serialized_value) {
+            panic!("Serialization mismatch: {}", diff);
+        }
+
+        println!("Structures match in contents!");
+
+        assert_eq!(notebook_json, serialized);
+    }
 }
