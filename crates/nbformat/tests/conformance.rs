@@ -422,12 +422,12 @@ mod test {
 }
 "###;
 
-        let notebook = parse_notebook(&notebook_json).expect("Failed to parse notebook");
+        let notebook = parse_notebook(notebook_json).expect("Failed to parse notebook");
 
         let serialized = serialize_notebook(&notebook).expect("Failed to serialize notebook");
 
         let original_value: Value =
-            serde_json::from_str(&notebook_json).expect("Failed to parse original JSON");
+            serde_json::from_str(notebook_json).expect("Failed to parse original JSON");
         let serialized_value: Value =
             serde_json::from_str(&serialized).expect("Failed to parse serialized JSON");
 
