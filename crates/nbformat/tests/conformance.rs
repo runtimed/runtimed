@@ -246,10 +246,11 @@ mod test {
 
         println!("Structures match in contents!");
 
-        // println!("Original:\n\n{}", notebook_json);
-        // println!("Serialized:\n\n{}", serialized);
+        // std::fs::write("og.json", &notebook_json).expect("Failed to write original JSON");
+        // std::fs::write("ser.json", &serialized).expect("Failed to write serialized JSON");
 
-        // Now for the hardest part -- seeing if we can get exact text back
+        // Right now, this Mediatypes notebook has two outputs with a differing newline at the end
+        // between the original and the serialized.
         // assert_eq!(notebook_json, serialized);
     }
 }
