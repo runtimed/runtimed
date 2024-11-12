@@ -1,6 +1,7 @@
 pub mod legacy;
 pub mod v4;
 
+use serde::Serialize as _;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -30,6 +31,30 @@ pub fn parse_notebook(json: &str) -> Result<Notebook, NotebookError> {
             legacy::Notebook,
         >(value)?)),
         _ => Err(NotebookError::UnsupportedVersion(nbformat, nbformat_minor)),
+    }
+}
+
+pub fn serialize_notebook(notebook: &Notebook) -> Result<String, NotebookError> {
+    match notebook {
+        Notebook::V4(notebook) => {
+            let value = serde_json::to_value(notebook)?;
+            let mut buf = Vec::new();
+            let formatter = serde_json::ser::PrettyFormatter::with_indent(b" ");
+            let mut ser = serde_json::Serializer::with_formatter(&mut buf, formatter);
+            value.serialize(&mut ser)?;
+
+            // Append a newline to the buffer to match the python implementation of nbformat
+            buf.append(&mut b"\n".to_vec());
+
+            let notebook_json = String::from_utf8(buf)
+                .map_err(|e| NotebookError::ValidationError(e.to_string()))?;
+
+            Ok(notebook_json)
+        }
+        Notebook::Legacy(notebook) => Err(NotebookError::UnsupportedVersion(
+            notebook.nbformat,
+            notebook.nbformat_minor,
+        )),
     }
 }
 

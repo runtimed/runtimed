@@ -2,34 +2,13 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use uuid::Uuid;
 
-// use runtimelib::{DisplayData, ErrorOutput, ExecuteResult};
-use jupyter_serde::{media::Media, ExecutionCount};
+use jupyter_serde::{media::serialize_media_for_notebook, media::Media, ExecutionCount};
 
 use core::fmt;
 use std::{
     collections::HashMap,
     fmt::{Display, Formatter},
 };
-
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct DisplayData {
-    pub data: Media,
-    pub metadata: serde_json::Map<String, Value>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ExecuteResult {
-    pub execution_count: ExecutionCount,
-    pub data: Media,
-    pub metadata: serde_json::Map<String, Value>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ErrorOutput {
-    pub ename: String,
-    pub evalue: String,
-    pub traceback: Vec<String>,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MultilineString(pub String);
@@ -39,7 +18,8 @@ impl Serialize for MultilineString {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_str(&self.0)
+        let lines: Vec<String> = self.0.lines().map(|line| format!("{}\n", line)).collect();
+        serializer.collect_seq(lines)
     }
 }
 
@@ -94,6 +74,28 @@ where
     deserializer.deserialize_any(MultilineStringVisitor)
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct DisplayData {
+    #[serde(serialize_with = "serialize_media_for_notebook")]
+    pub data: Media,
+    pub metadata: serde_json::Map<String, Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ExecuteResult {
+    pub execution_count: ExecutionCount,
+    #[serde(serialize_with = "serialize_media_for_notebook")]
+    pub data: Media,
+    pub metadata: serde_json::Map<String, Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ErrorOutput {
+    pub ename: String,
+    pub evalue: String,
+    pub traceback: Vec<String>,
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Notebook {
     pub metadata: Metadata,
@@ -122,6 +124,7 @@ pub struct Author {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct KernelSpec {
+    pub display_name: String,
     pub name: String,
     pub language: Option<String>,
 }
@@ -132,6 +135,8 @@ pub struct LanguageInfo {
     pub version: Option<String>,
     #[serde(default)]
     pub codemirror_mode: Option<CodemirrorMode>,
+    #[serde(flatten)]
+    pub additional: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Clone, Deserialize, Debug, Serialize)]
@@ -228,7 +233,7 @@ pub enum Cell {
         id: CellId,
         metadata: CellMetadata,
         source: Vec<String>,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         attachments: Option<Value>,
     },
     #[serde(rename = "code")]
@@ -335,6 +340,8 @@ pub struct CellMetadata {
     pub jupyter: Option<JupyterCellMetadata>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub execution: Option<ExecutionMetadata>,
+    #[serde(flatten)]
+    pub additional: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
