@@ -135,6 +135,8 @@ pub struct LanguageInfo {
     pub version: Option<String>,
     #[serde(default)]
     pub codemirror_mode: Option<CodemirrorMode>,
+    #[serde(flatten)]
+    pub additional: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Clone, Deserialize, Debug, Serialize)]
@@ -338,6 +340,8 @@ pub struct CellMetadata {
     pub jupyter: Option<JupyterCellMetadata>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub execution: Option<ExecutionMetadata>,
+    #[serde(flatten)]
+    pub additional: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
