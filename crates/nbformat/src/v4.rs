@@ -124,6 +124,7 @@ pub struct Author {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct KernelSpec {
+    pub display_name: String,
     pub name: String,
     pub language: Option<String>,
 }
