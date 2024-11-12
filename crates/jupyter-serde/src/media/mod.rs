@@ -256,8 +256,7 @@ where
                             .iter()
                             .map(|line| Value::String(format!("{}\n", line)));
 
-                        let array = Value::Array(entries.collect());
-                        array
+                        Value::Array(entries.collect())
                     } else {
                         Value::Array(vec![Value::String(text.clone())])
                     }
