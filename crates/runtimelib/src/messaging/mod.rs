@@ -7,21 +7,21 @@
 use anyhow::anyhow;
 use anyhow::bail;
 use bytes::Bytes;
-use chrono::{DateTime, Utc};
 use data_encoding::HEXLOWER;
 use ring::hmac;
-use serde::{Deserialize, Serialize};
 use serde_json;
-use serde_json::{json, Value};
-use std::fmt;
-use uuid::Uuid;
+use serde_json::Value;
 use zeromq::SocketRecv as _;
 use zeromq::SocketSend as _;
 
-mod time;
-
-pub mod content;
-pub use content::*;
+// pub mod content;
+// pub use content::*;
+// content now comes from:
+pub use jupyter_protocol::messaging::*;
+// For backwards compatibility, for now:
+pub mod content {
+    pub use jupyter_protocol::messaging::*;
+}
 
 type KernelIoPubSocket = zeromq::PubSocket;
 type KernelShellSocket = zeromq::RouterSocket;
@@ -76,7 +76,7 @@ impl<S: zeromq::Socket> Connection<S> {
 impl<S: zeromq::SocketSend> Connection<S> {
     pub async fn send(&mut self, message: JupyterMessage) -> Result<(), anyhow::Error> {
         let message = message.with_session(&self.session_id);
-        let raw_message: RawMessage = message.into_raw_message()?;
+        let raw_message: RawMessage = RawMessage::from_jupyter_message(message)?;
         let zmq_message = raw_message.into_zmq_message(&self.mac)?;
 
         self.socket.send(zmq_message).await?;
@@ -87,7 +87,7 @@ impl<S: zeromq::SocketSend> Connection<S> {
 impl<S: zeromq::SocketRecv> Connection<S> {
     pub async fn read(&mut self) -> Result<JupyterMessage, anyhow::Error> {
         let raw_message = RawMessage::from_multipart(self.socket.recv().await?, &self.mac)?;
-        let message = JupyterMessage::from_raw_message(raw_message)?;
+        let message = raw_message.into_jupyter_message()?;
         Ok(message)
     }
 }
@@ -196,116 +196,34 @@ impl RawMessage {
         let message = zeromq::ZmqMessage::try_from(parts).map_err(|err| anyhow::anyhow!(err))?;
         Ok(message)
     }
-}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Channel {
-    Shell,
-    Control,
-    Stdin,
-    IOPub,
-    Heartbeat,
-}
-
-#[derive(Deserialize, Serialize, Clone)]
-pub struct JupyterMessage {
-    #[serde(skip_serializing, skip_deserializing)]
-    pub zmq_identities: Vec<Bytes>,
-    pub header: Header,
-    #[serde(serialize_with = "serialize_parent_header")]
-    pub parent_header: Option<Header>,
-    pub metadata: Value,
-    pub content: JupyterMessageContent,
-    #[serde(skip_serializing, skip_deserializing)]
-    pub buffers: Vec<Bytes>,
-    pub channel: Option<Channel>,
-}
-
-/// Serializes the `parent_header`.
-///
-/// Treats `None` as an empty object to conform to Jupyter's messaging guidelines:
-///
-/// > If there is no parent, an empty dict should be used.
-/// >
-/// > — https://jupyter-client.readthedocs.io/en/latest/messaging.html#parent-header
-fn serialize_parent_header<S>(
-    parent_header: &Option<Header>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    match parent_header {
-        Some(parent_header) => parent_header.serialize(serializer),
-        None => serde_json::Map::new().serialize(serializer),
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Header {
-    pub msg_id: String,
-    pub username: String,
-    pub session: String,
-    pub date: DateTime<Utc>,
-    pub msg_type: String,
-    pub version: String,
-}
-
-const DELIMITER: &[u8] = b"<IDS|MSG>";
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct UnknownJupyterMessage {
-    pub header: Header,
-    pub parent_header: Option<Header>,
-    pub metadata: Value,
-    pub content: Value,
-    #[serde(skip_serializing, skip_deserializing)]
-    pub buffers: Vec<Bytes>,
-}
-
-impl JupyterMessage {
-    pub fn from_value(message: Value) -> Result<JupyterMessage, anyhow::Error> {
-        let message = serde_json::from_value::<UnknownJupyterMessage>(message)?;
-
-        let content =
-            JupyterMessageContent::from_type_and_content(&message.header.msg_type, message.content);
-
-        let content = match content {
-            Ok(content) => content,
-            Err(err) => {
-                return Err(anyhow!(
-                    "Error deserializing content for msg_type `{}`: {}",
-                    &message.header.msg_type,
-                    err
-                ));
-            }
+    fn from_jupyter_message(jupyter_message: JupyterMessage) -> Result<RawMessage, anyhow::Error> {
+        let mut jparts: Vec<Bytes> = vec![
+            serde_json::to_vec(&jupyter_message.header)?.into(),
+            if let Some(parent_header) = jupyter_message.parent_header.as_ref() {
+                serde_json::to_vec(parent_header)?.into()
+            } else {
+                serde_json::to_vec(&serde_json::Map::new())?.into()
+            },
+            serde_json::to_vec(&jupyter_message.metadata)?.into(),
+            serde_json::to_vec(&jupyter_message.content)?.into(),
+        ];
+        jparts.extend_from_slice(&jupyter_message.buffers);
+        let raw_message = RawMessage {
+            zmq_identities: jupyter_message.zmq_identities.clone(),
+            jparts,
         };
-
-        let message = JupyterMessage {
-            zmq_identities: Vec::new(),
-            header: message.header,
-            parent_header: message.parent_header,
-            metadata: message.metadata,
-            content,
-            buffers: message.buffers,
-            channel: None,
-        };
-
-        Ok(message)
+        Ok(raw_message)
     }
 
-    fn from_raw_message(raw_message: RawMessage) -> Result<JupyterMessage, anyhow::Error> {
-        if raw_message.jparts.len() < 4 {
+    fn into_jupyter_message(self) -> Result<JupyterMessage, anyhow::Error> {
+        if self.jparts.len() < 4 {
             // Be explicit with error here
-            return Err(anyhow!(
-                "Insufficient message parts {}",
-                raw_message.jparts.len()
-            ));
+            return Err(anyhow!("Insufficient message parts {}", self.jparts.len()));
         }
 
-        let header: Header = serde_json::from_slice(&raw_message.jparts[0])?;
-        let content: Value = serde_json::from_slice(&raw_message.jparts[3])?;
+        let header: Header = serde_json::from_slice(&self.jparts[0])?;
+        let content: Value = serde_json::from_slice(&self.jparts[3])?;
 
         let content = JupyterMessageContent::from_type_and_content(&header.msg_type, content);
 
@@ -320,16 +238,16 @@ impl JupyterMessage {
             }
         };
 
-        let parent_header = serde_json::from_slice(&raw_message.jparts[1]).ok();
+        let parent_header = serde_json::from_slice(&self.jparts[1]).ok();
 
         let message = JupyterMessage {
-            zmq_identities: raw_message.zmq_identities,
+            zmq_identities: self.zmq_identities,
             header,
             parent_header,
-            metadata: serde_json::from_slice(&raw_message.jparts[2])?,
+            metadata: serde_json::from_slice(&self.jparts[2])?,
             content,
-            buffers: if raw_message.jparts.len() > 4 {
-                raw_message.jparts[4..].to_vec()
+            buffers: if self.jparts.len() > 4 {
+                self.jparts[4..].to_vec()
             } else {
                 vec![]
             },
@@ -338,118 +256,6 @@ impl JupyterMessage {
 
         Ok(message)
     }
-
-    pub fn message_type(&self) -> &str {
-        self.content.message_type()
-    }
-
-    pub fn new(
-        content: impl Into<JupyterMessageContent>,
-        parent: Option<&JupyterMessage>,
-    ) -> JupyterMessage {
-        // Normally a session ID is per client. A higher level wrapper on this API
-        // should probably create messages based on a `Session` struct that is stateful.
-        // For now, a user can create a message and then set the session ID directly.
-        let session = match parent {
-            Some(parent) => parent.header.session.clone(),
-            None => Uuid::new_v4().to_string(),
-        };
-
-        let content = content.into();
-
-        let header = Header {
-            msg_id: Uuid::new_v4().to_string(),
-            username: "runtimelib".to_string(),
-            session,
-            date: time::utc_now(),
-            msg_type: content.message_type().to_owned(),
-            version: "5.3".to_string(),
-        };
-
-        JupyterMessage {
-            zmq_identities: parent.map_or(Vec::new(), |parent| parent.zmq_identities.clone()),
-            header,
-            parent_header: parent.map(|parent| parent.header.clone()),
-            metadata: json!({}),
-            content,
-            buffers: Vec::new(),
-            channel: None,
-        }
-    }
-
-    pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
-        self.metadata = metadata;
-        self
-    }
-
-    pub fn with_buffers(mut self, buffers: Vec<Bytes>) -> Self {
-        self.buffers = buffers;
-        self
-    }
-
-    pub fn with_parent(mut self, parent: &JupyterMessage) -> Self {
-        self.header.session.clone_from(&parent.header.session);
-        self.parent_header = Some(parent.header.clone());
-        self.zmq_identities.clone_from(&parent.zmq_identities);
-        self
-    }
-
-    pub fn with_zmq_identities(mut self, zmq_identities: Vec<Bytes>) -> Self {
-        self.zmq_identities = zmq_identities;
-        self
-    }
-
-    pub fn with_session(mut self, session: &str) -> Self {
-        self.header.session = session.to_string();
-        self
-    }
-
-    pub fn into_raw_message(&self) -> Result<RawMessage, anyhow::Error> {
-        let mut jparts: Vec<Bytes> = vec![
-            serde_json::to_vec(&self.header)?.into(),
-            if let Some(parent_header) = self.parent_header.as_ref() {
-                serde_json::to_vec(parent_header)?.into()
-            } else {
-                serde_json::to_vec(&serde_json::Map::new())?.into()
-            },
-            serde_json::to_vec(&self.metadata)?.into(),
-            serde_json::to_vec(&self.content)?.into(),
-        ];
-        jparts.extend_from_slice(&self.buffers);
-        let raw_message = RawMessage {
-            zmq_identities: self.zmq_identities.clone(),
-            jparts,
-        };
-        Ok(raw_message)
-    }
 }
 
-impl fmt::Debug for JupyterMessage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(
-            f,
-            "\nHeader: {}",
-            serde_json::to_string_pretty(&self.header).unwrap()
-        )?;
-        writeln!(
-            f,
-            "Parent header: {}",
-            if let Some(parent_header) = self.parent_header.as_ref() {
-                serde_json::to_string_pretty(parent_header).unwrap()
-            } else {
-                serde_json::to_string_pretty(&serde_json::Map::new()).unwrap()
-            }
-        )?;
-        writeln!(
-            f,
-            "Metadata: {}",
-            serde_json::to_string_pretty(&self.metadata).unwrap()
-        )?;
-        writeln!(
-            f,
-            "Content: {}\n",
-            serde_json::to_string_pretty(&self.content).unwrap()
-        )?;
-        Ok(())
-    }
-}
+const DELIMITER: &[u8] = b"<IDS|MSG>";
