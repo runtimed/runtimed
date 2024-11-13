@@ -1,9 +1,6 @@
+```rust
 use std::env;
 use std::process::exit;
-
-// mod kernel;
-mod client;
-mod websocket;
 
 use crate::client::JupyterClient;
 
@@ -112,3 +109,4 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
+```
