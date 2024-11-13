@@ -1,10 +1,12 @@
 use anyhow::{Context, Result};
 use async_tungstenite::{
-    tokio::connect_async, tokio::ConnectStream, tungstenite::Message, WebSocketStream,
+    async_std::{connect_async, ConnectStream},
+    tungstenite::Message,
+    WebSocketStream,
 };
 use futures::{Sink, SinkExt as _, Stream, StreamExt};
 
-use runtimelib::JupyterMessage;
+use jupyter_protocol::{JupyterConnection, JupyterMessage};
 use std::pin::Pin;
 use std::task::{Context as TaskContext, Poll};
 
@@ -74,3 +76,5 @@ pub async fn connect(url: &str) -> Result<JupyterWebSocket> {
         .context("Failed to connect to WebSocket")?;
     Ok(JupyterWebSocket { inner: ws_stream })
 }
+
+impl JupyterConnection for JupyterWebSocket {}

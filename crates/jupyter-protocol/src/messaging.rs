@@ -1,13 +1,206 @@
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use std::collections::HashMap;
+use crate::time;
 
+use bytes::Bytes;
+use chrono::{DateTime, Utc};
 use jupyter_serde::{
     media::{Media, MediaType},
     ExecutionCount,
 };
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use std::{collections::HashMap, fmt};
+use uuid::Uuid;
 
-use super::JupyterMessage;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Channel {
+    Shell,
+    Control,
+    Stdin,
+    IOPub,
+    Heartbeat,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct UnknownJupyterMessage {
+    pub header: Header,
+    pub parent_header: Option<Header>,
+    pub metadata: Value,
+    pub content: Value,
+    #[serde(skip_serializing, skip_deserializing)]
+    pub buffers: Vec<Bytes>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Header {
+    pub msg_id: String,
+    pub username: String,
+    pub session: String,
+    pub date: DateTime<Utc>,
+    pub msg_type: String,
+    pub version: String,
+}
+
+/// Serializes the `parent_header`.
+///
+/// Treats `None` as an empty object to conform to Jupyter's messaging guidelines:
+///
+/// > If there is no parent, an empty dict should be used.
+/// >
+/// > — https://jupyter-client.readthedocs.io/en/latest/messaging.html#parent-header
+fn serialize_parent_header<S>(
+    parent_header: &Option<Header>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match parent_header {
+        Some(parent_header) => parent_header.serialize(serializer),
+        None => serde_json::Map::new().serialize(serializer),
+    }
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+pub struct JupyterMessage {
+    #[serde(skip_serializing, skip_deserializing)]
+    pub zmq_identities: Vec<Bytes>,
+    pub header: Header,
+    #[serde(serialize_with = "serialize_parent_header")]
+    pub parent_header: Option<Header>,
+    pub metadata: Value,
+    pub content: JupyterMessageContent,
+    #[serde(skip_serializing, skip_deserializing)]
+    pub buffers: Vec<Bytes>,
+    pub channel: Option<Channel>,
+}
+
+impl JupyterMessage {
+    pub fn new(
+        content: impl Into<JupyterMessageContent>,
+        parent: Option<&JupyterMessage>,
+    ) -> JupyterMessage {
+        // Normally a session ID is per client. A higher level wrapper on this API
+        // should probably create messages based on a `Session` struct that is stateful.
+        // For now, a user can create a message and then set the session ID directly.
+        let session = match parent {
+            Some(parent) => parent.header.session.clone(),
+            None => Uuid::new_v4().to_string(),
+        };
+
+        let content = content.into();
+
+        let header = Header {
+            msg_id: Uuid::new_v4().to_string(),
+            username: "runtimelib".to_string(),
+            session,
+            date: time::utc_now(),
+            msg_type: content.message_type().to_owned(),
+            version: "5.3".to_string(),
+        };
+
+        JupyterMessage {
+            zmq_identities: parent.map_or(Vec::new(), |parent| parent.zmq_identities.clone()),
+            header,
+            parent_header: parent.map(|parent| parent.header.clone()),
+            metadata: json!({}),
+            content,
+            buffers: Vec::new(),
+            channel: None,
+        }
+    }
+
+    pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
+        self.metadata = metadata;
+        self
+    }
+
+    pub fn with_buffers(mut self, buffers: Vec<Bytes>) -> Self {
+        self.buffers = buffers;
+        self
+    }
+
+    pub fn with_parent(mut self, parent: &JupyterMessage) -> Self {
+        self.header.session.clone_from(&parent.header.session);
+        self.parent_header = Some(parent.header.clone());
+        self.zmq_identities.clone_from(&parent.zmq_identities);
+        self
+    }
+
+    pub fn with_zmq_identities(mut self, zmq_identities: Vec<Bytes>) -> Self {
+        self.zmq_identities = zmq_identities;
+        self
+    }
+
+    pub fn with_session(mut self, session: &str) -> Self {
+        self.header.session = session.to_string();
+        self
+    }
+
+    pub fn message_type(&self) -> &str {
+        self.content.message_type()
+    }
+
+    pub fn from_value(message: Value) -> Result<JupyterMessage, anyhow::Error> {
+        let message = serde_json::from_value::<UnknownJupyterMessage>(message)?;
+
+        let content =
+            JupyterMessageContent::from_type_and_content(&message.header.msg_type, message.content);
+
+        let content = match content {
+            Ok(content) => content,
+            Err(err) => {
+                return Err(anyhow::anyhow!(
+                    "Error deserializing content for msg_type `{}`: {}",
+                    &message.header.msg_type,
+                    err
+                ));
+            }
+        };
+
+        let message = JupyterMessage {
+            zmq_identities: Vec::new(),
+            header: message.header,
+            parent_header: message.parent_header,
+            metadata: message.metadata,
+            content,
+            buffers: message.buffers,
+            channel: None,
+        };
+
+        Ok(message)
+    }
+}
+
+impl fmt::Debug for JupyterMessage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "\nHeader: {}",
+            serde_json::to_string_pretty(&self.header).unwrap()
+        )?;
+        writeln!(
+            f,
+            "Parent header: {}",
+            if let Some(parent_header) = self.parent_header.as_ref() {
+                serde_json::to_string_pretty(parent_header).unwrap()
+            } else {
+                serde_json::to_string_pretty(&serde_json::Map::new()).unwrap()
+            }
+        )?;
+        writeln!(
+            f,
+            "Metadata: {}",
+            serde_json::to_string_pretty(&self.metadata).unwrap()
+        )?;
+        writeln!(
+            f,
+            "Content: {}\n",
+            serde_json::to_string_pretty(&self.content).unwrap()
+        )?;
+        Ok(())
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
@@ -338,7 +531,7 @@ impl From<KernelInfoReply> for JupyterMessageContent {
 /// Unknown message types are a workaround for generically unknown messages.
 ///
 /// ```rust
-/// use runtimelib::messaging::{JupyterMessage, JupyterMessageContent, UnknownMessage};
+/// use jupyter_protocol::messaging::{JupyterMessage, JupyterMessageContent, UnknownMessage};
 /// use serde_json::json;
 ///
 /// let msg = UnknownMessage {

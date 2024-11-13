@@ -8,6 +8,7 @@ license = "BSD-3-Clause"
 
 [dependencies]
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 futures = { workspace = true }
@@ -16,5 +17,5 @@ tokio = { version = "1.36.0", features = ["full"] }
 reqwest = { version = "0.12.8", features = ["json"] }
 jupyter-serde = { path = "../jupyter-serde", version = "0.4.0" }
 url = "2.5.2"
-async-tungstenite = { version = "0.22", features = ["tokio-runtime"] }
-runtimelib = { path = "../runtimelib", version = "0.19.0" }
+async-tungstenite = { version = "0.22", features = ["async-std-runtime"] }
+jupyter-protocol = { path = "../jupyter-protocol", version = "0.1.0" }
