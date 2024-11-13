@@ -2,7 +2,7 @@
 name = "jupyter-protocol"
 version = "0.1.0"
 edition = "2021"
-description = "Connect to Jupyter Servers over WebSockets"
+description = "Jupyter messaging structures and traits for jupyter clients and servers"
 repository = "https://github.com/runtimed/runtimed"
 license = "BSD-3-Clause"
 
