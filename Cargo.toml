@@ -6,6 +6,7 @@ members = [
     "crates/jupyter-serde",
     "crates/sidecar",
     "crates/jupyter-websocket-client",
+    "crates/jupyter-protocol",
 ]
 
 resolver = "2"

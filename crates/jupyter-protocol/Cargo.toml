@@ -1,0 +1,10 @@
+[package]
+name = "jupyter-protocol"
+version = "0.1.0"
+edition = "2021"
+description = "Connect to Jupyter Servers over WebSockets"
+repository = "https://github.com/runtimed/runtimed"
+license = "BSD-3-Clause"
+
+[dependencies]
+jupyter-serde = { path = "../jupyter-serde", version = "0.4.0" }
