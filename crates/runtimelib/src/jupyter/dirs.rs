@@ -10,6 +10,7 @@ use tokio::process::Command;
 #[cfg(feature = "async-dispatcher-runtime")]
 use smol::process::Command;
 
+#[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
 pub async fn ask_jupyter() -> Result<Value> {
     let output = Command::new("jupyter")
         .args(["--paths", "--json"])
