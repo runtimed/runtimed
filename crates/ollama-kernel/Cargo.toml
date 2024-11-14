@@ -2,6 +2,9 @@
 name = "ollama-kernel"
 version = "0.1.0"
 edition = "2021"
+description = "Ollama Jupyter Kernel"
+repository = "https://github.com/runtimed/runtimed"
+license = "BSD-3-Clause"
 
 [dependencies]
 runtimelib = { path = "../runtimelib", version = "0.19.0", features = [
