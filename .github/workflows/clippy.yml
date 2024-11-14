@@ -26,4 +26,4 @@ jobs:
       - name: Clippy check runtimelib with tokio-runtime
         run: cargo clippy -p runtimelib --all-targets --no-default-features --features tokio-runtime
       - name: Clippy check jupyter-serde and nbformat
-        run: cargo clippy -p jupyter-serde -p nbformat -p ollama-kernel --all-targets
+        run: cargo clippy --all-targets
