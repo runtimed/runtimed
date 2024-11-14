@@ -31,3 +31,27 @@ jobs:
         run: cargo test --verbose
       - name: Run Doc Tests
         run: cargo test --doc --verbose
+
+      - name: Build sidecar
+        run: cargo build -p sidecar
+
+      - name: Build Ollama kernel
+        run: cargo build -p ollama-kernel
+
+      - name: Build Runtimelib with tokio
+        run: cargo build -p runtimelib --verbose --features tokio-runtime
+
+      - name: Run Runtimelib tests with tokio
+        run: cargo test -p runtimelib --verbose --features tokio-runtime
+
+      - name: Run Runtimelib Doc Tests with tokio
+        run: cargo test -p runtimelib --doc --verbose --features tokio-runtime
+
+      - name: Build Runtimelib with async-dispatcher-runtime
+        run: cargo build -p runtimelib --verbose --features async-dispatcher-runtime
+
+      - name: Run Runtimelib tests with async-dispatcher-runtime
+        run: cargo test -p runtimelib --verbose --features async-dispatcher-runtime
+
+      - name: Run Runtimelib Doc Tests with async-dispatcher-runtime
+        run: cargo test -p runtimelib --doc --verbose --features async-dispatcher-runtime

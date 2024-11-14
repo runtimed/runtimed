@@ -7,6 +7,13 @@ members = [
     "crates/sidecar",
     "crates/jupyter-websocket-client",
     "crates/jupyter-protocol",
+    "crates/ollama-kernel",
+]
+
+default-members = [
+    "crates/nbformat",
+    "crates/jupyter-serde",
+    "crates/jupyter-protocol",
 ]
 
 resolver = "2"
