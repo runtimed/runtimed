@@ -1,13 +1,13 @@
 [package]
 name = "jupyter-protocol"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Jupyter messaging structures and traits for jupyter clients and servers"
 repository = "https://github.com/runtimed/runtimed"
 license = "BSD-3-Clause"
 
 [dependencies]
-jupyter-serde = { path = "../jupyter-serde", version = "0.4.0" }
+jupyter-serde = { path = "../jupyter-serde", version = "0.5.0" }
 async-trait = { workspace = true }
 anyhow = { workspace = true }
 bytes = { workspace = true }
