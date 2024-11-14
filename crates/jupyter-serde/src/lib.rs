@@ -6,6 +6,8 @@ pub mod media;
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct ExecutionCount(pub usize);
 
+/// A monotonically increasing counter for tracking the number of times a cell
+/// has been executed.
 impl ExecutionCount {
     pub fn new(count: usize) -> Self {
         Self(count)

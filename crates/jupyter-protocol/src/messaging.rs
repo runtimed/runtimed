@@ -2,7 +2,7 @@ use crate::time;
 
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
-use jupyter_serde::{
+pub use jupyter_serde::{
     media::{Media, MediaType},
     ExecutionCount,
 };
@@ -424,7 +424,7 @@ macro_rules! impl_message_traits {
                 ///
                 /// # Example
                 /// ```ignore
-                /// use runtimelib::messaging::{JupyterMessage, JupyterMessageContent};
+                /// use jupyter_protocol::messaging::{JupyterMessage, JupyterMessageContent};
                 ///
                 /// let message = connection.recv().await?;
                 ///
@@ -771,7 +771,7 @@ pub enum Stdio {
 /// The UI/client sends an `'execute_request'` message to the kernel.
 ///
 /// ```ignore
-/// use runtimelib::messaging::{ExecuteRequest};
+/// use jupyter_protocol::messaging::{ExecuteRequest};
 /// // From the UI
 ///
 /// let execute_request = ExecuteRequest {
@@ -789,7 +789,7 @@ pub enum Stdio {
 /// These are from using `print()`, `console.log()`, or similar. Anything on STDOUT or STDERR.
 ///
 /// ```ignore
-/// use runtimelib::messaging::{StreamContent, Stdio};
+/// use jupyter_protocol::messaging::{StreamContent, Stdio};
 /// let execute_request = shell.read().await?;
 ///
 /// let message = StreamContent {
@@ -837,7 +837,7 @@ pub struct Transient {
 /// The UI/client sends an `'execute_request'` message to the kernel.
 ///
 /// ```rust,ignore
-/// use runtimelib::messaging::{ExecuteReqeuest};
+/// use jupyter_protocol::messaging::{ExecuteReqeuest};
 ///
 /// let execute_request = ExecuteRequest {
 ///     code: "print('Hello, World!')".to_string(),
@@ -853,7 +853,7 @@ pub struct Transient {
 /// As a side effect of execution, the kernel can send `'display_data'` messages to the UI/client.
 ///
 /// ```rust,ignore
-/// use runtimelib::media::{Media, MediaType, DisplayData};
+/// use jupyter_protocol::media::{Media, MediaType, DisplayData};
 ///
 /// let execute_request = shell.read().await?;
 ///

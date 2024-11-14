@@ -1,6 +1,4 @@
 use std::collections::HashMap;
-#[allow(unused)]
-use std::{collections::HashSet, time::Duration};
 
 use anyhow::{Context as _, Result};
 
@@ -9,17 +7,18 @@ mod structured_calling;
 
 use structured_calling::Structured;
 
-#[allow(unused)]
-use futures::{channel::mpsc, SinkExt as _, StreamExt};
-use ollama_client::{
-    ChatMessage, Format, GenerateResponse, LocalModelListing, OllamaClient, Role, OLLAMA_ENDPOINT,
-};
-use runtimelib::{
+use futures::StreamExt;
+use jupyter_protocol::{
     ClearOutput, CodeMirrorMode, CommInfoReply, CompleteReply, CompleteRequest, ConnectionInfo,
     DisplayData, ErrorOutput, ExecuteReply, ExecutionCount, HelpLink, HistoryReply, InspectReply,
     IsCompleteReply, IsCompleteReplyStatus, JupyterMessage, JupyterMessageContent, KernelInfoReply,
-    KernelIoPubConnection, KernelShellConnection, LanguageInfo, Media, MediaType, ReplyStatus,
-    Status, StreamContent,
+    LanguageInfo, Media, MediaType, ReplyStatus, Status, StreamContent,
+};
+
+use runtimelib::{KernelIoPubConnection, KernelShellConnection};
+
+use ollama_client::{
+    ChatMessage, Format, GenerateResponse, LocalModelListing, OllamaClient, Role, OLLAMA_ENDPOINT,
 };
 use serde_json::Value;
 use uuid::Uuid;
@@ -442,7 +441,7 @@ Please generate a few responses to complete their text for them.
 
     async fn execute(&mut self, request: &JupyterMessage) -> anyhow::Result<()> {
         let code = match &request.content {
-            runtimelib::JupyterMessageContent::ExecuteRequest(req) => req.code.clone(),
+            JupyterMessageContent::ExecuteRequest(req) => req.code.clone(),
             _ => return Err(anyhow::anyhow!("Invalid message type for execution")),
         };
 
@@ -522,24 +521,24 @@ Please generate a few responses to complete their text for them.
         self.iopub.send(Status::busy().as_child_of(parent)).await?;
 
         match &parent.content {
-            runtimelib::JupyterMessageContent::CommInfoRequest(_) => {
+            JupyterMessageContent::CommInfoRequest(_) => {
                 // Just tell the frontend we don't have any comms
                 let reply = CommInfoReply {
-                    status: runtimelib::ReplyStatus::Ok,
+                    status: ReplyStatus::Ok,
                     comms: Default::default(),
                     error: None,
                 }
                 .as_child_of(parent);
                 shell.send(reply).await?;
             }
-            runtimelib::JupyterMessageContent::CompleteRequest(req) => {
+            JupyterMessageContent::CompleteRequest(req) => {
                 let reply = self.complete(req).await?;
                 shell.send(reply.as_child_of(parent)).await?;
             }
-            runtimelib::JupyterMessageContent::ExecuteRequest(_) => {
+            JupyterMessageContent::ExecuteRequest(_) => {
                 // Respond back with reply immediately
                 let reply = ExecuteReply {
-                    status: runtimelib::ReplyStatus::Ok,
+                    status: ReplyStatus::Ok,
                     execution_count: self.one_up_execution_count(),
                     user_expressions: Default::default(),
                     payload: Default::default(),
@@ -553,16 +552,16 @@ Please generate a few responses to complete their text for them.
                         .await?;
                 }
             }
-            runtimelib::JupyterMessageContent::HistoryRequest(_) => {
+            JupyterMessageContent::HistoryRequest(_) => {
                 let reply = HistoryReply {
                     history: Default::default(),
-                    status: runtimelib::ReplyStatus::Ok,
+                    status: ReplyStatus::Ok,
                     error: None,
                 }
                 .as_child_of(parent);
                 shell.send(reply).await?;
             }
-            runtimelib::JupyterMessageContent::InspectRequest(_) => {
+            JupyterMessageContent::InspectRequest(_) => {
                 // Would be really cool to have the model inspect at the word,
                 // kind of like an editor.
 
@@ -570,14 +569,14 @@ Please generate a few responses to complete their text for them.
                     found: false,
                     data: Media::default(),
                     metadata: Default::default(),
-                    status: runtimelib::ReplyStatus::Ok,
+                    status: ReplyStatus::Ok,
                     error: None,
                 }
                 .as_child_of(parent);
 
                 shell.send(reply).await?;
             }
-            runtimelib::JupyterMessageContent::IsCompleteRequest(_) => {
+            JupyterMessageContent::IsCompleteRequest(_) => {
                 // true, unconditionally
                 let reply = IsCompleteReply {
                     status: IsCompleteReplyStatus::Complete,
@@ -587,7 +586,7 @@ Please generate a few responses to complete their text for them.
 
                 shell.send(reply).await?;
             }
-            runtimelib::JupyterMessageContent::KernelInfoRequest(_) => {
+            JupyterMessageContent::KernelInfoRequest(_) => {
                 let reply = Self::kernel_info().as_child_of(parent);
 
                 shell.send(reply).await?;
