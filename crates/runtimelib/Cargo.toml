@@ -21,7 +21,6 @@ smol = { version = "1.2", optional = true }
 futures = { workspace = true }
 jupyter-serde = { version = "0.4.0", path = "../jupyter-serde" }
 jupyter-protocol = { version = "0.1.0", path = "../jupyter-protocol" }
-rand = "0.8.5"
 ring = "0.17.7"
 serde = { workspace = true }
 serde_json = { workspace = true }
