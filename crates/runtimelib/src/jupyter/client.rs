@@ -4,32 +4,26 @@
 //! existing jupyter runtimes, and a client with ZeroMQ sockets to
 //! communicate with the kernels.
 
-use crate::jupyter::dirs;
 use crate::messaging::{
     ClientControlConnection, ClientHeartbeatConnection, ClientIoPubConnection,
-    ClientShellConnection, ClientStdinConnection, Connection, JupyterMessage,
-    KernelControlConnection, KernelHeartbeatConnection, KernelIoPubConnection,
-    KernelShellConnection, KernelStdinConnection,
+    ClientShellConnection, ClientStdinConnection, Connection, KernelControlConnection,
+    KernelHeartbeatConnection, KernelIoPubConnection, KernelShellConnection, KernelStdinConnection,
 };
 
 #[cfg(feature = "tokio-runtime")]
-use tokio::{fs, net::TcpListener};
+use tokio::net::TcpListener;
 
 #[cfg(feature = "async-dispatcher-runtime")]
-use async_std::{fs, net::TcpListener};
+use async_std::net::TcpListener;
 
 use serde::{Deserialize, Serialize};
-use serde_json;
 
 use rand::{distributions::Alphanumeric, Rng};
-use uuid::Uuid;
 use zeromq;
 use zeromq::Socket;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::net::{IpAddr, SocketAddr};
-
-use std::path::PathBuf;
 
 /// Connection information for a Jupyter kernel, as represented in a
 /// JSON connection file.
@@ -49,77 +43,42 @@ pub struct ConnectionInfo {
     pub kernel_name: Option<String>,
 }
 
+/// Generate a random key in the style of Jupyter: "AAAAAAAA-AAAAAAAAAAAAAAAAAAAAAAAA"
+/// (A comment in the Python source indicates the author intended a dash
+/// every 8 characters, but only actually does it for the first chunk)
+pub fn jupyter_style_key() -> String {
+    let a: String = rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(8)
+        .map(char::from)
+        .collect();
+    let b: String = rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(24)
+        .map(char::from)
+        .collect();
+    format!("{}-{}", a, b,)
+}
+
+/// Private function for finding a set of open ports. This function creates a listener with the port set to 0.
+/// The listener is closed at the end of the function when the listener goes out of scope.
+///
+/// This of course opens a race condition in between closing the port and usage by a kernel,
+/// but it is inherent to the design of the Jupyter protocol.
+pub async fn peek_ports(ip: IpAddr, num: usize) -> Result<Vec<u16>> {
+    let mut addr_zeroport: SocketAddr = SocketAddr::new(ip, 0);
+    addr_zeroport.set_port(0);
+
+    let mut ports: Vec<u16> = Vec::new();
+    for _ in 0..num {
+        let listener = TcpListener::bind(addr_zeroport).await?;
+        let bound_port = listener.local_addr()?.port();
+        ports.push(bound_port);
+    }
+    Ok(ports)
+}
+
 impl ConnectionInfo {
-    pub async fn from_peeking_ports(ip: &str, kernel_name: &str) -> Result<Self> {
-        let ip = ip.to_string();
-        let addr: IpAddr = ip.parse()?;
-        let transport: String = "tcp".into(); // TODO: make this configurable?
-        let ports = Self::peek_ports(addr, 5).await?;
-        Ok(Self {
-            ip,
-            transport,
-            shell_port: ports[0],
-            iopub_port: ports[1],
-            stdin_port: ports[2],
-            control_port: ports[3],
-            hb_port: ports[4],
-            key: Self::jupyter_style_key(),
-            signature_scheme: String::from("hmac-sha256"),
-            kernel_name: Some(String::from(kernel_name)),
-        })
-    }
-
-    /// Generate a random key in the style of Jupyter: "AAAAAAAA-AAAAAAAAAAAAAAAAAAAAAAAA"
-    /// (A comment in the Python source indicates the author intended a dash
-    /// every 8 characters, but only actually does it for the first chunk)
-    fn jupyter_style_key() -> String {
-        let a: String = rand::thread_rng()
-            .sample_iter(&Alphanumeric)
-            .take(8)
-            .map(char::from)
-            .collect();
-        let b: String = rand::thread_rng()
-            .sample_iter(&Alphanumeric)
-            .take(24)
-            .map(char::from)
-            .collect();
-        format!("{}-{}", a, b,)
-    }
-
-    /// Private function for finding a set of open ports. This function creates a listener with the port set to 0.
-    /// The listener is closed at the end of the function when the listener goes out of scope.
-    ///
-    /// This of course opens a race condition in between closing the port and usage by a kernel,
-    /// but it is inherent to the design of the Jupyter protocol.
-    async fn peek_ports(ip: IpAddr, num: usize) -> Result<Vec<u16>> {
-        let mut addr_zeroport: SocketAddr = SocketAddr::new(ip, 0);
-        addr_zeroport.set_port(0);
-
-        let mut ports: Vec<u16> = Vec::new();
-        for _ in 0..num {
-            let listener = TcpListener::bind(addr_zeroport).await?;
-            let bound_port = listener.local_addr()?.port();
-            ports.push(bound_port);
-        }
-        Ok(ports)
-    }
-
-    /// Write the connection info to a file on disk inside dirs::runtime_dir()
-    pub async fn write(&self, connection_file_path: &PathBuf) -> Result<PathBuf> {
-        let content = serde_json::to_string_pretty(&self)?;
-        fs::write(&connection_file_path, content).await?;
-        Ok(PathBuf::from(connection_file_path))
-    }
-
-    /// Read a connection file from disk and parse it into a ConnectionInfo object
-    pub async fn from_path(connection_file_path: &std::path::PathBuf) -> Result<ConnectionInfo> {
-        let content = fs::read_to_string(&connection_file_path)
-            .await
-            .unwrap_or_default();
-
-        serde_json::from_str::<ConnectionInfo>(&content).context("Failed to parse connection file")
-    }
-
     /// format the iopub url for a ZeroMQ connection
     pub fn iopub_url(&self) -> String {
         format!("{}://{}:{}", self.transport, self.ip, self.iopub_port)
