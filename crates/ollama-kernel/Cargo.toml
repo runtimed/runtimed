@@ -7,7 +7,7 @@ repository = "https://github.com/runtimed/runtimed"
 license = "BSD-3-Clause"
 
 [dependencies]
-runtimelib = { path = "../runtimelib", version = "0.20.0", features = [
+runtimelib = { path = "../runtimelib", version = "0.21.0", features = [
     "tokio-runtime",
 ] }
 jupyter-protocol = { path = "../jupyter-protocol", version = "0.2.0" }

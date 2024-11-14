@@ -1,6 +1,6 @@
 [package]
 name = "runtimelib"
-version = "0.20.0"
+version = "0.21.0"
 edition = "2021"
 description = "Jupyter runtime library"
 repository = "https://github.com/runtimed/runtimed"
