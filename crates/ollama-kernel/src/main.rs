@@ -1,6 +1,4 @@
 use std::collections::HashMap;
-#[allow(unused)]
-use std::{collections::HashSet, time::Duration};
 
 use anyhow::{Context as _, Result};
 
@@ -9,15 +7,16 @@ mod structured_calling;
 
 use structured_calling::Structured;
 
-#[allow(unused)]
-use futures::{channel::mpsc, SinkExt as _, StreamExt};
+use futures::StreamExt;
 use jupyter_protocol::{
     ClearOutput, CodeMirrorMode, CommInfoReply, CompleteReply, CompleteRequest, ConnectionInfo,
     DisplayData, ErrorOutput, ExecuteReply, ExecutionCount, HelpLink, HistoryReply, InspectReply,
     IsCompleteReply, IsCompleteReplyStatus, JupyterMessage, JupyterMessageContent, KernelInfoReply,
-    KernelIoPubConnection, KernelShellConnection, LanguageInfo, Media, MediaType, ReplyStatus,
-    Status, StreamContent,
+    LanguageInfo, Media, MediaType, ReplyStatus, Status, StreamContent,
 };
+
+use runtimelib::{KernelIoPubConnection, KernelShellConnection};
+
 use ollama_client::{
     ChatMessage, Format, GenerateResponse, LocalModelListing, OllamaClient, Role, OLLAMA_ENDPOINT,
 };

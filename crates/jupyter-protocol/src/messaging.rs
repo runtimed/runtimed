@@ -2,7 +2,7 @@ use crate::time;
 
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
-use jupyter_serde::{
+pub use jupyter_serde::{
     media::{Media, MediaType},
     ExecutionCount,
 };
