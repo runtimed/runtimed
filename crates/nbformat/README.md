@@ -50,5 +50,5 @@ At present, this crate supports v4.5 notebooks via `Notebook::V4` and v4.1-v4.4 
 * [x] Serialize and Deserialize v4.1-v4.5 notebooks into rust structures
 * [x] Test operations on a suite of notebooks from Python nbformat
 * [ ] Add support for upconverting v3 notebooks to v4
-* [ ] Add support for upconverting v4.1-v4.4 notebooks to v4.5
-* [ ] Break out types to be shared between runtimelib's Media setup and the notebook crate
+* [x] Add support for upconverting v4.1-v4.4 notebooks to v4.5
+* [x] Break out types to be shared between runtimelib's Media setup and the notebook crate
