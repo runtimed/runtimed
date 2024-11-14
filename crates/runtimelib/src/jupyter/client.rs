@@ -4,6 +4,7 @@
 //! existing jupyter runtimes, and a client with ZeroMQ sockets to
 //! communicate with the kernels.
 
+#[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
 use crate::messaging::{
     ClientControlConnection, ClientHeartbeatConnection, ClientIoPubConnection,
     ClientShellConnection, ClientStdinConnection, Connection, KernelControlConnection,
