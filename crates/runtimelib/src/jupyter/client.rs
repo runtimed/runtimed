@@ -17,7 +17,7 @@ use tokio::net::TcpListener;
 #[cfg(feature = "async-dispatcher-runtime")]
 use async_std::net::TcpListener;
 
-#[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
+#[cfg(any(feature = "zeromq-support"))]
 use zeromq::Socket as _;
 
 pub use jupyter_protocol::ConnectionInfo;

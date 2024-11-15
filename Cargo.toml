@@ -10,13 +10,10 @@ members = [
     "crates/ollama-kernel",
 ]
 
-default-members = [
-    "crates/nbformat",
-    "crates/jupyter-serde",
-    "crates/jupyter-protocol",
-]
-
 resolver = "2"
+
+[workspace.package]
+default-features = false
 
 [workspace.dependencies]
 anyhow = "1"
