@@ -31,3 +31,9 @@ chrono = { version = "0.4", default-features = false, features = [
 futures = "0.3"
 bytes = "1"
 base64 = "0.22"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"
