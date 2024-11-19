@@ -10,6 +10,7 @@ use jupyter_protocol::{JupyterConnection, JupyterMessage};
 use std::pin::Pin;
 use std::task::{Context as TaskContext, Poll};
 
+#[derive(Debug)]
 pub struct JupyterWebSocket {
     inner: WebSocketStream<ConnectStream>,
 }
@@ -78,3 +79,6 @@ pub async fn connect(url: &str) -> Result<JupyterWebSocket> {
 }
 
 impl JupyterConnection for JupyterWebSocket {}
+
+pub type JupyterWebSocketReader = futures::stream::SplitStream<JupyterWebSocket>;
+pub type JupyterWebSocketWriter = futures::stream::SplitSink<JupyterWebSocket, JupyterMessage>;
