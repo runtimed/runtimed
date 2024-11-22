@@ -14,6 +14,7 @@ default-members = [
     "crates/nbformat",
     "crates/jupyter-serde",
     "crates/jupyter-protocol",
+    "crates/jupyter-websocket-client",
 ]
 
 resolver = "2"

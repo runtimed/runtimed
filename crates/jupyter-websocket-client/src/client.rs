@@ -10,7 +10,6 @@ pub struct RemoteServer {
 }
 
 // Only `id` is used right now, but other fields will be useful when pulling up a listing later
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Kernel {
     pub id: String,
@@ -20,7 +19,6 @@ pub struct Kernel {
     pub connections: u64,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Session {
     pub id: String,
@@ -31,46 +29,32 @@ pub struct Session {
     pub kernel: Kernel,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NewSession {
     pub path: String,
     pub name: Option<String>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct KernelSpec {
     pub name: String,
-    pub spec: KernelSpecFile,
+    pub spec: jupyter_serde::JupyterKernelspec,
     pub resources: std::collections::HashMap<String, String>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct KernelLaunchRequest {
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Serialize, Deserialize)]
-pub struct KernelSpecFile {
-    pub argv: Vec<String>,
-    pub display_name: String,
-    pub language: String,
-    pub codemirror_mode: Option<String>,
-    pub env: Option<std::collections::HashMap<String, String>>,
-    pub help_links: Option<Vec<HelpLink>>,
-}
-
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HelpLink {
     pub text: String,
     pub url: String,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct KernelSpecsResponse {
     pub default: String,
@@ -166,96 +150,3 @@ impl RemoteServer {
         Ok(jupyter_websocket)
     }
 }
-
-// pub async fn start_kernel(&self, name: &str) -> Result<String> {
-//     let kernels_url = self.api_url("kernels");
-//     let response = self
-//         .client
-//         .post(&kernels_url)
-//         .header("Authorization", format!("Token {}", self.token))
-//         .json(&KernelLaunch {
-//             name: name.to_string(),
-//         })
-//         .send()
-//         .await
-//         .context("Failed to send kernel start request")?;
-
-//     let kernel = response
-//         .json::<Kernel>()
-//         .await
-//         .context("Failed to parse kernel info")?;
-
-//     eprintln!("Kernel info: {:?}", kernel);
-//     Ok(kernel.id)
-// }
-// pub async fn connect_to_kernel(&self, kernel_id: &str) -> Result<JupyterWebSocket> {
-//     let ws_url = format!(
-//         "{}?token={}",
-//         self.api_url(&format!("kernels/{}/channels", kernel_id))
-//             .replace("http", "ws"),
-//         self.token
-//     );
-
-//     let jupyter_websocket = crate::websocket::connect(&ws_url).await?;
-//     Ok(jupyter_websocket)
-// }
-// pub async fn shutdown(&self, kernel_id: &str) -> Result<()> {
-//     let kernels_url = self.api_url(&format!("kernels/{}", kernel_id));
-//     let response = self
-//         .client
-//         .delete(&kernels_url)
-//         .header("Authorization", format!("Token {}", self.token))
-//         .send()
-//         .await
-//         .context("Failed to send shutdown request")?;
-//     if response.status().is_success() {
-//         Ok(())
-//     } else {
-//         anyhow::bail!("Failed to shut down kernel: {:?}", response.status())
-//     }
-// }
-// pub async fn list_kernels(&self) -> Result<Vec<Kernel>> {
-//     let url = self.api_url("kernels");
-//     let response = self
-//         .client
-//         .get(&url)
-//         .header("Authorization", format!("Token {}", self.token))
-//         .send()
-//         .await
-//         .context("Failed to send list kernels request")?;
-
-//     response
-//         .json()
-//         .await
-//         .context("Failed to parse kernels list")
-// }
-// pub async fn list_sessions(&self) -> Result<Vec<Session>> {
-//     let url = self.api_url("sessions");
-//     let response = self
-//         .client
-//         .get(&url)
-//         .header("Authorization", format!("Token {}", self.token))
-//         .send()
-//         .await
-//         .context("Failed to send list sessions request")?;
-
-//     response
-//         .json()
-//         .await
-//         .context("Failed to parse sessions list")
-// }
-// pub async fn list_kernel_specs(&self) -> Result<KernelSpecsResponse> {
-//     let url = self.api_url("kernelspecs");
-//     let response = self
-//         .client
-//         .get(&url)
-//         .header("Authorization", format!("Token {}", self.token))
-//         .send()
-//         .await
-//         .context("Failed to send list kernel specs request")?;
-
-//     response
-//         .json()
-//         .await
-//         .context("Failed to parse kernel specs")
-// }

@@ -2,8 +2,6 @@ pub mod client;
 pub mod dirs;
 pub mod kernelspec;
 
-pub use kernelspec::KernelspecDir;
-
 pub use client::*;
 pub use kernelspec::*;
 
