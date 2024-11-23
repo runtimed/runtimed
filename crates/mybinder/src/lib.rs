@@ -46,14 +46,14 @@ pub enum Phase {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
-pub struct BinderResponse {
+pub struct BinderBuildResponse {
     #[serde(flatten)]
     pub phase: Phase,
 }
 
-pub fn parse_binder_response(line: &str) -> Result<BinderResponse> {
+pub fn parse_binder_build_response(line: &str) -> Result<BinderBuildResponse> {
     if let Some(json_str) = line.strip_prefix("data: ") {
-        let response: BinderResponse = serde_json::from_str(json_str)?;
+        let response: BinderBuildResponse = serde_json::from_str(json_str)?;
         Ok(response)
     } else {
         Err(anyhow::anyhow!("Invalid response format"))
@@ -70,18 +70,25 @@ mod tests {
         let content = fs::read_to_string("fixtures/success-launch").unwrap();
         let lines: Vec<&str> = content.lines().collect();
 
-        let first_response = parse_binder_response(lines[0]).unwrap();
-        if let Phase::Built { message, image_name } = first_response.phase {
-            assert_eq!(message, Some("Found built image, launching...\n".to_string()));
+        let first_response = parse_binder_build_response(lines[0]).unwrap();
+        if let Phase::Built {
+            message,
+            image_name,
+        } = first_response.phase
+        {
+            assert_eq!(
+                message,
+                Some("Found built image, launching...\n".to_string())
+            );
             assert!(image_name.is_some() && !image_name.unwrap().is_empty());
         } else {
             panic!("Expected Built phase");
         }
 
-        let last_response = parse_binder_response(lines.last().unwrap()).unwrap();
-        if let Phase::Ready { url, image, .. } = last_response.phase {
-            assert!(!url.is_empty());
-            assert!(!image.is_empty());
+        let last_response = parse_binder_build_response(lines.last().unwrap()).unwrap();
+        if let Phase::Ready { url, token, .. } = last_response.phase {
+            assert_eq!(token, "T3VMkxCnQamsWGL9-j1fMQ");
+            assert_eq!(url, "https://notebooks.gesis.org/binder/jupyter/user/binder-examples-nda_environment-iy8slc0g/");
         } else {
             panic!("Expected Ready phase");
         }
@@ -92,10 +99,10 @@ mod tests {
         let content = fs::read_to_string("fixtures/failed-launch").unwrap();
         let lines: Vec<&str> = content.lines().collect();
 
-        let first_response = parse_binder_response(lines[0]).unwrap();
+        let first_response = parse_binder_build_response(lines[0]).unwrap();
         assert!(matches!(first_response.phase, Phase::Waiting { .. }));
 
-        let failed_response = parse_binder_response(
+        let failed_response = parse_binder_build_response(
             lines
                 .iter()
                 .rev()
@@ -106,4 +113,3 @@ mod tests {
         assert!(matches!(failed_response.phase, Phase::Failed { .. }));
     }
 }
-
