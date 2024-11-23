@@ -1,0 +1,567 @@
+data: {"phase": "waiting", "message": "Waiting for build to start...\n"}
+
+data: {"message": "Picked Git content provider.\n"}
+
+
+data: {"message": "Cloning into '/tmp/repo2dockeri9750y2l'...\n", "phase": "fetching"}
+
+
+data: {"message": "HEAD is now at f05bf26 initial upload\n", "phase": "fetching"}
+
+
+data: {"message": "Python version unspecified, using current default Python version 3.10. This will change in the future."}
+
+
+data: {"message": "Building conda environment for python=3.10\n"}
+
+
+data: {"message": "Using PythonBuildPack builder\n", "phase": "building"}
+
+
+data: {"message": "Step 1/50 : FROM docker.io/library/buildpack-deps:jammy", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> 760f30692921\n", "phase": "building"}
+
+
+data: {"message": "Step 2/50 : ENV DEBIAN_FRONTEND=noninteractive", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> a109c206a79f\n", "phase": "building"}
+
+
+data: {"message": "Step 3/50 : RUN apt-get -qq update &&     apt-get -qq install --yes --no-install-recommends locales > /dev/null &&     apt-get -qq purge &&     apt-get -qq clean &&     rm -rf /var/lib/apt/lists/*", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 5cde8a57f01c\n", "phase": "building"}
+
+
+data: {"message": "Step 4/50 : RUN echo \"en_US.UTF-8 UTF-8\" > /etc/locale.gen &&     locale-gen", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> a3e219b48398\n", "phase": "building"}
+
+
+data: {"message": "Step 5/50 : ENV LC_ALL=en_US.UTF-8     LANG=en_US.UTF-8     LANGUAGE=en_US.UTF-8", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 0a54dc7e97fe\n", "phase": "building"}
+
+
+data: {"message": "Step 6/50 : ENV SHELL=/bin/bash", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 882bee438098\n", "phase": "building"}
+
+
+data: {"message": "Step 7/50 : ARG NB_USER", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 6f3b219785ec\n", "phase": "building"}
+
+
+data: {"message": "Step 8/50 : ARG NB_UID", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> ccdbbaddb163\n", "phase": "building"}
+
+
+data: {"message": "Step 9/50 : ENV USER=${NB_USER}     HOME=/home/${NB_USER}", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 28fad766b2be\n", "phase": "building"}
+
+
+data: {"message": "Step 10/50 : RUN groupadd         --gid ${NB_UID}         ${NB_USER} &&     useradd         --comment \"Default user\"         --create-home         --gid ${NB_UID}         --no-log-init         --shell /bin/bash         --uid ${NB_UID}         ${NB_USER}", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 85005a59e0c3\n", "phase": "building"}
+
+
+data: {"message": "Step 11/50 : RUN apt-get -qq update &&     apt-get -qq install --yes --no-install-recommends        gettext-base        less        unzip        > /dev/null &&     apt-get -qq purge &&     apt-get -qq clean &&     rm -rf /var/lib/apt/lists/*", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> c1197460a97f\n", "phase": "building"}
+
+
+data: {"message": "Step 12/50 : EXPOSE 8888", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 89275f43accc\n", "phase": "building"}
+
+
+data: {"message": "Step 13/50 : ENV APP_BASE=/srv", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 257202b41024\n", "phase": "building"}
+
+
+data: {"message": "Step 14/50 : ENV CONDA_DIR=${APP_BASE}/conda", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 660b1528e7e9\n", "phase": "building"}
+
+
+data: {"message": "Step 15/50 : ENV NB_PYTHON_PREFIX=${CONDA_DIR}/envs/notebook", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 9ec516039b18\n", "phase": "building"}
+
+
+data: {"message": "Step 16/50 : ENV NPM_DIR=${APP_BASE}/npm", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 4cd4827fbc07\n", "phase": "building"}
+
+
+data: {"message": "Step 17/50 : ENV NPM_CONFIG_GLOBALCONFIG=${NPM_DIR}/npmrc", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> f28456a34381\n", "phase": "building"}
+
+
+data: {"message": "Step 18/50 : ENV NB_ENVIRONMENT_FILE=/tmp/env/environment.lock", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> abff439f15f1\n", "phase": "building"}
+
+
+data: {"message": "Step 19/50 : ENV MAMBA_ROOT_PREFIX=${CONDA_DIR}", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 31be93fdd3ef\n", "phase": "building"}
+
+
+data: {"message": "Step 20/50 : ENV MAMBA_EXE=${CONDA_DIR}/bin/mamba", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 1dabd118ade8\n", "phase": "building"}
+
+
+data: {"message": "Step 21/50 : ENV CONDA_PLATFORM=linux-64", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 403825696e8a\n", "phase": "building"}
+
+
+data: {"message": "Step 22/50 : ENV KERNEL_PYTHON_PREFIX=${NB_PYTHON_PREFIX}", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 932aabe7ee66\n", "phase": "building"}
+
+
+data: {"message": "Step 23/50 : ENV PATH=${NB_PYTHON_PREFIX}/bin:${CONDA_DIR}/bin:${NPM_DIR}/bin:${PATH}", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 1ea0eda1a912\n", "phase": "building"}
+
+
+data: {"message": "Step 24/50 : COPY --chown=1000:1000 build_script_files/-2fopt-2fvenv-2flib-2fpython3-2e11-2fsite-2dpackages-2frepo2docker-2fbuildpacks-2fconda-2factivate-2dconda-2esh-e70a7b /etc/profile.d/activate-conda.sh", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 555631c1c41a\n", "phase": "building"}
+
+
+data: {"message": "Step 25/50 : COPY --chown=1000:1000 build_script_files/-2fopt-2fvenv-2flib-2fpython3-2e11-2fsite-2dpackages-2frepo2docker-2fbuildpacks-2fconda-2fenvironment-2epy-2d3-2e10-2dlinux-2d64-2elock-8fa955 /tmp/env/environment.lock", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 2e2daf655105\n", "phase": "building"}
+
+
+data: {"message": "Step 26/50 : COPY --chown=1000:1000 build_script_files/-2fopt-2fvenv-2flib-2fpython3-2e11-2fsite-2dpackages-2frepo2docker-2fbuildpacks-2fconda-2finstall-2dbase-2denv-2ebash-6a6072 /tmp/install-base-env.bash", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> d5e61e0e5659\n", "phase": "building"}
+
+
+data: {"message": "Step 27/50 : RUN TIMEFORMAT='time: %3R' bash -c 'time /tmp/install-base-env.bash' && rm -rf /tmp/install-base-env.bash /tmp/env", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 6e3853a4544b\n", "phase": "building"}
+
+
+data: {"message": "Step 28/50 : RUN mkdir -p ${NPM_DIR} && chown -R ${NB_USER}:${NB_USER} ${NPM_DIR}", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 7932b831160f\n", "phase": "building"}
+
+
+data: {"message": "Step 29/50 : USER root", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 4e47e2b98f2f\n", "phase": "building"}
+
+
+data: {"message": "Step 30/50 : ARG REPO_DIR=${HOME}", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 68585604916b\n", "phase": "building"}
+
+
+data: {"message": "Step 31/50 : ENV REPO_DIR=${REPO_DIR}", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 765a02dc9bcb\n", "phase": "building"}
+
+
+data: {"message": "Step 32/50 : RUN if [ ! -d \"${REPO_DIR}\" ]; then         /usr/bin/install -o ${NB_USER} -g ${NB_USER} -d \"${REPO_DIR}\";     fi", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 901e27b9e4ef\n", "phase": "building"}
+
+
+data: {"message": "Step 33/50 : WORKDIR ${REPO_DIR}", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> dd9dacaf963c\n", "phase": "building"}
+
+
+data: {"message": "Step 34/50 : RUN chown ${NB_USER}:${NB_USER} ${REPO_DIR}", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 8d13fd68229a\n", "phase": "building"}
+
+
+data: {"message": "Step 35/50 : ENV PATH=${HOME}/.local/bin:${REPO_DIR}/.local/bin:${PATH}", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 89bde363e21a\n", "phase": "building"}
+
+
+data: {"message": "Step 36/50 : ENV CONDA_DEFAULT_ENV=${KERNEL_PYTHON_PREFIX}", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 028a6b1760e9\n", "phase": "building"}
+
+
+data: {"message": "Step 37/50 : COPY --chown=1000:1000 src/requirements.txt ${REPO_DIR}/requirements.txt", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 027e0df4bbc7\n", "phase": "building"}
+
+
+data: {"message": "Step 38/50 : USER ${NB_USER}", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Using cache\n", "phase": "building"}
+
+
+data: {"message": " ---> 288da3d5a85e\n", "phase": "building"}
+
+
+data: {"message": "Step 39/50 : RUN ${KERNEL_PYTHON_PREFIX}/bin/pip install --no-cache-dir -r \"requirements.txt\"", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": " ---> Running in 8d98ffb5f0ef\n", "phase": "building"}
+
+
+data: {"message": "Collecting matplotlib==2.2.4 (from -r requirements.txt (line 2))\n", "phase": "building"}
+
+
+data: {"message": "  Downloading matplotlib-2.2.4.tar.gz (37.0 MB)\n", "phase": "building"}
+
+
+data: {"message": "     \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 37.0/37.0 MB 34.3 MB/s eta 0:00:00", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": "  Preparing metadata (setup.py): started\n", "phase": "building"}
+
+
+data: {"message": "  Preparing metadata (setup.py): finished with status 'done'\n", "phase": "building"}
+
+
+data: {"message": "Collecting seaborn==0.9.0 (from -r requirements.txt (line 3))\n", "phase": "building"}
+
+
+data: {"message": "  Downloading seaborn-0.9.0-py3-none-any.whl.metadata (2.3 kB)\n", "phase": "building"}
+
+
+data: {"message": "Collecting numpy==1.18.5 (from -r requirements.txt (line 4))\n", "phase": "building"}
+
+
+data: {"message": "  Downloading numpy-1.18.5.zip (5.4 MB)\n", "phase": "building"}
+
+
+data: {"message": "     \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 5.4/5.4 MB 299.8 MB/s eta 0:00:00", "phase": "building"}
+
+
+data: {"message": "\n", "phase": "building"}
+
+
+data: {"message": "  Installing build dependencies: started\n", "phase": "building"}
+
+
+data: {"message": "  Installing build dependencies: finished with status 'done'\n", "phase": "building"}
+
+
+data: {"message": "  Getting requirements to build wheel: started\n", "phase": "building"}
+
+
+data: {"message": "  Getting requirements to build wheel: finished with status 'done'\n", "phase": "building"}
+
+
+data: {"message": "  Preparing metadata (pyproject.toml): started\n", "phase": "building"}
+
+
+data: {"message": "  Preparing metadata (pyproject.toml): finished with status 'error'\n", "phase": "building"}
+
+
+data: {"message": "\u001b[91m  error: subprocess-exited-with-error\n  \n  \u00d7 Preparing metadata (pyproject.toml) did not run successfully.\n  \u2502 exit code: 1\n  \u2570\u2500> [24 lines of output]\n      Running from numpy source directory.\n      <string>:461: UserWarning: Unrecognized setuptools command, proceeding with generating Cython sources and expanding templates\n      Traceback (most recent call last):\n        File \"/srv/conda/envs/notebook/lib/python3.10/site-packages/pip/_vendor/pyproject_hooks/_in_process/_in_process.py\", line 353, in <module>\n          main()\n        File \"/srv/conda/envs/notebook/lib/python3.10/site-packages/pip/_vendor/pyproject_hooks/_in_process/_in_process.py\", line 335, in main\n          json_out['return_val'] = hook(**hook_input['kwargs'])\n        File \"/srv/conda/envs/notebook/lib/python3.10/site-packages/pip/_vendor/pyproject_hooks/_in_process/_in_process.py\", line 149, in prepare_metadata_for_build_wheel\n          return hook(metadata_directory, config_settings)\n        File \"/tmp/pip-build-env-8fcs7j2i/overlay/lib/python3.10/site-packages/setuptools/build_meta.py\", line 377, in prepare_metadata_for_build_wheel\n          self.run_setup()\n        File \"/tmp/pip-build-env-8fcs7j2i/overlay/lib/python3.10/site-packages/setuptools/build_meta.py\", line 522, in run_setup\n          super().run_setup(setup_script=setup_script)\n        File \"/tmp/pip-build-env-8fcs7j2i/overlay/lib/python3.10/site-packages/setuptools/build_meta.py\", line 320, in run_setup\n          exec(code, locals())\n        File \"<string>\", line 488, in <module>\n        File \"<string>\", line 465, in setup_package\n        File \"/tmp/pip-install-8rrh_p1g/numpy_3a0d0280b40347c08112fddffa695df5/numpy/distutils/core.py\", line 26, in <module>\n          from numpy.distutils.command import config, config_compiler, \\\n        File \"/tmp/pip-install-8rrh_p1g/numpy_3a0d0280b40347c08112fddffa695df5/numpy/distutils/command/config.py\", line 20, in <module>\n          from numpy.distutils.mingw32ccompiler import generate_manifest\n        File \"/tmp/pip-install-8rrh_p1g/numpy_3a0d0280b40347c08112fddffa695df5/numpy/distutils/mingw32ccompiler.py\", line 34, in <module>\n          from distutils.msvccompiler import get_build_version as get_build_msvc_version\n      ModuleNotFoundError: No module named 'distutils.msvccompiler'\n      [end of output]\n  \n  note: This error originates from a subprocess, and is likely not a problem with pip.\n\u001b[0m", "phase": "building"}
+
+
+data: {"message": "\u001b[91merror: metadata-generation-failed\n\n\u00d7 Encountered error while generating package metadata.\n\u2570\u2500> See above for output.\n\nnote: This is an issue with the package mentioned above, not pip.\nhint: See above for details.\n\u001b[0m", "phase": "building"}
+
+
+data: {"message": " ---> Removed intermediate container 8d98ffb5f0ef\n", "phase": "building"}
+
+
+data: {"message": "The command '/bin/sh -c ${KERNEL_PYTHON_PREFIX}/bin/pip install --no-cache-dir -r \"requirements.txt\"' returned a non-zero code: 1", "phase": "failed"}
+
+
+data: {"phase": "unknown", "message": "Exception ignored in: <function Application.__del__ at 0x7f9ed29acc20>\n"}
+
+data: {"phase": "unknown", "message": "Traceback (most recent call last):\n"}
+
+data: {"phase": "unknown", "message": "  File \"/opt/venv/lib/python3.11/site-packages/traitlets/config/application.py\", line 1065, in __del__\n"}
+
+data: {"phase": "unknown", "message": "  File \"/opt/venv/lib/python3.11/site-packages/traitlets/config/application.py\", line 1054, in close_handlers\n"}
+
+data: {"phase": "unknown", "message": "  File \"/opt/venv/lib/python3.11/site-packages/traitlets/traitlets.py\", line 687, in __get__\n"}
+
+data: {"phase": "unknown", "message": "  File \"/opt/venv/lib/python3.11/site-packages/traitlets/traitlets.py\", line 666, in get\n"}
+
+data: {"phase": "unknown", "message": "TypeError: 'NoneType' object is not callable\n"}
+
+data: {"phase": "failed"}
+
+data: {"phase": "failed"}
+
+data: {"phase": "failed"}
