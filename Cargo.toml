@@ -8,6 +8,7 @@ members = [
     "crates/jupyter-websocket-client",
     "crates/jupyter-protocol",
     "crates/ollama-kernel",
+    "crates/mybinder",
 ]
 
 default-members = [
@@ -15,6 +16,7 @@ default-members = [
     "crates/jupyter-serde",
     "crates/jupyter-protocol",
     "crates/jupyter-websocket-client",
+    "crates/mybinder",
 ]
 
 resolver = "2"

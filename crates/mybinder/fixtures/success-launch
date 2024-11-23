@@ -1,0 +1,23 @@
+data: {"phase": "built", "imageName": "gesiscss/binder-r2d-g5b5b759-binder-2dexamples-2dconda-5fenvironment-fb6142:f00a783146e9c6a2ed9726f01fc09fbfbad2f89e", "message": "Found built image, launching...\n"}
+
+data: {"phase": "launching", "message": "Launching server...\n"}
+
+data: {"phase": "launching", "message": "Server requested\n"}
+
+data: {"phase": "launching", "message": "2024-11-23T16:44:56.819856Z [Normal] Successfully assigned gesis/jupyter-binder-examples-n--x---1103daee to spko-css-app03\n"}
+
+data: {"phase": "launching", "message": "2024-11-23T16:44:57Z [Normal] Container image \"quay.io/jupyterhub/k8s-network-tools:4.0.0\" already present on machine\n"}
+
+data: {"phase": "launching", "message": "2024-11-23T16:44:57Z [Normal] Created container block-cloud-metadata\n"}
+
+data: {"phase": "launching", "message": "2024-11-23T16:44:57Z [Normal] Started container block-cloud-metadata\n"}
+
+data: {"phase": "launching", "message": "2024-11-23T16:44:58Z [Normal] Container image \"gesiscss/binder-r2d-g5b5b759-binder-2dexamples-2dconda-5fenvironment-fb6142:f00a783146e9c6a2ed9726f01fc09fbfbad2f89e\" already present on machine\n"}
+
+data: {"phase": "launching", "message": "2024-11-23T16:44:58Z [Normal] Created container notebook\n"}
+
+data: {"phase": "launching", "message": "2024-11-23T16:44:59Z [Normal] Started container notebook\n"}
+
+data: {"phase": "launching", "message": "Server ready at /binder/jupyter/user/binder-examples-nda_environment-iy8slc0g/\n"}
+
+data: {"phase": "ready", "message": "server running at https://notebooks.gesis.org/binder/jupyter/user/binder-examples-nda_environment-iy8slc0g/\n", "image": "gesiscss/binder-r2d-g5b5b759-binder-2dexamples-2dconda-5fenvironment-fb6142:f00a783146e9c6a2ed9726f01fc09fbfbad2f89e", "repo_url": "https://github.com/binder-examples/conda_environment", "token": "T3VMkxCnQamsWGL9-j1fMQ", "binder_ref_url": "https://github.com/binder-examples/conda_environment/tree/f00a783146e9c6a2ed9726f01fc09fbfbad2f89e", "binder_launch_host": "https://mybinder.org/", "binder_request": "v2/gh/binder-examples/conda_environment/HEAD", "binder_persistent_request": "v2/gh/binder-examples/conda_environment/f00a783146e9c6a2ed9726f01fc09fbfbad2f89e", "url": "https://notebooks.gesis.org/binder/jupyter/user/binder-examples-nda_environment-iy8slc0g/"}
