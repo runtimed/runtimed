@@ -116,7 +116,7 @@ impl RemoteServer {
     ///     // request library
     ///     let kernel_id = "1057-1057-1057-1057";
     ///
-    ///     let kernel_socket = server.connect_to_kernel(kernel_id).await?;
+    ///     let (kernel_socket, response) = server.connect_to_kernel(kernel_id).await?;
     ///
     ///     let (mut w, mut r) = kernel_socket.split();
     ///
