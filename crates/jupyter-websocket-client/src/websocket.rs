@@ -1,9 +1,5 @@
 use anyhow::{Context, Result};
-use async_tungstenite::{
-    async_std::{connect_async, ConnectStream},
-    tungstenite::Message,
-    WebSocketStream,
-};
+use async_tungstenite::{async_std::ConnectStream, tungstenite::Message, WebSocketStream};
 use futures::{Sink, SinkExt as _, Stream, StreamExt};
 
 use jupyter_protocol::{JupyterConnection, JupyterMessage};
@@ -12,7 +8,7 @@ use std::task::{Context as TaskContext, Poll};
 
 #[derive(Debug)]
 pub struct JupyterWebSocket {
-    inner: WebSocketStream<ConnectStream>,
+    pub inner: WebSocketStream<ConnectStream>,
 }
 
 impl Stream for JupyterWebSocket {
@@ -69,13 +65,6 @@ impl Sink<JupyterMessage> for JupyterWebSocket {
     ) -> Poll<Result<(), Self::Error>> {
         self.inner.poll_close_unpin(cx).map_err(Into::into)
     }
-}
-
-pub async fn connect(url: &str) -> Result<JupyterWebSocket> {
-    let (ws_stream, _) = connect_async(url)
-        .await
-        .context("Failed to connect to WebSocket")?;
-    Ok(JupyterWebSocket { inner: ws_stream })
 }
 
 impl JupyterConnection for JupyterWebSocket {}

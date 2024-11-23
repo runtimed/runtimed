@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use async_tungstenite::{async_std::connect_async, tungstenite::http::Response};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -115,7 +116,7 @@ impl RemoteServer {
     ///     // request library
     ///     let kernel_id = "1057-1057-1057-1057";
     ///
-    ///     let kernel_socket = server.connect_to_kernel(kernel_id).await?;
+    ///     let (kernel_socket, response) = server.connect_to_kernel(kernel_id).await?;
     ///
     ///     let (mut w, mut r) = kernel_socket.split();
     ///
@@ -138,7 +139,10 @@ impl RemoteServer {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn connect_to_kernel(&self, kernel_id: &str) -> Result<JupyterWebSocket> {
+    pub async fn connect_to_kernel(
+        &self,
+        kernel_id: &str,
+    ) -> Result<(JupyterWebSocket, Response<Option<Vec<u8>>>)> {
         let ws_url = format!(
             "{}?token={}",
             api_url(&self.base_url, &format!("kernels/{}/channels", kernel_id))
@@ -146,7 +150,10 @@ impl RemoteServer {
             self.token
         );
 
-        let jupyter_websocket = crate::websocket::connect(&ws_url).await?;
-        Ok(jupyter_websocket)
+        let response = connect_async(ws_url).await;
+
+        let (ws_stream, response) = response?;
+
+        Ok((JupyterWebSocket { inner: ws_stream }, response))
     }
 }
