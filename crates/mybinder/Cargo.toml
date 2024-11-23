@@ -7,4 +7,3 @@ edition = "2021"
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
-reqwest = "0.12"

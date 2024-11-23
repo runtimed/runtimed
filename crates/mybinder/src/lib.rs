@@ -2,11 +2,53 @@ use anyhow::Result;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, PartialEq)]
+#[serde(tag = "phase", rename_all = "lowercase")]
+pub enum Phase {
+    Built {
+        message: Option<String>,
+        #[serde(rename = "imageName")]
+        image_name: Option<String>,
+    },
+    Launching {
+        message: Option<String>,
+    },
+    Ready {
+        message: Option<String>,
+        url: String,
+        token: String,
+        image: String,
+        #[serde(rename = "repo_url")]
+        repo_url: String,
+        #[serde(rename = "binder_ref_url")]
+        binder_ref_url: String,
+        #[serde(rename = "binder_launch_host")]
+        binder_launch_host: String,
+        #[serde(rename = "binder_request")]
+        binder_request: String,
+        #[serde(rename = "binder_persistent_request")]
+        binder_persistent_request: String,
+    },
+    Failed {
+        message: Option<String>,
+    },
+    Waiting {
+        message: Option<String>,
+    },
+    Fetching {
+        message: Option<String>,
+    },
+    Building {
+        message: Option<String>,
+    },
+    Unknown {
+        message: Option<String>,
+    },
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
 pub struct BinderResponse {
-    pub phase: String,
-    pub message: Option<String>,
-    pub image: Option<String>,
-    pub url: Option<String>,
+    #[serde(flatten)]
+    pub phase: Phase,
 }
 
 pub fn parse_binder_response(line: &str) -> Result<BinderResponse> {
@@ -29,16 +71,20 @@ mod tests {
         let lines: Vec<&str> = content.lines().collect();
 
         let first_response = parse_binder_response(lines[0]).unwrap();
-        assert_eq!(first_response.phase, "built");
-        assert_eq!(
-            first_response.message,
-            Some("Found built image, launching...\n".to_string())
-        );
+        if let Phase::Built { message, image_name } = first_response.phase {
+            assert_eq!(message, Some("Found built image, launching...\n".to_string()));
+            assert!(image_name.is_some() && !image_name.unwrap().is_empty());
+        } else {
+            panic!("Expected Built phase");
+        }
 
         let last_response = parse_binder_response(lines.last().unwrap()).unwrap();
-        assert_eq!(last_response.phase, "ready");
-        assert!(last_response.url.is_some());
-        assert!(last_response.image.is_some());
+        if let Phase::Ready { url, image, .. } = last_response.phase {
+            assert!(!url.is_empty());
+            assert!(!image.is_empty());
+        } else {
+            panic!("Expected Ready phase");
+        }
     }
 
     #[test]
@@ -47,7 +93,7 @@ mod tests {
         let lines: Vec<&str> = content.lines().collect();
 
         let first_response = parse_binder_response(lines[0]).unwrap();
-        assert_eq!(first_response.phase, "waiting");
+        assert!(matches!(first_response.phase, Phase::Waiting { .. }));
 
         let failed_response = parse_binder_response(
             lines
@@ -57,7 +103,7 @@ mod tests {
                 .unwrap(),
         )
         .unwrap();
-        assert_eq!(failed_response.phase, "failed");
+        assert!(matches!(failed_response.phase, Phase::Failed { .. }));
     }
 }
 
