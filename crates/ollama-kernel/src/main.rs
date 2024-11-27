@@ -432,7 +432,7 @@ Please generate a few responses to complete their text for them.
             cursor_start: cursor_pos,
             cursor_end: cursor_pos,
             metadata: Default::default(),
-            status: runtimelib::ReplyStatus::Ok,
+            status: jupyter_protocol::ReplyStatus::Ok,
             error: None,
         };
 
