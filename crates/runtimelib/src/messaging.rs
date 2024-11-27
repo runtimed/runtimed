@@ -15,6 +15,7 @@ pub mod content {
 
 use zeromq::SocketRecv as _;
 use zeromq::SocketSend as _;
+use zeromq::ZmqError;
 
 pub struct Connection<S> {
     pub socket: S,
@@ -52,10 +53,6 @@ impl<S: zeromq::Socket> Connection<S> {
             mac,
             session_id: session_id.to_string(),
         }
-    }
-
-    pub fn close(&mut self) {
-        self.socket.close();
     }
 }
 
