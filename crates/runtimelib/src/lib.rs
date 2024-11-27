@@ -6,8 +6,11 @@ pub use jupyter_serde::media;
 pub use jupyter_serde::media::*;
 pub use jupyter_serde::ExecutionCount;
 
-pub mod jupyter;
-pub use jupyter::*;
+pub mod kernelspec;
+pub use kernelspec::*;
+
+pub mod dirs;
+pub use dirs::*;
 
 #[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
 pub mod connection;
