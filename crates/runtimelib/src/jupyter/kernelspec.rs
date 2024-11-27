@@ -12,7 +12,7 @@ use tokio::{fs, io::AsyncReadExt, process::Command};
 #[cfg(feature = "async-dispatcher-runtime")]
 use smol::process::Command;
 
-/// A pointer to a kernelspec directory, with name and fully  specification
+/// A pointer to a kernelspec directory, with name and specification
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct KernelspecDir {
     pub kernel_name: String,
@@ -21,16 +21,6 @@ pub struct KernelspecDir {
 }
 
 impl KernelspecDir {
-    #[cfg(feature = "tokio-runtime")]
-    pub async fn new(kernel_name: &String) -> Result<KernelspecDir> {
-        let kernelspec_dirs = list_kernelspecs().await;
-        let spec = kernelspec_dirs
-            .iter()
-            .find(|k| k.kernel_name.eq(kernel_name))
-            .ok_or(anyhow!("Kernelspec not found: {}", kernel_name))?;
-        Ok(spec.clone())
-    }
-
     pub fn command(
         self,
         connection_path: &Path,
