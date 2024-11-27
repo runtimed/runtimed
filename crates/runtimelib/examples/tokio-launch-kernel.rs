@@ -13,7 +13,12 @@ async fn main() -> anyhow::Result<()> {
     };
     use uuid::Uuid;
 
-    let kernel_specification = runtimelib::KernelspecDir::new(&"python".to_string()).await?;
+    let kernel_name = "python";
+    let kernelspecs = runtimelib::list_kernelspecs().await;
+    let kernel_specification = kernelspecs
+        .iter()
+        .find(|k| k.kernel_name.eq(kernel_name))
+        .ok_or(anyhow::anyhow!("Python kernel not found"))?;
 
     let ip = std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1));
     let ports = runtimelib::peek_ports(ip, 5).await?;
@@ -29,7 +34,7 @@ async fn main() -> anyhow::Result<()> {
         iopub_port: ports[4],
         signature_scheme: "hmac-sha256".to_string(),
         key: uuid::Uuid::new_v4().to_string(),
-        kernel_name: Some(format!("zed-{}", kernel_specification.kernel_name)),
+        kernel_name: Some(kernel_name.to_string()),
     };
 
     let runtime_dir = runtimelib::dirs::runtime_dir();
@@ -45,11 +50,11 @@ async fn main() -> anyhow::Result<()> {
     let content = serde_json::to_string(&connection_info)?;
     tokio::fs::write(connection_path.clone(), content).await?;
 
-    let mut cmd = kernel_specification.command(&connection_path, None, None)?;
-
     let working_directory = "/tmp";
 
-    let mut process = cmd
+    let mut process = kernel_specification
+        .clone()
+        .command(&connection_path, None, None)?
         .current_dir(working_directory)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// See https://specs.frictionlessdata.io/tabular-data-resource/
+/// See <https://specs.frictionlessdata.io/tabular-data-resource/>
 #[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TabularDataResource {

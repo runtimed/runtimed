@@ -1,28 +1,54 @@
-use anyhow::anyhow;
-use anyhow::bail;
+//! Interfacing and connecting with Jupyter kernels
+//!
+//! This module provides structures for understanding the connection information,
+//! existing jupyter runtimes, and a client with ZeroMQ sockets to
+//! communicate with the kernels.
+use anyhow::{anyhow, bail, Result};
 use bytes::Bytes;
 use data_encoding::HEXLOWER;
+
+use std::net::{IpAddr, SocketAddr};
 
 use ring::hmac;
 use serde_json;
 use serde_json::Value;
 
-use jupyter_protocol::messaging::{Header, JupyterMessage, JupyterMessageContent};
+pub use jupyter_protocol::ConnectionInfo;
 
-type KernelIoPubSocket = zeromq::PubSocket;
-type KernelShellSocket = zeromq::RouterSocket;
-type KernelControlSocket = zeromq::RouterSocket;
-type KernelStdinSocket = zeromq::RouterSocket;
-type KernelHeartbeatSocket = zeromq::RepSocket;
+pub use jupyter_protocol::messaging::*;
+// For backwards compatibility, for now:
+pub mod content {
+    pub use jupyter_protocol::messaging::*;
+}
 
-type ClientIoPubSocket = zeromq::SubSocket;
-type ClientShellSocket = zeromq::DealerSocket;
-type ClientControlSocket = zeromq::DealerSocket;
-type ClientStdinSocket = zeromq::DealerSocket;
-type ClientHeartbeatSocket = zeromq::ReqSocket;
+#[cfg(feature = "tokio-runtime")]
+use tokio::net::TcpListener;
+
+#[cfg(feature = "async-dispatcher-runtime")]
+use async_std::net::TcpListener;
+
+use zeromq::Socket as _;
 
 use zeromq::SocketRecv as _;
 use zeromq::SocketSend as _;
+
+/// Find a set of open ports. This function creates a listener with the port set to 0.
+/// The listener is closed at the end of the function when the listener goes out of scope.
+///
+/// This of course opens a race condition in between closing the port and usage by a kernel,
+/// but it is inherent to the design of the Jupyter protocol.
+pub async fn peek_ports(ip: IpAddr, num: usize) -> Result<Vec<u16>> {
+    let mut addr_zeroport: SocketAddr = SocketAddr::new(ip, 0);
+    addr_zeroport.set_port(0);
+
+    let mut ports: Vec<u16> = Vec::new();
+    for _ in 0..num {
+        let listener = TcpListener::bind(addr_zeroport).await?;
+        let bound_port = listener.local_addr()?.port();
+        ports.push(bound_port);
+    }
+    Ok(ports)
+}
 
 pub struct Connection<S> {
     pub socket: S,
@@ -31,20 +57,20 @@ pub struct Connection<S> {
     pub session_id: String,
 }
 
-pub type KernelIoPubConnection = Connection<KernelIoPubSocket>;
-pub type KernelShellConnection = Connection<KernelShellSocket>;
-pub type KernelControlConnection = Connection<KernelControlSocket>;
-pub type KernelStdinConnection = Connection<KernelStdinSocket>;
+pub type KernelIoPubConnection = Connection<zeromq::PubSocket>;
+pub type KernelShellConnection = Connection<zeromq::RouterSocket>;
+pub type KernelControlConnection = Connection<zeromq::RouterSocket>;
+pub type KernelStdinConnection = Connection<zeromq::RouterSocket>;
 pub struct KernelHeartbeatConnection {
-    pub socket: KernelHeartbeatSocket,
+    pub socket: zeromq::RepSocket,
 }
 
-pub type ClientIoPubConnection = Connection<ClientIoPubSocket>;
-pub type ClientShellConnection = Connection<ClientShellSocket>;
-pub type ClientControlConnection = Connection<ClientControlSocket>;
-pub type ClientStdinConnection = Connection<ClientStdinSocket>;
+pub type ClientIoPubConnection = Connection<zeromq::SubSocket>;
+pub type ClientShellConnection = Connection<zeromq::DealerSocket>;
+pub type ClientControlConnection = Connection<zeromq::DealerSocket>;
+pub type ClientStdinConnection = Connection<zeromq::DealerSocket>;
 pub struct ClientHeartbeatConnection {
-    pub socket: ClientHeartbeatSocket,
+    pub socket: zeromq::ReqSocket,
 }
 
 impl<S: zeromq::Socket> Connection<S> {
@@ -249,4 +275,116 @@ impl RawMessage {
 
         Ok(message)
     }
+}
+
+pub async fn create_kernel_iopub_connection(
+    connection_info: &ConnectionInfo,
+    session_id: &str,
+) -> anyhow::Result<KernelIoPubConnection> {
+    let endpoint = connection_info.iopub_url();
+
+    let mut socket = zeromq::PubSocket::new();
+    socket.bind(&endpoint).await?;
+    anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
+}
+
+pub async fn create_kernel_shell_connection(
+    connection_info: &ConnectionInfo,
+    session_id: &str,
+) -> anyhow::Result<KernelShellConnection> {
+    let endpoint = connection_info.shell_url();
+
+    let mut socket = zeromq::RouterSocket::new();
+    socket.bind(&endpoint).await?;
+    anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
+}
+
+pub async fn create_kernel_control_connection(
+    connection_info: &ConnectionInfo,
+    session_id: &str,
+) -> anyhow::Result<KernelControlConnection> {
+    let endpoint = connection_info.control_url();
+
+    let mut socket = zeromq::RouterSocket::new();
+    socket.bind(&endpoint).await?;
+    anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
+}
+
+pub async fn create_kernel_stdin_connection(
+    connection_info: &ConnectionInfo,
+    session_id: &str,
+) -> anyhow::Result<KernelStdinConnection> {
+    let endpoint = connection_info.stdin_url();
+
+    let mut socket = zeromq::RouterSocket::new();
+    socket.bind(&endpoint).await?;
+    anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
+}
+
+pub async fn create_kernel_heartbeat_connection(
+    connection_info: &ConnectionInfo,
+) -> anyhow::Result<KernelHeartbeatConnection> {
+    let endpoint = connection_info.hb_url();
+
+    let mut socket = zeromq::RepSocket::new();
+    socket.bind(&endpoint).await?;
+    anyhow::Ok(KernelHeartbeatConnection { socket })
+}
+
+pub async fn create_client_iopub_connection(
+    connection_info: &ConnectionInfo,
+    topic: &str,
+    session_id: &str,
+) -> anyhow::Result<ClientIoPubConnection> {
+    let endpoint = connection_info.iopub_url();
+
+    let mut socket = zeromq::SubSocket::new();
+    socket.subscribe(topic).await?;
+
+    socket.connect(&endpoint).await?;
+
+    anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
+}
+
+pub async fn create_client_shell_connection(
+    connection_info: &ConnectionInfo,
+    session_id: &str,
+) -> anyhow::Result<ClientShellConnection> {
+    let endpoint = connection_info.shell_url();
+
+    let mut socket = zeromq::DealerSocket::new();
+    socket.connect(&endpoint).await?;
+    anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
+}
+
+pub async fn create_client_control_connection(
+    connection_info: &ConnectionInfo,
+    session_id: &str,
+) -> anyhow::Result<ClientControlConnection> {
+    let endpoint = connection_info.control_url();
+
+    let mut socket = zeromq::DealerSocket::new();
+    socket.connect(&endpoint).await?;
+    anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
+}
+
+pub async fn create_client_stdin_connection(
+    connection_info: &ConnectionInfo,
+    session_id: &str,
+) -> anyhow::Result<ClientStdinConnection> {
+    let endpoint = connection_info.stdin_url();
+
+    let mut socket = zeromq::DealerSocket::new();
+    socket.connect(&endpoint).await?;
+    anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
+}
+
+pub async fn create_client_heartbeat_connection(
+    connection_info: &ConnectionInfo,
+) -> anyhow::Result<ClientHeartbeatConnection> {
+    let endpoint = connection_info.hb_url();
+
+    let mut socket = zeromq::ReqSocket::new();
+    socket.connect(&endpoint).await?;
+    anyhow::Ok(ClientHeartbeatConnection { socket })
 }
