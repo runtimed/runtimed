@@ -25,7 +25,7 @@ pub use jupyter_protocol::ConnectionInfo;
 use anyhow::Result;
 use std::net::{IpAddr, SocketAddr};
 
-/// Private function for finding a set of open ports. This function creates a listener with the port set to 0.
+/// Find a set of open ports. This function creates a listener with the port set to 0.
 /// The listener is closed at the end of the function when the listener goes out of scope.
 ///
 /// This of course opens a race condition in between closing the port and usage by a kernel,
