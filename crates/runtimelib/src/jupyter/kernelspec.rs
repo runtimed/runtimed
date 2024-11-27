@@ -31,7 +31,7 @@ impl KernelspecDir {
         Ok(spec.clone())
     }
 
-    pub async fn command(
+    pub fn command(
         self,
         connection_path: &Path,
         stderr: Option<Stdio>,
