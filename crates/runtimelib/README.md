@@ -1,20 +1,6 @@
 # runtimelib
 
-`runtimelib` is a Rust library for interacting with Jupyter kernels and managing interactive computing environments. It provides a set of tools and abstractions to simplify the process of working with various programming language runtimes, enabling developers to build powerful applications that leverage the capabilities of Jupyter kernels.
-
-## Introduction
-
-runtimelib serves as the foundation for building interactive computing applications, REPLs, and notebook-like interfaces. It abstracts away the complexities of communicating with Jupyter kernels, allowing developers to focus on creating rich, interactive experiences for users.
-
-Key features of runtimelib include:
-
-- Easy integration with Jupyter kernels
-- Asynchronous communication with kernels
-- Support for multiple runtime environments
-- Extensible architecture for custom kernel implementations
-
-Whether you're building a new notebook application, creating a specialized REPL, or integrating interactive computing capabilities into your existing projects, runtimelib provides the tools and flexibility you need to get started quickly and efficiently.
-
+`runtimelib` is a Rust library for interacting with Jupyter kernels natively, over ZeroMQ.
 
 ## Installation
 
@@ -37,10 +23,8 @@ runtimelib = { version = "0.22.0", features = ["async-dispatcher-runtime"] }
 ## Key Features
 
 - **Jupyter Kernel Management**: Discover, start, and manage Jupyter kernels.
-- **Messaging Protocol**: Implement the Jupyter messaging protocol for communication with kernels.
-- **Runtime Management**: Create and manage runtime instances for interactive computing.
+- **Messaging Protocol**: Implement Jupyter's wire protocol for communication with kernels over ZeroMQ.
 - **Flexible Async Runtime**: Support for both Tokio and async-dispatcher runtimes.
-- **Media Handling**: Work with various media types used in Jupyter, including images, HTML, and more.
 
 ## Documentation
 
@@ -48,7 +32,7 @@ For more detailed information about the API and its usage, please refer to the [
 
 ## Contributing
 
-We welcome contributions to RuntimeLib! If you'd like to contribute, please:
+We welcome contributions to Runtimelib! If you'd like to contribute, please:
 
 1. Fork the repository
 2. Create a new branch for your feature or bug fix
