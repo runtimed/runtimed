@@ -1,3 +1,4 @@
+#[doc = include_str!("../README.md")]
 pub use jupyter_serde::media;
 pub use jupyter_serde::media::*;
 pub use jupyter_serde::ExecutionCount;
