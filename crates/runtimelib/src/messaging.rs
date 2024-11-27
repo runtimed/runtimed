@@ -59,12 +59,6 @@ impl<S: zeromq::Socket> Connection<S> {
     }
 }
 
-impl<S: zeromq::Socket> Drop for Connection<S> {
-    fn drop(&mut self) {
-        self.close();
-    }
-}
-
 impl<S: zeromq::SocketSend> Connection<S> {
     pub async fn send(&mut self, message: JupyterMessage) -> Result<(), anyhow::Error> {
         let message = message.with_session(&self.session_id);
