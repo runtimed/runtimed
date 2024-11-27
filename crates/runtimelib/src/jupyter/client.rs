@@ -4,7 +4,6 @@
 //! existing jupyter runtimes, and a client with ZeroMQ sockets to
 //! communicate with the kernels.
 
-#[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
 use crate::messaging::{
     ClientControlConnection, ClientHeartbeatConnection, ClientIoPubConnection,
     ClientShellConnection, ClientStdinConnection, Connection, KernelControlConnection,
@@ -17,7 +16,6 @@ use tokio::net::TcpListener;
 #[cfg(feature = "async-dispatcher-runtime")]
 use async_std::net::TcpListener;
 
-#[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
 use zeromq::Socket as _;
 
 pub use jupyter_protocol::ConnectionInfo;
@@ -43,7 +41,6 @@ pub async fn peek_ports(ip: IpAddr, num: usize) -> Result<Vec<u16>> {
     Ok(ports)
 }
 
-#[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
 pub async fn create_kernel_iopub_connection(
     connection_info: &ConnectionInfo,
     session_id: &str,
@@ -55,7 +52,6 @@ pub async fn create_kernel_iopub_connection(
     anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
-#[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
 pub async fn create_kernel_shell_connection(
     connection_info: &ConnectionInfo,
     session_id: &str,
@@ -67,7 +63,6 @@ pub async fn create_kernel_shell_connection(
     anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
-#[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
 pub async fn create_kernel_control_connection(
     connection_info: &ConnectionInfo,
     session_id: &str,
@@ -79,7 +74,6 @@ pub async fn create_kernel_control_connection(
     anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
-#[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
 pub async fn create_kernel_stdin_connection(
     connection_info: &ConnectionInfo,
     session_id: &str,
@@ -91,7 +85,6 @@ pub async fn create_kernel_stdin_connection(
     anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
-#[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
 pub async fn create_kernel_heartbeat_connection(
     connection_info: &ConnectionInfo,
 ) -> anyhow::Result<KernelHeartbeatConnection> {
@@ -102,7 +95,6 @@ pub async fn create_kernel_heartbeat_connection(
     anyhow::Ok(KernelHeartbeatConnection { socket })
 }
 
-#[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
 pub async fn create_client_iopub_connection(
     connection_info: &ConnectionInfo,
     topic: &str,
@@ -118,7 +110,6 @@ pub async fn create_client_iopub_connection(
     anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
-#[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
 pub async fn create_client_shell_connection(
     connection_info: &ConnectionInfo,
     session_id: &str,
@@ -130,7 +121,6 @@ pub async fn create_client_shell_connection(
     anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
-#[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
 pub async fn create_client_control_connection(
     connection_info: &ConnectionInfo,
     session_id: &str,
@@ -142,7 +132,6 @@ pub async fn create_client_control_connection(
     anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
-#[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
 pub async fn create_client_stdin_connection(
     connection_info: &ConnectionInfo,
     session_id: &str,
@@ -154,7 +143,6 @@ pub async fn create_client_stdin_connection(
     anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
-#[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
 pub async fn create_client_heartbeat_connection(
     connection_info: &ConnectionInfo,
 ) -> anyhow::Result<ClientHeartbeatConnection> {

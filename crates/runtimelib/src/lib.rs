@@ -7,6 +7,9 @@ pub use jupyter_serde::media::*;
 pub use jupyter_serde::ExecutionCount;
 
 pub mod jupyter;
-pub mod messaging;
 pub use jupyter::*;
+
+#[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
+pub mod messaging;
+#[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
 pub use messaging::*;
