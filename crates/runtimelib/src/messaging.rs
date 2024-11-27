@@ -15,7 +15,6 @@ pub mod content {
 
 use zeromq::SocketRecv as _;
 use zeromq::SocketSend as _;
-use zeromq::ZmqError;
 
 pub struct Connection<S> {
     pub socket: S,
