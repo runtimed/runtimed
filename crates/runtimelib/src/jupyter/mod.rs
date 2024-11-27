@@ -1,4 +1,3 @@
-pub mod client;
 pub mod dirs;
 pub mod kernelspec;
 
