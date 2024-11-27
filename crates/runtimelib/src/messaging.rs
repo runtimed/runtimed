@@ -7,7 +7,11 @@ use ring::hmac;
 use serde_json;
 use serde_json::Value;
 
-use jupyter_protocol::messaging::{Header, JupyterMessage, JupyterMessageContent};
+pub use jupyter_protocol::messaging::*;
+// For backwards compatibility, for now:
+pub mod content {
+    pub use jupyter_protocol::messaging::*;
+}
 
 use zeromq::SocketRecv as _;
 use zeromq::SocketSend as _;
