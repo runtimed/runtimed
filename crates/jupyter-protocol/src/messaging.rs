@@ -663,7 +663,7 @@ pub struct ExecuteReply {
 /// Payloads are a way to trigger frontend actions from the kernel.
 /// They are stated as deprecated, however they are in regular use via `?` in IPython
 ///
-/// See https://jupyter-client.readthedocs.io/en/latest/messaging.html#payloads-deprecated
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#payloads-deprecated>
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "source")]
