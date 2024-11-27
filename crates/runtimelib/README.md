@@ -18,20 +18,21 @@ Whether you're building a new notebook application, creating a specialized REPL,
 
 ## Installation
 
-Add this to your `Cargo.toml`:
+Runtimelib allows you to pick which async runtime you want to use. If you're using tokio, include the `tokio-runtime` flag. For `async-dispatcher` users (AKA GPUI devs), use `async-dispatcher-runtime`. The async dispatcher runtime is also compatible for smol/async-std users.
+
+### Tokio Users
 
 ```toml
 [dependencies]
-runtimelib = "0.15.1"
+runtimelib = { version = "0.22.0", features = ["tokio-runtime"] }
 ```
 
-By default, RuntimeLib uses Tokio as its async runtime. If you want to use the async-dispatcher runtime instead, you can enable it with the following feature flag:
+### Async-dispatcher Users
 
 ```toml
 [dependencies]
-runtimelib = { version = "0.15.1", features = ["async-dispatcher-runtime"] }
+runtimelib = { version = "0.22.0", features = ["async-dispatcher-runtime"] }
 ```
-
 
 ## Key Features
 
