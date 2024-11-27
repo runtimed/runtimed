@@ -10,6 +10,6 @@ pub mod jupyter;
 pub use jupyter::*;
 
 #[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
-pub mod messaging;
+pub mod connection;
 #[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
-pub use messaging::*;
+pub use connection::*;
