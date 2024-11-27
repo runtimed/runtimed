@@ -1,12 +1,4 @@
-use std::net::{IpAddr, Ipv4Addr};
-
-use runtimelib::jupyter::KernelspecDir;
-use runtimelib::messaging::{ExecuteRequest, JupyterMessage};
-use runtimelib::{dirs, peek_ports, ConnectionInfo, ExecutionState, JupyterMessageContent};
-
-use uuid::Uuid;
-
-#[cfg(feature = "async-std-runtime")]
+#[cfg(feature = "async-dispatcher-runtime")]
 fn main() -> anyhow::Result<()> {
     // todo: Show example using async-std-runtime
     // For now, check out for something similar https://github.com/runtimed/smoke/blob/main/src/main.rs
@@ -16,10 +8,15 @@ fn main() -> anyhow::Result<()> {
 #[cfg(feature = "tokio-runtime")]
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let kernel_specification = KernelspecDir::new(&"python".to_string()).await?;
+    use jupyter_protocol::{
+        ConnectionInfo, ExecuteRequest, ExecutionState, JupyterMessage, JupyterMessageContent,
+    };
+    use uuid::Uuid;
 
-    let ip = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
-    let ports = peek_ports(ip, 5).await?;
+    let kernel_specification = runtimelib::KernelspecDir::new(&"python".to_string()).await?;
+
+    let ip = std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1));
+    let ports = runtimelib::peek_ports(ip, 5).await?;
     assert_eq!(ports.len(), 5);
 
     let connection_info = ConnectionInfo {
@@ -35,7 +32,7 @@ async fn main() -> anyhow::Result<()> {
         kernel_name: Some(format!("zed-{}", kernel_specification.kernel_name)),
     };
 
-    let runtime_dir = dirs::runtime_dir();
+    let runtime_dir = runtimelib::dirs::runtime_dir();
     tokio::fs::create_dir_all(&runtime_dir).await.map_err(|e| {
         anyhow::anyhow!(
             "Failed to create jupyter runtime dir {:?}: {}",
@@ -44,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
         )
     })?;
 
-    let connection_path = runtime_dir.join(format!("kernel-example.json"));
+    let connection_path = runtime_dir.join("kernel-example.json");
     let content = serde_json::to_string(&connection_info)?;
     tokio::fs::write(connection_path.clone(), content).await?;
 
@@ -53,7 +50,7 @@ async fn main() -> anyhow::Result<()> {
     let working_directory = "/tmp";
 
     let mut process = cmd
-        .current_dir(&working_directory)
+        .current_dir(working_directory)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .stdin(std::process::Stdio::piped())
@@ -67,6 +64,7 @@ async fn main() -> anyhow::Result<()> {
         runtimelib::create_client_iopub_connection(&connection_info, "", &session_id).await?;
     let mut shell_socket =
         runtimelib::create_client_shell_connection(&connection_info, &session_id).await?;
+    // Control socket is for kernel management, not used here
     // let mut control_socket =
     //     runtimelib::create_client_control_connection(&connection_info, &session_id).await?;
 
