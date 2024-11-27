@@ -53,6 +53,10 @@ impl<S: zeromq::Socket> Connection<S> {
             session_id: session_id.to_string(),
         }
     }
+
+    pub fn close(&mut self) {
+        self.socket.close();
+    }
 }
 
 impl<S: zeromq::SocketSend> Connection<S> {

@@ -114,6 +114,7 @@ pub async fn create_client_iopub_connection(
     socket.subscribe(topic).await?;
 
     socket.connect(&endpoint).await?;
+
     anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
