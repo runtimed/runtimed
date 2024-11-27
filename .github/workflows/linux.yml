@@ -20,6 +20,7 @@ jobs:
           python-version: "3.10"
           cache: "pip"
       - run: pip install -r .github/requirements.txt
+      - run: python -m ipykernel install --user --name=python
       - run: python -m ipykernel install --user --name=python3
       - name: Set up environment
         run: |
@@ -52,6 +53,9 @@ jobs:
 
       - name: Run Runtimelib tests with async-dispatcher-runtime
         run: cargo test -p runtimelib --verbose --features async-dispatcher-runtime
+
+      - name: Run Runtimelib tokio example
+        run: cargo run -p runtimelib --example tokio-launch-kernel --features tokio-runtime
 
       - name: Run Runtimelib Doc Tests with async-dispatcher-runtime
         run: cargo test -p runtimelib --doc --verbose --features async-dispatcher-runtime
