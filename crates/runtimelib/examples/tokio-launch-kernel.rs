@@ -6,6 +6,14 @@ use runtimelib::{dirs, peek_ports, ConnectionInfo, ExecutionState, JupyterMessag
 
 use uuid::Uuid;
 
+#[cfg(feature = "async-std-runtime")]
+fn main() -> anyhow::Result<()> {
+    // todo: Show example using async-std-runtime
+    // For now, check out for something similar https://github.com/runtimed/smoke/blob/main/src/main.rs
+    anyhow::Ok(())
+}
+
+#[cfg(feature = "tokio-runtime")]
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let kernel_specification = KernelspecDir::new(&"python".to_string()).await?;
