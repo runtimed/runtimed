@@ -50,3 +50,7 @@ optional = true
 version = "1"
 features = ["attributes"]
 optional = true
+
+[package.metadata.docs.rs]
+features = ["async-dispatcher-runtime"]
+no-default-features = true
