@@ -9,18 +9,6 @@ use serde_json::Value;
 
 use jupyter_protocol::messaging::{Header, JupyterMessage, JupyterMessageContent};
 
-type KernelIoPubSocket = zeromq::PubSocket;
-type KernelShellSocket = zeromq::RouterSocket;
-type KernelControlSocket = zeromq::RouterSocket;
-type KernelStdinSocket = zeromq::RouterSocket;
-type KernelHeartbeatSocket = zeromq::RepSocket;
-
-type ClientIoPubSocket = zeromq::SubSocket;
-type ClientShellSocket = zeromq::DealerSocket;
-type ClientControlSocket = zeromq::DealerSocket;
-type ClientStdinSocket = zeromq::DealerSocket;
-type ClientHeartbeatSocket = zeromq::ReqSocket;
-
 use zeromq::SocketRecv as _;
 use zeromq::SocketSend as _;
 
@@ -31,20 +19,20 @@ pub struct Connection<S> {
     pub session_id: String,
 }
 
-pub type KernelIoPubConnection = Connection<KernelIoPubSocket>;
-pub type KernelShellConnection = Connection<KernelShellSocket>;
-pub type KernelControlConnection = Connection<KernelControlSocket>;
-pub type KernelStdinConnection = Connection<KernelStdinSocket>;
+pub type KernelIoPubConnection = Connection<zeromq::PubSocket>;
+pub type KernelShellConnection = Connection<zeromq::RouterSocket>;
+pub type KernelControlConnection = Connection<zeromq::RouterSocket>;
+pub type KernelStdinConnection = Connection<zeromq::RouterSocket>;
 pub struct KernelHeartbeatConnection {
-    pub socket: KernelHeartbeatSocket,
+    pub socket: zeromq::RepSocket,
 }
 
-pub type ClientIoPubConnection = Connection<ClientIoPubSocket>;
-pub type ClientShellConnection = Connection<ClientShellSocket>;
-pub type ClientControlConnection = Connection<ClientControlSocket>;
-pub type ClientStdinConnection = Connection<ClientStdinSocket>;
+pub type ClientIoPubConnection = Connection<zeromq::SubSocket>;
+pub type ClientShellConnection = Connection<zeromq::DealerSocket>;
+pub type ClientControlConnection = Connection<zeromq::DealerSocket>;
+pub type ClientStdinConnection = Connection<zeromq::DealerSocket>;
 pub struct ClientHeartbeatConnection {
-    pub socket: ClientHeartbeatSocket,
+    pub socket: zeromq::ReqSocket,
 }
 
 impl<S: zeromq::Socket> Connection<S> {
