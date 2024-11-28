@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, env::current_exe};
 
 use anyhow::{Context as _, Result};
 
@@ -20,8 +20,22 @@ use runtimelib::{KernelIoPubConnection, KernelShellConnection};
 use ollama_client::{
     ChatMessage, Format, GenerateResponse, LocalModelListing, OllamaClient, Role, OLLAMA_ENDPOINT,
 };
-use serde_json::Value;
+use serde_json::{json, Value};
 use uuid::Uuid;
+
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Path to the connection file
+    #[arg(short, long)]
+    connection_file: Option<String>,
+
+    /// Install the kernel
+    #[arg(long)]
+    install: bool,
+}
 
 struct OllamaKernel {
     model: String,
@@ -266,92 +280,6 @@ impl OllamaKernel {
                 self.send_markdown(&display, parent).await?;
                 self.send_json(serde_json::to_value(listing.details)?, parent)
                     .await?;
-            }
-            // TODO: Delete this command, just experimenting with the API
-            ["generate"] => {
-                let body = match body {
-                    Some(body) => body,
-                    None => {
-                        self.send_error("Missing Modelfile Body", "", parent)
-                            .await?;
-                        return Ok(());
-                    }
-                };
-
-                let mut stream = ollama_client
-                    .generate(
-                        &self.model,
-                        body.trim(),
-                        &self.last_context,
-                        Some(Format::Json),
-                        Some(
-                            r#"Only respond with JSON using the following schemas:
-
-type Generic = {
-    type: "generic";
-    // Message shown to user in response
-    message: string;
-};
-
-type Thought = {
-    type: "thought";
-
-    // Record your thoughts here in order to craft a better response
-    chain_of_thought: string;
-
-    // Message shown to user in response
-    message: string;
-};
-
-// Use the Alert type when the user says something worrisome.
-type Alert = {
-  type: "alert",
-
-  // Message shown to user in response
-  message: string;
-
-  // Report what the occurence was for someone to triage
-  report: string;
-
-  raw_user_message: string;
-};
-
-type Response = Generic | Thought | Alert;
-type Responses = Response[];
-                            "#
-                            .trim(),
-                        ),
-                    )
-                    .await?;
-
-                let mut in_progress_assistant_response = String::new();
-
-                while let Some(chunk) = stream.next().await {
-                    match chunk {
-                        Ok(GenerateResponse::Delta(delta)) => {
-                            // self.push_stdout(&delta.response, parent).await?;
-                            in_progress_assistant_response.push_str(&delta.response);
-                        }
-                        Ok(GenerateResponse::Finished(finished)) => {
-                            self.last_context = finished.context;
-                        }
-                        Err(err) => {
-                            self.send_error("Ollama client failure", &err.to_string(), parent)
-                                .await?
-                        }
-                    }
-                }
-
-                self.send_json(
-                    serde_json::from_str(&in_progress_assistant_response)?,
-                    parent,
-                )
-                .await?;
-
-                // self.clear_output_after_next_output(parent).await?;
-
-                // self.send_markdown(&in_progress_assistant_response, parent)
-                //     .await?
             }
             _ => self.send_error("Unknown command", header, parent).await?,
         };
@@ -654,20 +582,47 @@ pub async fn start_kernel(connection_filepath: &str) -> anyhow::Result<()> {
     anyhow::Ok(())
 }
 
+async fn install_kernel() -> anyhow::Result<()> {
+    println!("Installing Ollama Kernel...");
+
+    let user_data_dir = runtimelib::user_data_dir()?;
+    let kernel_dir = user_data_dir.join("kernels").join("ollama");
+
+    tokio::fs::create_dir_all(&kernel_dir).await?;
+
+    let kernel_json_path = kernel_dir.join("kernel.json");
+
+    let json_data = json!({
+        "argv": [current_exe()?.to_string_lossy(), "--connection-file", "{connection_file}"],
+        "display_name": "Ollama",
+        "language": "markdown",
+    });
+
+    let mut f = tokio::fs::File::create(kernel_json_path).await?;
+    tokio::io::AsyncWriteExt::write_all(
+        &mut f,
+        serde_json::to_string_pretty(&json_data)?.as_bytes(),
+    )
+    .await?;
+
+    println!("Ollama Kernel installed successfully!");
+
+    // todo: Include icons during installation
+    anyhow::Ok(())
+}
+
 #[tokio::main]
-async fn main() {
-    // Parse the connection file path from the command line arguments
-    let args: Vec<String> = std::env::args().collect();
-    if args.len() < 2 {
-        eprintln!("Usage: {} <connection_file>", args[0]);
+async fn main() -> anyhow::Result<()> {
+    let args = Args::parse();
+
+    if args.install {
+        install_kernel().await?;
+    } else if let Some(connection_filepath) = args.connection_file {
+        start_kernel(&connection_filepath).await?;
+    } else {
+        eprintln!("Error: Either --install or --connection-file must be provided");
         std::process::exit(1);
     }
-    let connection_filepath = &args[1];
 
-    let started = start_kernel(connection_filepath).await;
-
-    if let Err(e) = started {
-        eprintln!("Error: {}", e);
-        std::process::exit(1);
-    }
+    Ok(())
 }
