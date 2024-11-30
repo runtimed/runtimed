@@ -5,6 +5,7 @@ This crate provides comprehensive types and utilities for working with Jupyter m
 ## Features
 
 - Complete implementation of Jupyter message types
+- Pattern matching on message content for easy handling and dispatch
 - Serialization and deserialization of Jupyter messages
 - Support for rich media types (MIME bundles)
 - Utility functions for working with Jupyter kernels and clients
