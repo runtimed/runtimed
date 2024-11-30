@@ -27,34 +27,6 @@
 //! assert_eq!(usize_from_count, 2);
 //! ```
 
-//! Provides utilities for managing execution counts in Jupyter sessions.
-//!
-//! This module defines the `ExecutionCount` type, which represents a monotonically
-//! increasing counter for tracking the number of code executions in a Jupyter session.
-//! This count is not tied to individual cells but represents the overall execution history
-//! of the session, including code run via `execute_request` in terminals.
-//!
-//! # Examples
-//!
-//! ```
-//! use jupyter_protocol::ExecutionCount;
-//!
-//! // Start a new session
-//! let mut count = ExecutionCount::new(1);
-//! assert_eq!(count.value(), 1);
-//!
-//! // After executing some code
-//! count.increment();
-//! assert_eq!(count.value(), 2);
-//!
-//! // Creating from a known execution count
-//! let count_from_usize: ExecutionCount = 3.into();
-//! assert_eq!(count_from_usize.value(), 3);
-//!
-//! // Converting back to usize
-//! let usize_from_count: usize = count.into();
-//! assert_eq!(usize_from_count, 2);
-//! ```
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
