@@ -1425,18 +1425,10 @@ impl Default for InspectReply {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct CompleteRequest {
     pub code: String,
     pub cursor_pos: usize,
-}
-impl Default for CompleteRequest {
-    fn default() -> Self {
-        Self {
-            code: String::new(),
-            cursor_pos: 0,
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -1620,16 +1612,9 @@ impl HistoryReply {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct IsCompleteRequest {
     pub code: String,
-}
-impl Default for IsCompleteRequest {
-    fn default() -> Self {
-        Self {
-            code: String::new(),
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
