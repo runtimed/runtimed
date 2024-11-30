@@ -812,7 +812,7 @@ pub enum Stdio {
 /// The UI/client sends an `'execute_request'` message to the kernel.
 ///
 /// ```rust
-/// use jupyter_protocol::messaging::{ExecuteRequest};
+/// use jupyter_protocol::{ExecuteRequest, JupyterMessage};
 /// // The UI/client sends an `'execute_request'` message to the kernel.
 ///
 /// let execute_request = ExecuteRequest {
@@ -824,6 +824,8 @@ pub enum Stdio {
 ///     stop_on_error: true,
 /// };
 ///
+/// let incoming_message: JupyterMessage = execute_request.into();
+///
 /// // ...
 ///
 ///
@@ -832,14 +834,16 @@ pub enum Stdio {
 /// // As a side effect of execution, the kernel can send `'stream'` messages to the UI/client.
 /// // These are from using `print()`, `console.log()`, or similar. Anything on STDOUT or STDERR.
 ///
-/// use jupyter_protocol::messaging::{StreamContent, Stdio};
+/// use jupyter_protocol::{StreamContent, Stdio};
 ///
 /// let message = StreamContent {
 ///   name: Stdio::Stdout,
 ///   text: "Hello, World".to_string()
-/// }.as_child_of(execute_request);
-/// iopub.send(message).await?;
+/// // To inform the UI that the kernel is emitting this stdout in response to the execution, we
+/// // use `as_child_of` to set the parent header.
+/// }.as_child_of(&incoming_message);
 ///
+/// // next, send the `message` back over the iopub connection
 /// ```
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StreamContent {

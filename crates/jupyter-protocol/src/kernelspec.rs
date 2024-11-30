@@ -10,7 +10,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use jupyter_protocol::kernelspec::JupyterKernelspec;
+//! use jupyter_protocol::JupyterKernelspec;
 //! use std::collections::HashMap;
 //!
 //! let kernelspec = JupyterKernelspec {
@@ -35,11 +35,17 @@ use serde_json::Value;
 /// # Examples
 ///
 /// ```rust
-/// use jupyter_protocol::kernelspec::JupyterKernelspec;
+/// use jupyter_protocol::JupyterKernelspec;
 /// use std::collections::HashMap;
 ///
 /// let kernelspec = JupyterKernelspec {
-///     argv: vec!["python3", "-m", "ipykernel_launcher", "-f", "{connection_file}"].into(),
+///     argv: vec![
+///         "python3".to_string(),
+///         "-m".to_string(),
+///         "ipykernel_launcher".to_string(),
+///         "-f".to_string(),
+///         "{connection_file}".to_string()
+///     ],
 ///     display_name: "Python 3".to_string(),
 ///     language: "python".to_string(),
 ///     metadata: None,
@@ -53,12 +59,6 @@ pub struct JupyterKernelspec {
     ///
     /// This vector must contain `{connection_file}` as a placeholder, which will be
     /// replaced by the actual connection file path when the client launches the kernel.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// vec!["python3", "-m", "ipykernel_launcher", "-f", "{connection_file}"]
-    /// ```
     #[serde(default)]
     pub argv: Vec<String>,
     /// The human-readable name for the kernel.
