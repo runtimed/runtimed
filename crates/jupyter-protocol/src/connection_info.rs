@@ -9,6 +9,10 @@
 //! transport protocol, and authentication details.
 use serde::{Deserialize, Serialize};
 
+/// Represents the transport protocol used for Jupyter kernel communication.
+///
+/// This enum is used to specify whether the kernel should use IPC (Inter-Process Communication)
+/// or TCP (Transmission Control Protocol) for its network communications.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Transport {
