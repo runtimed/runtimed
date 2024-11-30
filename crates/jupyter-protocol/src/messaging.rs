@@ -1388,7 +1388,7 @@ impl Default for InspectRequest {
         Self {
             code: String::new(),
             cursor_pos: 0,
-            detail_level: None,
+            detail_level: Some(0),
         }
     }
 }
