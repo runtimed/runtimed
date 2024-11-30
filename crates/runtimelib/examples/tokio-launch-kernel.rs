@@ -25,7 +25,7 @@ async fn main() -> anyhow::Result<()> {
     assert_eq!(ports.len(), 5);
 
     let connection_info = ConnectionInfo {
-        transport: "tcp".to_string(),
+        transport: jupyter_protocol::Transport::TCP,
         ip: ip.to_string(),
         stdin_port: ports[0],
         control_port: ports[1],

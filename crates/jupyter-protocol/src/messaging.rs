@@ -42,7 +42,7 @@ pub struct Header {
     pub version: String,
 }
 
-/// Serializes the `parent_header`.
+/// Serializes the `parent_header` of a `JupyterMessage`.
 ///
 /// Treats `None` as an empty object to conform to Jupyter's messaging guidelines:
 ///
