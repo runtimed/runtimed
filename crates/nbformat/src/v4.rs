@@ -2,7 +2,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use uuid::Uuid;
 
-use jupyter_serde::{media::serialize_media_for_notebook, media::Media, ExecutionCount};
+use jupyter_protocol::{media::serialize_media_for_notebook, media::Media, ExecutionCount};
 
 use core::fmt;
 use std::{

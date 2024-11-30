@@ -13,7 +13,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 futures = { workspace = true }
 uuid = { workspace = true }
-jupyter-serde = { path = "../jupyter-serde", version = "0.7.0" }
 url = "2.5.2"
 async-tungstenite = { version = "0.22", features = [
     "async-std-runtime",

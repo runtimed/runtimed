@@ -341,7 +341,7 @@ impl Media {
     /// # Examples
     ///
     /// ```rust
-    /// use jupyter_serde::media::{Media, MediaType};
+    /// use jupyter_protocol::media::{Media, MediaType};
     ///
     /// let raw = r#"{
     ///    "text/plain": "FancyThing()",

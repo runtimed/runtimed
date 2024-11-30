@@ -1,5 +1,3 @@
-// todo: move all of jupyter-serde into jupyter-protocol and make that the main
-// crate that native clients, native kernels, and the websocket client depend on
 pub mod messaging;
 pub use messaging::*;
 
