@@ -685,18 +685,13 @@ pub struct ReplyError {
 }
 
 /// Clear output of a single cell / output area.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ClearOutput {
     /// Wait to clear the output until new output is available.  Clears the
 
     /// existing output immediately before the new output is displayed.
     /// Useful for creating simple animations with minimal flickering.
     pub wait: bool,
-}
-impl Default for ClearOutput {
-    fn default() -> Self {
-        Self { wait: false }
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -808,13 +803,8 @@ pub enum Payload {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
 pub struct KernelInfoRequest {}
-impl Default for KernelInfoRequest {
-    fn default() -> Self {
-        Self {}
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KernelInfoReply {
@@ -1151,20 +1141,11 @@ impl From<(ExecutionCount, MediaType)> for ExecuteResult {
 ///
 /// These are errors that occur during execution from user code. Syntax errors, runtime errors, etc.
 ///
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ErrorOutput {
     pub ename: String,
     pub evalue: String,
     pub traceback: Vec<String>,
-}
-impl Default for ErrorOutput {
-    fn default() -> Self {
-        Self {
-            ename: String::new(),
-            evalue: String::new(),
-            traceback: Vec::new(),
-        }
-    }
 }
 
 /// A `'comm_open'` message on the `'iopub'` channel.
@@ -1242,16 +1223,9 @@ impl Default for CommMsg {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct CommInfoRequest {
     pub target_name: String,
-}
-impl Default for CommInfoRequest {
-    fn default() -> Self {
-        Self {
-            target_name: String::new(),
-        }
-    }
 }
 
 #[derive(Eq, Hash, PartialEq, Serialize, Deserialize, Debug, Clone)]
