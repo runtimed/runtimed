@@ -464,16 +464,21 @@ macro_rules! impl_message_traits {
                 /// it suitable for sending over ZeroMQ.
                 ///
                 /// # Example
-                /// ```ignore
+                /// ```rust
                 /// use jupyter_protocol::messaging::{JupyterMessage, JupyterMessageContent};
+                #[doc = concat!("use jupyter_protocol::", stringify!($name), ";\n")]
                 ///
-                /// let message = connection.recv().await?;
+                /// let parent_message = JupyterMessage::new(jupyter_protocol::UnknownMessage {
+                ///   msg_type: "example".to_string(),
+                ///   content: serde_json::json!({ "key": "value" }),
+                /// }, None);
                 ///
                 #[doc = concat!("let child_message = ", stringify!($name), "{\n")]
-                ///   // ...
-                /// }.as_child_of(&message);
+                ///   ..Default::default()
+                /// }.as_child_of(&parent_message);
                 ///
-                /// connection.send(child_message).await?;
+                /// // Next you would send the `child_message` over the connection
+                ///
                 /// ```
                 #[must_use]
                 pub fn as_child_of(&self, parent: &JupyterMessage) -> JupyterMessage {
@@ -483,8 +488,8 @@ macro_rules! impl_message_traits {
 
             impl From<$name> for JupyterMessage {
                 #[doc = concat!("Create a new `JupyterMessage` for a `", stringify!($name), "`.\n\n")]
-                /// ⚠️ If you use this method, you must set the zmq identities yourself. If you have a message that
-                /// "caused" your message to be sent, use that message with `as_child_of` instead.
+                /// ⚠️ If you use this method with `runtimelib`, you must set the zmq identities yourself. If you
+                /// have a message that "caused" your message to be sent, use that message with `as_child_of` instead.
                 #[must_use]
                 fn from(content: $name) -> Self {
                     JupyterMessage::new(content, None)
@@ -526,7 +531,7 @@ impl_message_traits!(
     ExecuteRequest,
     ExecuteResult,
     HistoryReply,
-    HistoryRequest,
+    // HistoryRequest, // special case due to enum entry
     InputReply,
     InputRequest,
     InspectReply,
@@ -535,6 +540,7 @@ impl_message_traits!(
     InterruptRequest,
     IsCompleteReply,
     IsCompleteRequest,
+    // KernelInfoReply, // special case due to boxing
     KernelInfoRequest,
     ShutdownReply,
     ShutdownRequest,
@@ -569,6 +575,56 @@ impl From<KernelInfoReply> for JupyterMessageContent {
     }
 }
 
+impl HistoryRequest {
+    /// Create a new `JupyterMessage`, assigning the parent for a `HistoryRequest` message.
+    ///
+    /// This method creates a new `JupyterMessage` with the right content, parent header, and zmq identities, making
+    /// it suitable for sending over ZeroMQ.
+    ///
+    /// # Example
+    /// ```rust
+    /// use jupyter_protocol::messaging::{JupyterMessage, JupyterMessageContent};
+    /// use jupyter_protocol::HistoryRequest;
+    ///
+    /// let parent_message = JupyterMessage::new(jupyter_protocol::UnknownMessage {
+    ///   msg_type: "example".to_string(),
+    ///   content: serde_json::json!({ "key": "value" }),
+    /// }, None);
+    ///
+    /// let child_message = HistoryRequest::Range {
+    ///     session: None,
+    ///     start: 0,
+    ///     stop: 10,
+    ///     output: false,
+    ///     raw: false,
+    /// }.as_child_of(&parent_message);
+    ///
+    /// // Next you would send the `child_message` over the connection
+    /// ```
+    #[must_use]
+    pub fn as_child_of(&self, parent: &JupyterMessage) -> JupyterMessage {
+        JupyterMessage::new(self.clone(), Some(parent))
+    }
+}
+
+impl From<HistoryRequest> for JupyterMessage {
+    /// Create a new `JupyterMessage` for a `HistoryRequest`.
+    /// ⚠️ If you use this method with `runtimelib`, you must set the zmq identities yourself. If you
+    /// have a message that "caused" your message to be sent, use that message with `as_child_of` instead.
+    #[must_use]
+    fn from(content: HistoryRequest) -> Self {
+        JupyterMessage::new(content, None)
+    }
+}
+
+impl From<HistoryRequest> for JupyterMessageContent {
+    /// Create a new `JupyterMessageContent` for a `HistoryRequest`.
+    #[must_use]
+    fn from(content: HistoryRequest) -> Self {
+        JupyterMessageContent::HistoryRequest(content)
+    }
+}
+
 /// Unknown message types are a workaround for generically unknown messages.
 ///
 /// ```rust
@@ -589,6 +645,14 @@ pub struct UnknownMessage {
     pub msg_type: String,
     #[serde(flatten)]
     pub content: Value,
+}
+impl Default for UnknownMessage {
+    fn default() -> Self {
+        Self {
+            msg_type: "unknown".to_string(),
+            content: Value::Null,
+        }
+    }
 }
 
 impl UnknownMessage {
@@ -613,7 +677,7 @@ pub enum ReplyStatus {
     Aborted,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ReplyError {
     pub ename: String,
     pub evalue: String,
@@ -624,9 +688,15 @@ pub struct ReplyError {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ClearOutput {
     /// Wait to clear the output until new output is available.  Clears the
+
     /// existing output immediately before the new output is displayed.
     /// Useful for creating simple animations with minimal flickering.
     pub wait: bool,
+}
+impl Default for ClearOutput {
+    fn default() -> Self {
+        Self { wait: false }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -700,6 +770,17 @@ pub struct ExecuteReply {
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
 }
+impl Default for ExecuteReply {
+    fn default() -> Self {
+        Self {
+            status: ReplyStatus::Ok,
+            execution_count: ExecutionCount::new(0),
+            payload: Vec::new(),
+            user_expressions: None,
+            error: None,
+        }
+    }
+}
 
 /// Payloads are a way to trigger frontend actions from the kernel.
 /// They are stated as deprecated, however they are in regular use via `?` in IPython
@@ -729,6 +810,11 @@ pub enum Payload {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct KernelInfoRequest {}
+impl Default for KernelInfoRequest {
+    fn default() -> Self {
+        Self {}
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KernelInfoReply {
@@ -849,6 +935,14 @@ pub enum Stdio {
 pub struct StreamContent {
     pub name: Stdio,
     pub text: String,
+}
+impl Default for StreamContent {
+    fn default() -> Self {
+        Self {
+            name: Stdio::Stdout,
+            text: String::new(),
+        }
+    }
 }
 
 impl StreamContent {
@@ -979,6 +1073,14 @@ pub struct ExecuteInput {
     pub code: String,
     pub execution_count: ExecutionCount,
 }
+impl Default for ExecuteInput {
+    fn default() -> Self {
+        Self {
+            code: String::new(),
+            execution_count: ExecutionCount::new(0),
+        }
+    }
+}
 
 /// An `'execute_result'` message on the `'iopub'` channel.
 /// See [Execute Result](https://jupyter-client.readthedocs.io/en/latest/messaging.html#execute-result).
@@ -1009,6 +1111,16 @@ pub struct ExecuteResult {
     pub data: Media,
     pub metadata: serde_json::Map<String, Value>,
     pub transient: Option<Transient>,
+}
+impl Default for ExecuteResult {
+    fn default() -> Self {
+        Self {
+            execution_count: ExecutionCount::new(0),
+            data: Media::default(),
+            metadata: serde_json::Map::new(),
+            transient: None,
+        }
+    }
 }
 
 impl ExecuteResult {
@@ -1045,6 +1157,15 @@ pub struct ErrorOutput {
     pub evalue: String,
     pub traceback: Vec<String>,
 }
+impl Default for ErrorOutput {
+    fn default() -> Self {
+        Self {
+            ename: String::new(),
+            evalue: String::new(),
+            traceback: Vec::new(),
+        }
+    }
+}
 
 /// A `'comm_open'` message on the `'iopub'` channel.
 ///
@@ -1079,6 +1200,15 @@ pub struct CommOpen {
     pub target_name: String,
     pub data: serde_json::Map<String, Value>,
 }
+impl Default for CommOpen {
+    fn default() -> Self {
+        Self {
+            comm_id: CommId("".to_string()),
+            target_name: String::new(),
+            data: serde_json::Map::new(),
+        }
+    }
+}
 
 /// A `comm_msg` message on the `'iopub'` channel.
 ///
@@ -1103,10 +1233,25 @@ pub struct CommMsg {
     pub comm_id: CommId,
     pub data: serde_json::Map<String, Value>,
 }
+impl Default for CommMsg {
+    fn default() -> Self {
+        Self {
+            comm_id: CommId("".to_string()),
+            data: serde_json::Map::new(),
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommInfoRequest {
     pub target_name: String,
+}
+impl Default for CommInfoRequest {
+    fn default() -> Self {
+        Self {
+            target_name: String::new(),
+        }
+    }
 }
 
 #[derive(Eq, Hash, PartialEq, Serialize, Deserialize, Debug, Clone)]
@@ -1137,6 +1282,15 @@ pub struct CommInfoReply {
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
 }
+impl Default for CommInfoReply {
+    fn default() -> Self {
+        Self {
+            status: ReplyStatus::Ok,
+            comms: HashMap::new(),
+            error: None,
+        }
+    }
+}
 
 /// A `comm_close` message on the `'iopub'` channel.
 ///
@@ -1147,14 +1301,32 @@ pub struct CommClose {
     pub comm_id: CommId,
     pub data: serde_json::Map<String, Value>,
 }
+impl Default for CommClose {
+    fn default() -> Self {
+        Self {
+            comm_id: CommId("".to_string()),
+            data: serde_json::Map::new(),
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShutdownRequest {
     pub restart: bool,
 }
+impl Default for ShutdownRequest {
+    fn default() -> Self {
+        Self { restart: false }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InterruptRequest {}
+impl Default for InterruptRequest {
+    fn default() -> Self {
+        Self {}
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InterruptReply {
@@ -1187,11 +1359,28 @@ pub struct ShutdownReply {
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
 }
+impl Default for ShutdownReply {
+    fn default() -> Self {
+        Self {
+            restart: false,
+            status: ReplyStatus::Ok,
+            error: None,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InputRequest {
     pub prompt: String,
     pub password: bool,
+}
+impl Default for InputRequest {
+    fn default() -> Self {
+        Self {
+            prompt: String::new(),
+            password: false,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -1201,6 +1390,15 @@ pub struct InputReply {
     pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
+}
+impl Default for InputReply {
+    fn default() -> Self {
+        Self {
+            value: String::new(),
+            status: ReplyStatus::Ok,
+            error: None,
+        }
+    }
 }
 
 /// A `'inspect_request'` message on the `'shell'` channel.
@@ -1221,6 +1419,15 @@ pub struct InspectRequest {
     /// if available.
     pub detail_level: Option<usize>,
 }
+impl Default for InspectRequest {
+    fn default() -> Self {
+        Self {
+            code: String::new(),
+            cursor_pos: 0,
+            detail_level: None,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InspectReply {
@@ -1232,11 +1439,30 @@ pub struct InspectReply {
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
 }
+impl Default for InspectReply {
+    fn default() -> Self {
+        Self {
+            found: false,
+            data: Media::default(),
+            metadata: serde_json::Map::new(),
+            status: ReplyStatus::Ok,
+            error: None,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CompleteRequest {
     pub code: String,
     pub cursor_pos: usize,
+}
+impl Default for CompleteRequest {
+    fn default() -> Self {
+        Self {
+            code: String::new(),
+            cursor_pos: 0,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -1250,17 +1476,43 @@ pub struct CompleteReply {
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
 }
+impl Default for CompleteReply {
+    fn default() -> Self {
+        Self {
+            matches: Vec::new(),
+            cursor_start: 0,
+            cursor_end: 0,
+            metadata: serde_json::Map::new(),
+            status: ReplyStatus::Ok,
+            error: None,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DebugRequest {
     #[serde(flatten)]
     pub content: Value,
 }
+impl Default for DebugRequest {
+    fn default() -> Self {
+        Self {
+            content: Value::Null,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DebugReply {
     #[serde(flatten)]
     pub content: Value,
+}
+impl Default for DebugReply {
+    fn default() -> Self {
+        Self {
+            content: Value::Null,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -1290,6 +1542,14 @@ pub struct IsCompleteReply {
     /// and use their own autoindentation rules. For other statuses, this
     /// field does not exist.
     pub indent: String,
+}
+impl Default for IsCompleteReply {
+    fn default() -> Self {
+        Self {
+            status: IsCompleteReplyStatus::Unknown,
+            indent: String::new(),
+        }
+    }
 }
 
 impl IsCompleteReply {
@@ -1335,6 +1595,17 @@ pub enum HistoryRequest {
         raw: bool,
     },
 }
+impl Default for HistoryRequest {
+    fn default() -> Self {
+        Self::Range {
+            session: None,
+            start: 0,
+            stop: 0,
+            output: false,
+            raw: false,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
@@ -1355,6 +1626,15 @@ pub struct HistoryReply {
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
 }
+impl Default for HistoryReply {
+    fn default() -> Self {
+        Self {
+            history: Vec::new(),
+            status: ReplyStatus::Ok,
+            error: None,
+        }
+    }
+}
 
 impl HistoryReply {
     pub fn new(history: Vec<HistoryEntry>) -> Self {
@@ -1369,6 +1649,13 @@ impl HistoryReply {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct IsCompleteRequest {
     pub code: String,
+}
+impl Default for IsCompleteRequest {
+    fn default() -> Self {
+        Self {
+            code: String::new(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -1390,6 +1677,13 @@ impl ExecutionState {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Status {
     pub execution_state: ExecutionState,
+}
+impl Default for Status {
+    fn default() -> Self {
+        Self {
+            execution_state: ExecutionState::Idle,
+        }
+    }
 }
 
 impl Status {
