@@ -7,6 +7,36 @@
 //! The main struct, `ConnectionInfo`, encapsulates all necessary information for
 //! establishing a connection with a Jupyter kernel, including IP address, ports,
 //! transport protocol, and authentication details.
+//! Defines structures and functions for Jupyter kernel connection information.
+//!
+//! This module provides types and utilities for working with Jupyter kernel
+//! connection information, including the `ConnectionInfo` struct and related
+//! functionality for formatting URLs and serializing/deserializing connection data.
+//!
+//! The main struct, `ConnectionInfo`, encapsulates all necessary information for
+//! establishing a connection with a Jupyter kernel, including IP address, ports,
+//! transport protocol, and authentication details.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use jupyter_protocol::connection_info::{ConnectionInfo, Transport};
+//!
+//! let info = ConnectionInfo {
+//!     ip: "127.0.0.1".to_string(),
+//!     transport: Transport::TCP,
+//!     shell_port: 6767,
+//!     iopub_port: 6768,
+//!     stdin_port: 6769,
+//!     control_port: 6770,
+//!     hb_port: 6771,
+//!     key: "secret_key".to_string(),
+//!     signature_scheme: "hmac-sha256".to_string(),
+//!     kernel_name: Some("python3".to_string()),
+//! };
+//!
+//! assert_eq!(info.shell_url(), "tcp://127.0.0.1:6767");
+//! ```
 use serde::{Deserialize, Serialize};
 
 /// Represents the transport protocol used for Jupyter kernel communication.

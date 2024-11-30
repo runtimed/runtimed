@@ -1,3 +1,43 @@
+//! Defines the core message types and structures for the Jupyter messaging protocol.
+//!
+//! This module provides implementations for all message types specified in the
+//! [Jupyter Client documentation](https://jupyter-client.readthedocs.io/en/latest/messaging.html),
+//! including execute requests/replies, completion, inspection, and more.
+//!
+//! The main types in this module are:
+//!
+//! - [`JupyterMessage`]: The top-level message structure.
+//! - [`JupyterMessageContent`]: An enum representing all possible message content types.
+//! - Various request and reply structures for specific message types (e.g., [`ExecuteRequest`], [`KernelInfoReply`]).
+//!
+//! # Examples
+//!
+//! Creating an execute request message:
+//!
+//! ```rust
+//! use jupyter_protocol::messaging::{JupyterMessage, ExecuteRequest};
+//!
+//! let execute_request = ExecuteRequest::new("print('Hello, world!')".to_string());
+//! let message: JupyterMessage = execute_request.into();
+//! ```
+//!
+//! Handling a received message:
+//!
+//! ```rust
+//! use jupyter_protocol::messaging::{JupyterMessage, JupyterMessageContent};
+//!
+//! fn handle_message(msg: JupyterMessage) {
+//!     match msg.content {
+//!         JupyterMessageContent::ExecuteRequest(req) => {
+//!             println!("Received execute request with code: {}", req.code);
+//!         },
+//!         JupyterMessageContent::KernelInfoRequest(_) => {
+//!             println!("Received kernel info request");
+//!         },
+//!         _ => println!("Received other message type"),
+//!     }
+//! }
+//! ```
 use crate::time;
 
 pub use crate::{

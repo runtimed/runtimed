@@ -1,3 +1,27 @@
+//! Defines structures for working with Jupyter kernel specifications.
+//!
+//! This module provides types for representing and working with Jupyter kernel
+//! specifications, which describe the properties and launch parameters for
+//! Jupyter kernels.
+//!
+//! The main struct in this module is `JupyterKernelspec`, which corresponds to
+//! the contents of a Jupyter JSON kernelspec file.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use jupyter_protocol::kernelspec::JupyterKernelspec;
+//! use std::collections::HashMap;
+//!
+//! let kernelspec = JupyterKernelspec {
+//!     argv: vec!["python3", "-m", "ipykernel_launcher", "-f", "{connection_file}"].into_iter().map(String::from).collect(),
+//!     display_name: "Python 3".to_string(),
+//!     language: "python".to_string(),
+//!     metadata: None,
+//!     interrupt_mode: Some("signal".to_string()),
+//!     env: Some(HashMap::new()),
+//! };
+//! ```
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
