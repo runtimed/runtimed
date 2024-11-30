@@ -1284,23 +1284,13 @@ impl Default for CommClose {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ShutdownRequest {
     pub restart: bool,
 }
-impl Default for ShutdownRequest {
-    fn default() -> Self {
-        Self { restart: false }
-    }
-}
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct InterruptRequest {}
-impl Default for InterruptRequest {
-    fn default() -> Self {
-        Self {}
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InterruptReply {
@@ -1351,7 +1341,7 @@ pub struct InputRequest {
 impl Default for InputRequest {
     fn default() -> Self {
         Self {
-            prompt: String::new(),
+            prompt: "> ".to_string(),
             password: false,
         }
     }
