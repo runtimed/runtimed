@@ -811,9 +811,9 @@ pub enum Stdio {
 /// ## Example
 /// The UI/client sends an `'execute_request'` message to the kernel.
 ///
-/// ```ignore
+/// ```rust
 /// use jupyter_protocol::messaging::{ExecuteRequest};
-/// // From the UI
+/// // The UI/client sends an `'execute_request'` message to the kernel.
 ///
 /// let execute_request = ExecuteRequest {
 ///     code: "print('Hello, World!')".to_string(),
@@ -823,15 +823,16 @@ pub enum Stdio {
 ///     allow_stdin: false,
 ///     stop_on_error: true,
 /// };
-/// connection.send(execute_request).await?;
-/// ```
 ///
-/// As a side effect of execution, the kernel can send `'stream'` messages to the UI/client.
-/// These are from using `print()`, `console.log()`, or similar. Anything on STDOUT or STDERR.
+/// // ...
 ///
-/// ```ignore
+///
+/// // On the kernel side, we receive the `'execute_request'` message.
+/// //
+/// // As a side effect of execution, the kernel can send `'stream'` messages to the UI/client.
+/// // These are from using `print()`, `console.log()`, or similar. Anything on STDOUT or STDERR.
+///
 /// use jupyter_protocol::messaging::{StreamContent, Stdio};
-/// let execute_request = shell.read().await?;
 ///
 /// let message = StreamContent {
 ///   name: Stdio::Stdout,
