@@ -7,8 +7,7 @@ repository = "https://github.com/runtimed/runtimed"
 license = "BSD-3-Clause"
 
 [dependencies]
-anyhow = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-uuid = { workspace = true }
-thiserror = "1.0"
+jupyter-protocol = { path = "../jupyter-protocol", version = "0.3.0" }
+
+[package.metadata]
+deprecated = true

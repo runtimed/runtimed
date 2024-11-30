@@ -1,11 +1,12 @@
 use crate::time;
 
-use bytes::Bytes;
-use chrono::{DateTime, Utc};
-pub use jupyter_serde::{
+pub use crate::{
     media::{Media, MediaType},
     ExecutionCount,
 };
+
+use bytes::Bytes;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{collections::HashMap, fmt};
