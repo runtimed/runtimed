@@ -81,6 +81,35 @@ struct UnknownJupyterMessage {
     pub buffers: Vec<Bytes>,
 }
 
+/// Represents a Jupyter message header.
+///
+/// The header contains metadata about the message, such as its unique identifier,
+/// the username of the sender, and the message type.
+///
+/// # Fields
+///
+/// - `msg_id`: A unique identifier for the message.
+/// - `username`: The name of the user who sent the message.
+/// - `session`: The session identifier.
+/// - `date`: The timestamp when the message was created.
+/// - `msg_type`: The type of message (e.g., `execute_request`).
+/// - `version`: The version of the messaging protocol.
+///
+/// # Example
+///
+/// ```rust
+/// use jupyter_protocol::messaging::Header;
+/// use chrono::Utc;
+///
+/// let header = Header {
+///     msg_id: "12345".to_string(),
+///     username: "user".to_string(),
+///     session: "session1".to_string(),
+///     date: Utc::now(),
+///     msg_type: "execute_request".to_string(),
+///     version: "5.3".to_string(),
+/// };
+/// ```
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Header {
     pub msg_id: String,
