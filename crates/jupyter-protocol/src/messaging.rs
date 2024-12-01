@@ -2001,8 +2001,7 @@ mod test {
                     "ok": [1, 2, 3]
                 }
             },
-            "metadata": {},
-            "transient": {}
+            "metadata": {}
         });
 
         assert_eq!(display_data_value, expected_display_data_value);
