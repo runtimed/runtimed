@@ -694,6 +694,9 @@ pub struct ClearOutput {
     pub wait: bool,
 }
 
+/// A request for code execution.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#execute>
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteRequest {
     pub code: String,
@@ -753,6 +756,9 @@ impl Default for ExecuteRequest {
     }
 }
 
+/// A reply to an execute request.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#execution-results>
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteReply {
     pub status: ReplyStatus,
@@ -803,9 +809,15 @@ pub enum Payload {
     },
 }
 
+/// A request for information about the kernel.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#kernel-info>
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
 pub struct KernelInfoRequest {}
 
+/// A reply containing information about the kernel.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#kernel-info>
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KernelInfoReply {
     pub status: ReplyStatus,
@@ -1452,12 +1464,18 @@ impl Default for InspectReply {
     }
 }
 
+/// A request for code completion suggestions.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#completion>
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct CompleteRequest {
     pub code: String,
     pub cursor_pos: usize,
 }
 
+/// A reply containing code completion suggestions.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#completion>
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CompleteReply {
     pub matches: Vec<String>,
@@ -1611,6 +1629,9 @@ pub enum HistoryEntry {
     InputOutput(usize, usize, (String, String)),
 }
 
+/// A reply containing execution history.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#history>
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HistoryReply {
     pub history: Vec<HistoryEntry>,
@@ -1639,6 +1660,9 @@ impl HistoryReply {
     }
 }
 
+/// A request to check if the code is complete and ready for execution.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#code-completeness>
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct IsCompleteRequest {
     pub code: String,
@@ -1660,6 +1684,9 @@ impl ExecutionState {
     }
 }
 
+/// A message indicating the current status of the kernel.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#kernel-status>
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Status {
     pub execution_state: ExecutionState,
