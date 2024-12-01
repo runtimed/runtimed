@@ -892,16 +892,16 @@ pub enum Stdio {
     Stderr,
 }
 
-/// A `'stream'` message on the `'iopub'` channel.
+/// A `stream` message on the `iopub` channel.
 ///
 /// See [Streams](https://jupyter-client.readthedocs.io/en/latest/messaging.html#streams-stdout-stderr-etc).
 ///
 /// ## Example
-/// The UI/client sends an `'execute_request'` message to the kernel.
+/// The UI/client sends an `execute_request` message to the kernel.
 ///
 /// ```rust
 /// use jupyter_protocol::{ExecuteRequest, JupyterMessage};
-/// // The UI/client sends an `'execute_request'` message to the kernel.
+/// // The UI/client sends an `execute_request` message to the kernel.
 ///
 /// let execute_request = ExecuteRequest {
 ///     code: "print('Hello, World!')".to_string(),
@@ -917,9 +917,9 @@ pub enum Stdio {
 /// // ...
 ///
 ///
-/// // On the kernel side, we receive the `'execute_request'` message.
+/// // On the kernel side, we receive the `execute_request` message.
 /// //
-/// // As a side effect of execution, the kernel can send `'stream'` messages to the UI/client.
+/// // As a side effect of execution, the kernel can send `stream` messages to the UI/client.
 /// // These are from using `print()`, `console.log()`, or similar. Anything on STDOUT or STDERR.
 ///
 /// use jupyter_protocol::{StreamContent, Stdio};
@@ -970,13 +970,13 @@ pub struct Transient {
     pub display_id: Option<String>,
 }
 
-/// A `'display_data'` message on the `'iopub'` channel.
+/// A `display_data` message on the `iopub` channel.
 ///
 /// See [Display Data](https://jupyter-client.readthedocs.io/en/latest/messaging.html#display-data).
 ///
 /// ## Example
 ///
-/// The UI/client sends an `'execute_request'` message to the kernel.
+/// The UI/client sends an `execute_request` message to the kernel.
 ///
 /// ```rust,ignore
 /// use jupyter_protocol::messaging::{ExecuteReqeuest};
@@ -992,7 +992,7 @@ pub struct Transient {
 /// connection.send(execute_request).await?;
 /// ```
 ///
-/// As a side effect of execution, the kernel can send `'display_data'` messages to the UI/client.
+/// As a side effect of execution, the kernel can send `display_data` messages to the UI/client.
 ///
 /// ```rust,ignore
 /// use jupyter_protocol::media::{Media, MediaType, DisplayData};
@@ -1044,7 +1044,7 @@ impl From<MediaType> for DisplayData {
     }
 }
 
-/// A `'update_display_data'` message on the `'iopub'` channel.
+/// An `update_display_data` message on the `iopub` channel.
 /// See [Update Display Data](https://jupyter-client.readthedocs.io/en/latest/messaging.html#update-display-data).
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct UpdateDisplayData {
@@ -1065,7 +1065,7 @@ impl UpdateDisplayData {
     }
 }
 
-/// An `'execute_input'` message on the `'iopub'` channel.
+/// An `execute_input` message on the `iopub` channel.
 /// See [Execute Input](https://jupyter-client.readthedocs.io/en/latest/messaging.html#execute-input).
 ///
 /// To let all frontends know what code is being executed at any given time, these messages contain a re-broadcast of the code portion of an execute_request, along with the execution_count.
@@ -1084,7 +1084,7 @@ impl Default for ExecuteInput {
     }
 }
 
-/// An `'execute_result'` message on the `'iopub'` channel.
+/// An `execute_result` message on the `iopub` channel.
 /// See [Execute Result](https://jupyter-client.readthedocs.io/en/latest/messaging.html#execute-result).
 ///
 /// The is the "result", in the REPL sense from execution. As an example, the following Python code:
@@ -1094,7 +1094,7 @@ impl Default for ExecuteInput {
 /// 7
 /// ```
 ///
-/// would have an `'execute_result'` message with the following content:
+/// would have an `execute_result` message with the following content:
 ///
 /// ```json
 /// {
@@ -1148,7 +1148,7 @@ impl From<(ExecutionCount, MediaType)> for ExecuteResult {
     }
 }
 
-/// An `'error'` message on the `'iopub'` channel.
+/// An `error` message on the `iopub` channel.
 /// See [Error](https://jupyter-client.readthedocs.io/en/latest/messaging.html#execution-errors).
 ///
 /// These are errors that occur during execution from user code. Syntax errors, runtime errors, etc.
@@ -1160,7 +1160,7 @@ pub struct ErrorOutput {
     pub traceback: Vec<String>,
 }
 
-/// A `'comm_open'` message on the `'iopub'` channel.
+/// A `comm_open` message on the `iopub` channel.
 ///
 /// See [Comm Open](https://jupyter-client.readthedocs.io/en/latest/messaging.html#opening-a-comm).
 ///
@@ -1203,7 +1203,7 @@ impl Default for CommOpen {
     }
 }
 
-/// A `comm_msg` message on the `'iopub'` channel.
+/// A `comm_msg` message on the `iopub` channel.
 ///
 /// Comm messages are one-way communications to update comm state, used for
 /// synchronizing widget state, or simply requesting actions of a comm’s
@@ -1278,7 +1278,7 @@ impl Default for CommInfoReply {
     }
 }
 
-/// A `comm_close` message on the `'iopub'` channel.
+/// A `comm_close` message on the `iopub` channel.
 ///
 /// Since comms live on both sides, when a comm is destroyed the other side must
 /// be notified. This is done with a comm_close message.
@@ -1414,7 +1414,7 @@ impl Default for InputReply {
     }
 }
 
-/// A `'inspect_request'` message on the `'shell'` channel.
+/// A `inspect_request` message on the `shell` channel.
 ///
 /// Code can be inspected to show useful information to the user.
 /// It is up to the Kernel to decide what information should be displayed, and its formatting.
