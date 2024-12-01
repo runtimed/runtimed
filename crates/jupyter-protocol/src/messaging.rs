@@ -61,13 +61,42 @@ use serde_json::{json, Value};
 use std::{collections::HashMap, fmt};
 use uuid::Uuid;
 
+/// Represents the different channels in the Jupyter messaging protocol.
+///
+/// Each channel serves a specific purpose in the communication between
+/// Jupyter clients and kernels.
+///
+/// # Variants
+///
+/// - `Shell`: Used for request/reply-style messages.
+/// - `Control`: Similar to `Shell`, but for high-priority messages.
+/// - `Stdin`: Used for input requests from the kernel.
+/// - `IOPub`: Used for broadcasting results, errors, and other messages.
+/// - `Heartbeat`: Used to check the kernel's responsiveness.
+///
+/// # Example
+///
+/// ```rust
+/// use jupyter_protocol::messaging::Channel;
+///
+/// let channel = Channel::Shell;
+/// match channel {
+///     Channel::Shell => println!("Using the shell channel"),
+///     _ => println!("Using another channel"),
+/// }
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Channel {
+    /// Used for request/reply-style messages.
     Shell,
+    /// Similar to `Shell`, but for high-priority messages.
     Control,
+    /// Used for input requests from the kernel.
     Stdin,
+    /// Used for broadcasting results, errors, and other messages.
     IOPub,
+    /// Used to check the kernel's responsiveness.
     Heartbeat,
 }
 
