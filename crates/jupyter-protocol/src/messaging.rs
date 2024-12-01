@@ -1285,14 +1285,33 @@ impl Default for CommClose {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
+/// Request to shut down the kernel.
+///
+/// Upon receiving this message, the kernel will send a reply and then shut itself down.
+/// If `restart` is True, the kernel will restart itself after shutting down.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#kernel-shutdown>
 pub struct ShutdownRequest {
     pub restart: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
+/// Request to interrupt the kernel.
+///
+/// This message is used when the kernel's `interrupt_mode` is set to "message"
+/// in its kernelspec. It allows the kernel to be interrupted via a message
+/// instead of an operating system signal.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#kernel-interrupt>
 pub struct InterruptRequest {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+/// Reply to an interrupt request.
+///
+/// This message is sent by the kernel in response to an `InterruptRequest`.
+/// It indicates whether the interrupt was successful.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#kernel-interrupt>
 pub struct InterruptReply {
     pub status: ReplyStatus,
 
@@ -1316,6 +1335,12 @@ impl InterruptReply {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+/// Reply to a shutdown request.
+///
+/// This message is sent by the kernel in response to a `ShutdownRequest`.
+/// It confirms that the kernel is shutting down.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#kernel-shutdown>
 pub struct ShutdownReply {
     pub restart: bool,
     pub status: ReplyStatus,
@@ -1334,6 +1359,12 @@ impl Default for ShutdownReply {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+/// Request for input from the frontend.
+///
+/// This message is sent by the kernel when it needs to prompt the user for input.
+/// It's typically used to implement functions like Python's `input()` or R's `readline()`.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#messages-on-the-stdin-router-dealer-channel>
 pub struct InputRequest {
     pub prompt: String,
     pub password: bool,
@@ -1348,6 +1379,12 @@ impl Default for InputRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+/// Reply to an input request.
+///
+/// This message is sent by the frontend in response to an `InputRequest`.
+/// It contains the user's input.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#messages-on-the-stdin-router-dealer-channel>
 pub struct InputReply {
     pub value: String,
 
