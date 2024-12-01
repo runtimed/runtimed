@@ -4,24 +4,33 @@
 //! [Jupyter Client documentation](https://jupyter-client.readthedocs.io/en/latest/messaging.html),
 //! including execute requests/replies, completion, inspection, and more.
 //!
-//! The main types in this module are:
+//! # Overview
 //!
-//! - [`JupyterMessage`]: The top-level message structure.
-//! - [`JupyterMessageContent`]: An enum representing all possible message content types.
-//! - Various request and reply structures for specific message types (e.g., [`ExecuteRequest`], [`KernelInfoReply`]).
+//! The Jupyter messaging protocol is a set of JSON-based message types used to communicate
+//! between Jupyter clients and kernels. This module provides Rust types and utilities to
+//! work with these messages in a type-safe manner.
+//!
+//! # Main Types
+//!
+//! - **[`JupyterMessage`]**: The top-level message structure, representing a complete Jupyter message.
+//! - **[`JupyterMessageContent`]**: An enum representing all possible message content types.
+//! - Various request and reply structures for specific message types (e.g., **[`ExecuteRequest`]**, **[`KernelInfoReply`]**).
 //!
 //! # Examples
 //!
-//! Creating an execute request message:
+//! ## Creating an Execute Request
 //!
 //! ```rust
 //! use jupyter_protocol::messaging::{JupyterMessage, ExecuteRequest};
 //!
+//! // Create a new execute request with the code to be executed
 //! let execute_request = ExecuteRequest::new("print('Hello, world!')".to_string());
+//!
+//! // Convert the request into a JupyterMessage
 //! let message: JupyterMessage = execute_request.into();
 //! ```
 //!
-//! Handling a received message:
+//! ## Handling a Received Message
 //!
 //! ```rust
 //! use jupyter_protocol::messaging::{JupyterMessage, JupyterMessageContent};
