@@ -872,7 +872,11 @@ impl Default for ExecuteRequest {
     }
 }
 
-/// A reply to an execute request.
+/// A reply to an execute request. This is not the output of execution, as this is the reply over
+/// the `shell` socket. Any number of outputs can be emitted as `StreamContent`, `DisplayData`,
+/// `UpdateDisplayData`, `ExecuteResult`, and `ErrorOutput`. This message is used to communicate
+/// the status of the execution request, the execution count, and any user expressions that
+/// were requested.
 ///
 /// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#execution-results>
 #[derive(Serialize, Deserialize, Debug, Clone)]
