@@ -110,6 +110,7 @@ struct UnknownJupyterMessage {
     pub buffers: Vec<Bytes>,
 }
 
+
 /// Represents a Jupyter message header.
 ///
 /// The header contains metadata about the message, such as its unique identifier,
@@ -128,13 +129,12 @@ struct UnknownJupyterMessage {
 ///
 /// ```rust
 /// use jupyter_protocol::messaging::Header;
-/// use chrono::Utc;
 ///
 /// let header = Header {
 ///     msg_id: "12345".to_string(),
 ///     username: "user".to_string(),
 ///     session: "session1".to_string(),
-///     date: Utc::now(),
+///     date: chrono::DateTime::from_timestamp_nanos(1234567890),
 ///     msg_type: "execute_request".to_string(),
 ///     version: "5.3".to_string(),
 /// };
@@ -168,6 +168,54 @@ where
         None => serde_json::Map::new().serialize(serializer),
     }
 }
+
+/// A message in the Jupyter protocol format.
+///
+/// A Jupyter message consists of several parts:
+/// - `zmq_identities`: ZeroMQ identities used for routing (not serialized)
+/// - `header`: Metadata about the message
+/// - `parent_header`: Header from parent message, if this is a response
+/// - `metadata`: Additional metadata as JSON 
+/// - `content`: The main message content
+/// - `buffers`: Binary buffers for messages that need them (not serialized)
+/// - `channel`: The communication channel this message belongs to
+///
+/// # Example
+///
+/// ```rust
+/// use jupyter_protocol::messaging::{JupyterMessage, JupyterMessageContent, ExecuteRequest};
+///
+/// // Create a new execute_request message
+/// let msg = JupyterMessage::new(
+///     ExecuteRequest {
+///         code: "print('Hello')".to_string(),
+///         silent: false,
+///         store_history: true,
+///         user_expressions: Default::default(),
+///         allow_stdin: true,
+///         stop_on_error: false,
+///     },
+///     None,
+/// );
+/// ```
+///
+/// Messages can be created as responses to other messages by passing the parent:
+///
+/// ```rust
+/// # use jupyter_protocol::messaging::{JupyterMessage, JupyterMessageContent, ReplyStatus, ExecuteRequest, ExecuteReply};
+/// # let parent = JupyterMessage::new(ExecuteRequest {
+/// #     code: "".to_string(), silent: false, store_history: true,
+/// #     user_expressions: Default::default(), allow_stdin: true, stop_on_error: false,
+/// # }, None);
+/// let reply = JupyterMessage::new(
+///     ExecuteReply {
+///         status: ReplyStatus::Ok,
+///         execution_count: jupyter_protocol::ExecutionCount::new(1),
+///         ..Default::default()
+///     },
+///     Some(&parent),
+/// );
+/// ```
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct JupyterMessage {
