@@ -55,7 +55,7 @@ pub use crate::{
 };
 
 use bytes::Bytes;
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{collections::HashMap, fmt};
@@ -601,6 +601,7 @@ macro_rules! impl_message_traits {
             }
 
             impl From<$name> for JupyterMessage {
+                #[doc(hidden)]
                 #[doc = concat!("Create a new `JupyterMessage` for a `", stringify!($name), "`.\n\n")]
                 /// ⚠️ If you use this method with `runtimelib`, you must set the zmq identities yourself. If you
                 /// have a message that "caused" your message to be sent, use that message with `as_child_of` instead.
@@ -722,6 +723,7 @@ impl HistoryRequest {
 }
 
 impl From<HistoryRequest> for JupyterMessage {
+    #[doc(hidden)]
     /// Create a new `JupyterMessage` for a `HistoryRequest`.
     /// ⚠️ If you use this method with `runtimelib`, you must set the zmq identities yourself. If you
     /// have a message that "caused" your message to be sent, use that message with `as_child_of` instead.
