@@ -21,7 +21,7 @@
 //! ## Creating an Execute Request
 //!
 //! ```rust
-//! use jupyter_protocol::messaging::{JupyterMessage, ExecuteRequest};
+//! use jupyter_protocol::{ExecuteRequest, JupyterMessage};
 //!
 //! // Create a new execute request with the code to be executed
 //! let execute_request = ExecuteRequest::new("print('Hello, world!')".to_string());
@@ -33,7 +33,7 @@
 //! ## Handling a Received Message
 //!
 //! ```rust
-//! use jupyter_protocol::messaging::{JupyterMessage, JupyterMessageContent};
+//! use jupyter_protocol::{JupyterMessage, JupyterMessageContent};
 //!
 //! fn handle_message(msg: JupyterMessage) {
 //!     match msg.content {
@@ -1012,7 +1012,7 @@ pub enum Stdio {
     Stderr,
 }
 
-/// A `stream` message on the `iopub` channel.
+/// A `stream` message on the `iopub` channel. These are also known as "stdout" and "stderr".
 ///
 /// See [Streams](https://jupyter-client.readthedocs.io/en/latest/messaging.html#streams-stdout-stderr-etc).
 ///
@@ -1098,48 +1098,43 @@ pub struct Transient {
 ///
 /// The UI/client sends an `execute_request` message to the kernel.
 ///
-/// ```rust,ignore
-/// use jupyter_protocol::messaging::{ExecuteReqeuest};
+/// ```rust
+/// use jupyter_protocol::{ExecuteRequest, JupyterMessage};
 ///
-/// let execute_request = ExecuteRequest {
+/// let execute_request: JupyterMessage = ExecuteRequest {
 ///     code: "print('Hello, World!')".to_string(),
 ///     silent: false,
 ///     store_history: true,
 ///     user_expressions: None,
 ///     allow_stdin: false,
 ///     stop_on_error: true,
-/// };
-/// connection.send(execute_request).await?;
-/// ```
+/// }.into();
 ///
-/// As a side effect of execution, the kernel can send `display_data` messages to the UI/client.
+/// // As a side effect of execution, the kernel can send `display_data` messages to the UI/client.
 ///
-/// ```rust,ignore
-/// use jupyter_protocol::media::{Media, MediaType, DisplayData};
-///
-/// let execute_request = shell.read().await?;
+/// use jupyter_protocol::{DisplayData, Media, MediaType};
 ///
 /// let raw = r#"{
 ///     "text/plain": "Hello, world!",
-///     "text/html": "<h1>Hello, world!</h1>",
+///     "text/html": "<h1>Hello, world!</h1>"
 /// }"#;
 ///
 /// let bundle: Media = serde_json::from_str(raw).unwrap();
 ///
-/// let message = DisplayData{
+/// let message = DisplayData {
 ///    data: bundle,
 ///    metadata: Default::default(),
 ///    transient: None,
-/// }.as_child_of(execute_request);
-/// iopub.send(message).await?;
+/// }.as_child_of(&execute_request);
+/// // Send back the response over the iopub connection
 ///
 /// ```
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct DisplayData {
     pub data: Media,
     pub metadata: serde_json::Map<String, Value>,
-    #[serde(default)]
-    pub transient: Transient,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transient: Option<Transient>,
 }
 
 impl DisplayData {
