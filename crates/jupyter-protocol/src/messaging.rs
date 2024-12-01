@@ -55,7 +55,7 @@ pub use crate::{
 };
 
 use bytes::Bytes;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{collections::HashMap, fmt};
@@ -109,7 +109,6 @@ struct UnknownJupyterMessage {
     #[serde(skip_serializing, skip_deserializing)]
     pub buffers: Vec<Bytes>,
 }
-
 
 /// Represents a Jupyter message header.
 ///
@@ -175,7 +174,7 @@ where
 /// - `zmq_identities`: ZeroMQ identities used for routing (not serialized)
 /// - `header`: Metadata about the message
 /// - `parent_header`: Header from parent message, if this is a response
-/// - `metadata`: Additional metadata as JSON 
+/// - `metadata`: Additional metadata as JSON
 /// - `content`: The main message content
 /// - `buffers`: Binary buffers for messages that need them (not serialized)
 /// - `channel`: The communication channel this message belongs to
