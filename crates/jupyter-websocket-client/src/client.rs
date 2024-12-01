@@ -39,7 +39,7 @@ pub struct NewSession {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct KernelSpec {
     pub name: String,
-    pub spec: jupyter_serde::JupyterKernelspec,
+    pub spec: jupyter_protocol::JupyterKernelspec,
     pub resources: std::collections::HashMap<String, String>,
 }
 

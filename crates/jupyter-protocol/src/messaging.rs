@@ -1,23 +1,102 @@
+//! Defines the core message types and structures for the Jupyter messaging protocol.
+//!
+//! This module provides implementations for all message types specified in the
+//! [Jupyter Client documentation](https://jupyter-client.readthedocs.io/en/latest/messaging.html),
+//! including execute requests/replies, completion, inspection, and more.
+//!
+//! # Overview
+//!
+//! The Jupyter messaging protocol is a set of JSON-based message types used to communicate
+//! between Jupyter clients and kernels. This module provides Rust types and utilities to
+//! work with these messages in a type-safe manner.
+//!
+//! # Main Types
+//!
+//! - **[`JupyterMessage`]**: The top-level message structure, representing a complete Jupyter message.
+//! - **[`JupyterMessageContent`]**: An enum representing all possible message content types.
+//! - Various request and reply structures for specific message types (e.g., **[`ExecuteRequest`]**, **[`KernelInfoReply`]**).
+//!
+//! # Examples
+//!
+//! ## Creating an Execute Request
+//!
+//! ```rust
+//! use jupyter_protocol::{ExecuteRequest, JupyterMessage};
+//!
+//! // Create a new execute request with the code to be executed
+//! let execute_request = ExecuteRequest::new("print('Hello, world!')".to_string());
+//!
+//! // Convert the request into a JupyterMessage
+//! let message: JupyterMessage = execute_request.into();
+//! ```
+//!
+//! ## Handling a Received Message
+//!
+//! ```rust
+//! use jupyter_protocol::{JupyterMessage, JupyterMessageContent};
+//!
+//! fn handle_message(msg: JupyterMessage) {
+//!     match msg.content {
+//!         JupyterMessageContent::ExecuteRequest(req) => {
+//!             println!("Received execute request with code: {}", req.code);
+//!         },
+//!         JupyterMessageContent::KernelInfoRequest(_) => {
+//!             println!("Received kernel info request");
+//!         },
+//!         _ => println!("Received other message type"),
+//!     }
+//! }
+//! ```
 use crate::time;
 
-use bytes::Bytes;
-use chrono::{DateTime, Utc};
-pub use jupyter_serde::{
+pub use crate::{
     media::{Media, MediaType},
     ExecutionCount,
 };
+
+use bytes::Bytes;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{collections::HashMap, fmt};
 use uuid::Uuid;
 
+/// Represents the different channels in the Jupyter messaging protocol.
+///
+/// Each channel serves a specific purpose in the communication between
+/// Jupyter clients and kernels.
+///
+/// # Variants
+///
+/// - `Shell`: Used for request/reply-style messages.
+/// - `Control`: Similar to `Shell`, but for high-priority messages.
+/// - `Stdin`: Used for input requests from the kernel.
+/// - `IOPub`: Used for broadcasting results, errors, and other messages.
+/// - `Heartbeat`: Used to check the kernel's responsiveness.
+///
+/// # Example
+///
+/// ```rust
+/// use jupyter_protocol::messaging::Channel;
+///
+/// let channel = Channel::Shell;
+/// match channel {
+///     Channel::Shell => println!("Using the shell channel"),
+///     _ => println!("Using another channel"),
+/// }
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Channel {
+    /// Used for request/reply-style messages.
     Shell,
+    /// Similar to `Shell`, but for high-priority messages.
     Control,
+    /// Used for input requests from the kernel.
     Stdin,
+    /// Used for broadcasting results, errors, and other messages.
     IOPub,
+    /// Used to check the kernel's responsiveness.
     Heartbeat,
 }
 
@@ -31,6 +110,34 @@ struct UnknownJupyterMessage {
     pub buffers: Vec<Bytes>,
 }
 
+/// Represents a Jupyter message header.
+///
+/// The header contains metadata about the message, such as its unique identifier,
+/// the username of the sender, and the message type.
+///
+/// # Fields
+///
+/// - `msg_id`: A unique identifier for the message.
+/// - `username`: The name of the user who sent the message.
+/// - `session`: The session identifier.
+/// - `date`: The timestamp when the message was created.
+/// - `msg_type`: The type of message (e.g., `execute_request`).
+/// - `version`: The version of the messaging protocol.
+///
+/// # Example
+///
+/// ```rust
+/// use jupyter_protocol::messaging::Header;
+///
+/// let header = Header {
+///     msg_id: "12345".to_string(),
+///     username: "user".to_string(),
+///     session: "session1".to_string(),
+///     date: chrono::DateTime::from_timestamp_nanos(1234567890),
+///     msg_type: "execute_request".to_string(),
+///     version: "5.3".to_string(),
+/// };
+/// ```
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Header {
     pub msg_id: String,
@@ -41,7 +148,7 @@ pub struct Header {
     pub version: String,
 }
 
-/// Serializes the `parent_header`.
+/// Serializes the `parent_header` of a `JupyterMessage`.
 ///
 /// Treats `None` as an empty object to conform to Jupyter's messaging guidelines:
 ///
@@ -60,6 +167,54 @@ where
         None => serde_json::Map::new().serialize(serializer),
     }
 }
+
+/// A message in the Jupyter protocol format.
+///
+/// A Jupyter message consists of several parts:
+/// - `zmq_identities`: ZeroMQ identities used for routing (not serialized)
+/// - `header`: Metadata about the message
+/// - `parent_header`: Header from parent message, if this is a response
+/// - `metadata`: Additional metadata as JSON
+/// - `content`: The main message content
+/// - `buffers`: Binary buffers for messages that need them (not serialized)
+/// - `channel`: The communication channel this message belongs to
+///
+/// # Example
+///
+/// ```rust
+/// use jupyter_protocol::messaging::{JupyterMessage, JupyterMessageContent, ExecuteRequest};
+///
+/// // Create a new execute_request message
+/// let msg = JupyterMessage::new(
+///     ExecuteRequest {
+///         code: "print('Hello')".to_string(),
+///         silent: false,
+///         store_history: true,
+///         user_expressions: Default::default(),
+///         allow_stdin: true,
+///         stop_on_error: false,
+///     },
+///     None,
+/// );
+/// ```
+///
+/// Messages can be created as responses to other messages by passing the parent:
+///
+/// ```rust
+/// # use jupyter_protocol::messaging::{JupyterMessage, JupyterMessageContent, ReplyStatus, ExecuteRequest, ExecuteReply};
+/// # let parent = JupyterMessage::new(ExecuteRequest {
+/// #     code: "".to_string(), silent: false, store_history: true,
+/// #     user_expressions: Default::default(), allow_stdin: true, stop_on_error: false,
+/// # }, None);
+/// let reply = JupyterMessage::new(
+///     ExecuteReply {
+///         status: ReplyStatus::Ok,
+///         execution_count: jupyter_protocol::ExecutionCount::new(1),
+///         ..Default::default()
+///     },
+///     Some(&parent),
+/// );
+/// ```
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct JupyterMessage {
@@ -423,16 +578,21 @@ macro_rules! impl_message_traits {
                 /// it suitable for sending over ZeroMQ.
                 ///
                 /// # Example
-                /// ```ignore
+                /// ```rust
                 /// use jupyter_protocol::messaging::{JupyterMessage, JupyterMessageContent};
+                #[doc = concat!("use jupyter_protocol::", stringify!($name), ";\n")]
                 ///
-                /// let message = connection.recv().await?;
+                /// let parent_message = JupyterMessage::new(jupyter_protocol::UnknownMessage {
+                ///   msg_type: "example".to_string(),
+                ///   content: serde_json::json!({ "key": "value" }),
+                /// }, None);
                 ///
                 #[doc = concat!("let child_message = ", stringify!($name), "{\n")]
-                ///   // ...
-                /// }.as_child_of(&message);
+                ///   ..Default::default()
+                /// }.as_child_of(&parent_message);
                 ///
-                /// connection.send(child_message).await?;
+                /// // Next you would send the `child_message` over the connection
+                ///
                 /// ```
                 #[must_use]
                 pub fn as_child_of(&self, parent: &JupyterMessage) -> JupyterMessage {
@@ -441,9 +601,10 @@ macro_rules! impl_message_traits {
             }
 
             impl From<$name> for JupyterMessage {
+                #[doc(hidden)]
                 #[doc = concat!("Create a new `JupyterMessage` for a `", stringify!($name), "`.\n\n")]
-                /// ⚠️ If you use this method, you must set the zmq identities yourself. If you have a message that
-                /// "caused" your message to be sent, use that message with `as_child_of` instead.
+                /// ⚠️ If you use this method with `runtimelib`, you must set the zmq identities yourself. If you
+                /// have a message that "caused" your message to be sent, use that message with `as_child_of` instead.
                 #[must_use]
                 fn from(content: $name) -> Self {
                     JupyterMessage::new(content, None)
@@ -485,7 +646,7 @@ impl_message_traits!(
     ExecuteRequest,
     ExecuteResult,
     HistoryReply,
-    HistoryRequest,
+    // HistoryRequest, // special case due to enum entry
     InputReply,
     InputRequest,
     InspectReply,
@@ -494,6 +655,7 @@ impl_message_traits!(
     InterruptRequest,
     IsCompleteReply,
     IsCompleteRequest,
+    // KernelInfoReply, // special case due to boxing
     KernelInfoRequest,
     ShutdownReply,
     ShutdownRequest,
@@ -528,6 +690,57 @@ impl From<KernelInfoReply> for JupyterMessageContent {
     }
 }
 
+impl HistoryRequest {
+    /// Create a new `JupyterMessage`, assigning the parent for a `HistoryRequest` message.
+    ///
+    /// This method creates a new `JupyterMessage` with the right content, parent header, and zmq identities, making
+    /// it suitable for sending over ZeroMQ.
+    ///
+    /// # Example
+    /// ```rust
+    /// use jupyter_protocol::messaging::{JupyterMessage, JupyterMessageContent};
+    /// use jupyter_protocol::HistoryRequest;
+    ///
+    /// let parent_message = JupyterMessage::new(jupyter_protocol::UnknownMessage {
+    ///   msg_type: "example".to_string(),
+    ///   content: serde_json::json!({ "key": "value" }),
+    /// }, None);
+    ///
+    /// let child_message = HistoryRequest::Range {
+    ///     session: None,
+    ///     start: 0,
+    ///     stop: 10,
+    ///     output: false,
+    ///     raw: false,
+    /// }.as_child_of(&parent_message);
+    ///
+    /// // Next you would send the `child_message` over the connection
+    /// ```
+    #[must_use]
+    pub fn as_child_of(&self, parent: &JupyterMessage) -> JupyterMessage {
+        JupyterMessage::new(self.clone(), Some(parent))
+    }
+}
+
+impl From<HistoryRequest> for JupyterMessage {
+    #[doc(hidden)]
+    /// Create a new `JupyterMessage` for a `HistoryRequest`.
+    /// ⚠️ If you use this method with `runtimelib`, you must set the zmq identities yourself. If you
+    /// have a message that "caused" your message to be sent, use that message with `as_child_of` instead.
+    #[must_use]
+    fn from(content: HistoryRequest) -> Self {
+        JupyterMessage::new(content, None)
+    }
+}
+
+impl From<HistoryRequest> for JupyterMessageContent {
+    /// Create a new `JupyterMessageContent` for a `HistoryRequest`.
+    #[must_use]
+    fn from(content: HistoryRequest) -> Self {
+        JupyterMessageContent::HistoryRequest(content)
+    }
+}
+
 /// Unknown message types are a workaround for generically unknown messages.
 ///
 /// ```rust
@@ -548,6 +761,14 @@ pub struct UnknownMessage {
     pub msg_type: String,
     #[serde(flatten)]
     pub content: Value,
+}
+impl Default for UnknownMessage {
+    fn default() -> Self {
+        Self {
+            msg_type: "unknown".to_string(),
+            content: Value::Null,
+        }
+    }
 }
 
 impl UnknownMessage {
@@ -572,7 +793,7 @@ pub enum ReplyStatus {
     Aborted,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ReplyError {
     pub ename: String,
     pub evalue: String,
@@ -580,14 +801,18 @@ pub struct ReplyError {
 }
 
 /// Clear output of a single cell / output area.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ClearOutput {
     /// Wait to clear the output until new output is available.  Clears the
+
     /// existing output immediately before the new output is displayed.
     /// Useful for creating simple animations with minimal flickering.
     pub wait: bool,
 }
 
+/// A request for code execution.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#execute>
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteRequest {
     pub code: String,
@@ -647,6 +872,13 @@ impl Default for ExecuteRequest {
     }
 }
 
+/// A reply to an execute request. This is not the output of execution, as this is the reply over
+/// the `shell` socket. Any number of outputs can be emitted as `StreamContent`, `DisplayData`,
+/// `UpdateDisplayData`, `ExecuteResult`, and `ErrorOutput`. This message is used to communicate
+/// the status of the execution request, the execution count, and any user expressions that
+/// were requested.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#execution-results>
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteReply {
     pub status: ReplyStatus,
@@ -658,6 +890,17 @@ pub struct ExecuteReply {
 
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
+}
+impl Default for ExecuteReply {
+    fn default() -> Self {
+        Self {
+            status: ReplyStatus::Ok,
+            execution_count: ExecutionCount::new(0),
+            payload: Vec::new(),
+            user_expressions: None,
+            error: None,
+        }
+    }
 }
 
 /// Payloads are a way to trigger frontend actions from the kernel.
@@ -686,9 +929,15 @@ pub enum Payload {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+/// A request for information about the kernel.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#kernel-info>
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
 pub struct KernelInfoRequest {}
 
+/// A reply containing information about the kernel.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#kernel-info>
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KernelInfoReply {
     pub status: ReplyStatus,
@@ -763,16 +1012,16 @@ pub enum Stdio {
     Stderr,
 }
 
-/// A `'stream'` message on the `'iopub'` channel.
+/// A `stream` message on the `iopub` channel. These are also known as "stdout" and "stderr".
 ///
 /// See [Streams](https://jupyter-client.readthedocs.io/en/latest/messaging.html#streams-stdout-stderr-etc).
 ///
 /// ## Example
-/// The UI/client sends an `'execute_request'` message to the kernel.
+/// The UI/client sends an `execute_request` message to the kernel.
 ///
-/// ```ignore
-/// use jupyter_protocol::messaging::{ExecuteRequest};
-/// // From the UI
+/// ```rust
+/// use jupyter_protocol::{ExecuteRequest, JupyterMessage};
+/// // The UI/client sends an `execute_request` message to the kernel.
 ///
 /// let execute_request = ExecuteRequest {
 ///     code: "print('Hello, World!')".to_string(),
@@ -782,27 +1031,40 @@ pub enum Stdio {
 ///     allow_stdin: false,
 ///     stop_on_error: true,
 /// };
-/// connection.send(execute_request).await?;
-/// ```
 ///
-/// As a side effect of execution, the kernel can send `'stream'` messages to the UI/client.
-/// These are from using `print()`, `console.log()`, or similar. Anything on STDOUT or STDERR.
+/// let incoming_message: JupyterMessage = execute_request.into();
 ///
-/// ```ignore
-/// use jupyter_protocol::messaging::{StreamContent, Stdio};
-/// let execute_request = shell.read().await?;
+/// // ...
+///
+///
+/// // On the kernel side, we receive the `execute_request` message.
+/// //
+/// // As a side effect of execution, the kernel can send `stream` messages to the UI/client.
+/// // These are from using `print()`, `console.log()`, or similar. Anything on STDOUT or STDERR.
+///
+/// use jupyter_protocol::{StreamContent, Stdio};
 ///
 /// let message = StreamContent {
 ///   name: Stdio::Stdout,
 ///   text: "Hello, World".to_string()
-/// }.as_child_of(execute_request);
-/// iopub.send(message).await?;
+/// // To inform the UI that the kernel is emitting this stdout in response to the execution, we
+/// // use `as_child_of` to set the parent header.
+/// }.as_child_of(&incoming_message);
 ///
+/// // next, send the `message` back over the iopub connection
 /// ```
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StreamContent {
     pub name: Stdio,
     pub text: String,
+}
+impl Default for StreamContent {
+    fn default() -> Self {
+        Self {
+            name: Stdio::Stdout,
+            text: String::new(),
+        }
+    }
 }
 
 impl StreamContent {
@@ -828,56 +1090,51 @@ pub struct Transient {
     pub display_id: Option<String>,
 }
 
-/// A `'display_data'` message on the `'iopub'` channel.
+/// A `display_data` message on the `iopub` channel.
 ///
 /// See [Display Data](https://jupyter-client.readthedocs.io/en/latest/messaging.html#display-data).
 ///
 /// ## Example
 ///
-/// The UI/client sends an `'execute_request'` message to the kernel.
+/// The UI/client sends an `execute_request` message to the kernel.
 ///
-/// ```rust,ignore
-/// use jupyter_protocol::messaging::{ExecuteReqeuest};
+/// ```rust
+/// use jupyter_protocol::{ExecuteRequest, JupyterMessage};
 ///
-/// let execute_request = ExecuteRequest {
+/// let execute_request: JupyterMessage = ExecuteRequest {
 ///     code: "print('Hello, World!')".to_string(),
 ///     silent: false,
 ///     store_history: true,
 ///     user_expressions: None,
 ///     allow_stdin: false,
 ///     stop_on_error: true,
-/// };
-/// connection.send(execute_request).await?;
-/// ```
+/// }.into();
 ///
-/// As a side effect of execution, the kernel can send `'display_data'` messages to the UI/client.
+/// // As a side effect of execution, the kernel can send `display_data` messages to the UI/client.
 ///
-/// ```rust,ignore
-/// use jupyter_protocol::media::{Media, MediaType, DisplayData};
-///
-/// let execute_request = shell.read().await?;
+/// use jupyter_protocol::{DisplayData, Media, MediaType};
 ///
 /// let raw = r#"{
 ///     "text/plain": "Hello, world!",
-///     "text/html": "<h1>Hello, world!</h1>",
+///     "text/html": "<h1>Hello, world!</h1>"
 /// }"#;
 ///
 /// let bundle: Media = serde_json::from_str(raw).unwrap();
 ///
-/// let message = DisplayData{
+/// let message = DisplayData {
 ///    data: bundle,
 ///    metadata: Default::default(),
 ///    transient: None,
-/// }.as_child_of(execute_request);
-/// iopub.send(message).await?;
+/// }.as_child_of(&execute_request);
+/// // Send back the response over the iopub connection
 ///
 /// ```
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct DisplayData {
     pub data: Media,
     pub metadata: serde_json::Map<String, Value>,
-    #[serde(default)]
-    pub transient: Transient,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transient: Option<Transient>,
 }
 
 impl DisplayData {
@@ -902,7 +1159,7 @@ impl From<MediaType> for DisplayData {
     }
 }
 
-/// A `'update_display_data'` message on the `'iopub'` channel.
+/// An `update_display_data` message on the `iopub` channel.
 /// See [Update Display Data](https://jupyter-client.readthedocs.io/en/latest/messaging.html#update-display-data).
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct UpdateDisplayData {
@@ -923,7 +1180,7 @@ impl UpdateDisplayData {
     }
 }
 
-/// An `'execute_input'` message on the `'iopub'` channel.
+/// An `execute_input` message on the `iopub` channel.
 /// See [Execute Input](https://jupyter-client.readthedocs.io/en/latest/messaging.html#execute-input).
 ///
 /// To let all frontends know what code is being executed at any given time, these messages contain a re-broadcast of the code portion of an execute_request, along with the execution_count.
@@ -933,8 +1190,16 @@ pub struct ExecuteInput {
     pub code: String,
     pub execution_count: ExecutionCount,
 }
+impl Default for ExecuteInput {
+    fn default() -> Self {
+        Self {
+            code: String::new(),
+            execution_count: ExecutionCount::new(0),
+        }
+    }
+}
 
-/// An `'execute_result'` message on the `'iopub'` channel.
+/// An `execute_result` message on the `iopub` channel.
 /// See [Execute Result](https://jupyter-client.readthedocs.io/en/latest/messaging.html#execute-result).
 ///
 /// The is the "result", in the REPL sense from execution. As an example, the following Python code:
@@ -944,7 +1209,7 @@ pub struct ExecuteInput {
 /// 7
 /// ```
 ///
-/// would have an `'execute_result'` message with the following content:
+/// would have an `execute_result` message with the following content:
 ///
 /// ```json
 /// {
@@ -963,6 +1228,16 @@ pub struct ExecuteResult {
     pub data: Media,
     pub metadata: serde_json::Map<String, Value>,
     pub transient: Option<Transient>,
+}
+impl Default for ExecuteResult {
+    fn default() -> Self {
+        Self {
+            execution_count: ExecutionCount::new(0),
+            data: Media::default(),
+            metadata: serde_json::Map::new(),
+            transient: None,
+        }
+    }
 }
 
 impl ExecuteResult {
@@ -988,19 +1263,19 @@ impl From<(ExecutionCount, MediaType)> for ExecuteResult {
     }
 }
 
-/// An `'error'` message on the `'iopub'` channel.
+/// An `error` message on the `iopub` channel.
 /// See [Error](https://jupyter-client.readthedocs.io/en/latest/messaging.html#execution-errors).
 ///
 /// These are errors that occur during execution from user code. Syntax errors, runtime errors, etc.
 ///
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ErrorOutput {
     pub ename: String,
     pub evalue: String,
     pub traceback: Vec<String>,
 }
 
-/// A `'comm_open'` message on the `'iopub'` channel.
+/// A `comm_open` message on the `iopub` channel.
 ///
 /// See [Comm Open](https://jupyter-client.readthedocs.io/en/latest/messaging.html#opening-a-comm).
 ///
@@ -1033,8 +1308,17 @@ pub struct CommOpen {
     pub target_name: String,
     pub data: serde_json::Map<String, Value>,
 }
+impl Default for CommOpen {
+    fn default() -> Self {
+        Self {
+            comm_id: CommId("".to_string()),
+            target_name: String::new(),
+            data: serde_json::Map::new(),
+        }
+    }
+}
 
-/// A `comm_msg` message on the `'iopub'` channel.
+/// A `comm_msg` message on the `iopub` channel.
 ///
 /// Comm messages are one-way communications to update comm state, used for
 /// synchronizing widget state, or simply requesting actions of a comm’s
@@ -1057,8 +1341,16 @@ pub struct CommMsg {
     pub comm_id: CommId,
     pub data: serde_json::Map<String, Value>,
 }
+impl Default for CommMsg {
+    fn default() -> Self {
+        Self {
+            comm_id: CommId("".to_string()),
+            data: serde_json::Map::new(),
+        }
+    }
+}
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct CommInfoRequest {
     pub target_name: String,
 }
@@ -1091,8 +1383,17 @@ pub struct CommInfoReply {
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
 }
+impl Default for CommInfoReply {
+    fn default() -> Self {
+        Self {
+            status: ReplyStatus::Ok,
+            comms: HashMap::new(),
+            error: None,
+        }
+    }
+}
 
-/// A `comm_close` message on the `'iopub'` channel.
+/// A `comm_close` message on the `iopub` channel.
 ///
 /// Since comms live on both sides, when a comm is destroyed the other side must
 /// be notified. This is done with a comm_close message.
@@ -1101,16 +1402,43 @@ pub struct CommClose {
     pub comm_id: CommId,
     pub data: serde_json::Map<String, Value>,
 }
+impl Default for CommClose {
+    fn default() -> Self {
+        Self {
+            comm_id: CommId("".to_string()),
+            data: serde_json::Map::new(),
+        }
+    }
+}
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+/// Request to shut down the kernel.
+///
+/// Upon receiving this message, the kernel will send a reply and then shut itself down.
+/// If `restart` is True, the kernel will restart itself after shutting down.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#kernel-shutdown>
 pub struct ShutdownRequest {
     pub restart: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+/// Request to interrupt the kernel.
+///
+/// This message is used when the kernel's `interrupt_mode` is set to "message"
+/// in its kernelspec. It allows the kernel to be interrupted via a message
+/// instead of an operating system signal.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#kernel-interrupt>
 pub struct InterruptRequest {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+/// Reply to an interrupt request.
+///
+/// This message is sent by the kernel in response to an `InterruptRequest`.
+/// It indicates whether the interrupt was successful.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#kernel-interrupt>
 pub struct InterruptReply {
     pub status: ReplyStatus,
 
@@ -1134,6 +1462,12 @@ impl InterruptReply {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+/// Reply to a shutdown request.
+///
+/// This message is sent by the kernel in response to a `ShutdownRequest`.
+/// It confirms that the kernel is shutting down.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#kernel-shutdown>
 pub struct ShutdownReply {
     pub restart: bool,
     pub status: ReplyStatus,
@@ -1141,14 +1475,43 @@ pub struct ShutdownReply {
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
 }
+impl Default for ShutdownReply {
+    fn default() -> Self {
+        Self {
+            restart: false,
+            status: ReplyStatus::Ok,
+            error: None,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+/// Request for input from the frontend.
+///
+/// This message is sent by the kernel when it needs to prompt the user for input.
+/// It's typically used to implement functions like Python's `input()` or R's `readline()`.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#messages-on-the-stdin-router-dealer-channel>
 pub struct InputRequest {
     pub prompt: String,
     pub password: bool,
 }
+impl Default for InputRequest {
+    fn default() -> Self {
+        Self {
+            prompt: "> ".to_string(),
+            password: false,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+/// Reply to an input request.
+///
+/// This message is sent by the frontend in response to an `InputRequest`.
+/// It contains the user's input.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#messages-on-the-stdin-router-dealer-channel>
 pub struct InputReply {
     pub value: String,
 
@@ -1156,8 +1519,17 @@ pub struct InputReply {
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
 }
+impl Default for InputReply {
+    fn default() -> Self {
+        Self {
+            value: String::new(),
+            status: ReplyStatus::Ok,
+            error: None,
+        }
+    }
+}
 
-/// A `'inspect_request'` message on the `'shell'` channel.
+/// A `inspect_request` message on the `shell` channel.
 ///
 /// Code can be inspected to show useful information to the user.
 /// It is up to the Kernel to decide what information should be displayed, and its formatting.
@@ -1175,6 +1547,15 @@ pub struct InspectRequest {
     /// if available.
     pub detail_level: Option<usize>,
 }
+impl Default for InspectRequest {
+    fn default() -> Self {
+        Self {
+            code: String::new(),
+            cursor_pos: 0,
+            detail_level: Some(0),
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InspectReply {
@@ -1186,13 +1567,30 @@ pub struct InspectReply {
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
 }
+impl Default for InspectReply {
+    fn default() -> Self {
+        Self {
+            found: false,
+            data: Media::default(),
+            metadata: serde_json::Map::new(),
+            status: ReplyStatus::Ok,
+            error: None,
+        }
+    }
+}
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+/// A request for code completion suggestions.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#completion>
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct CompleteRequest {
     pub code: String,
     pub cursor_pos: usize,
 }
 
+/// A reply containing code completion suggestions.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#completion>
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CompleteReply {
     pub matches: Vec<String>,
@@ -1204,17 +1602,43 @@ pub struct CompleteReply {
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
 }
+impl Default for CompleteReply {
+    fn default() -> Self {
+        Self {
+            matches: Vec::new(),
+            cursor_start: 0,
+            cursor_end: 0,
+            metadata: serde_json::Map::new(),
+            status: ReplyStatus::Ok,
+            error: None,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DebugRequest {
     #[serde(flatten)]
     pub content: Value,
 }
+impl Default for DebugRequest {
+    fn default() -> Self {
+        Self {
+            content: Value::Null,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DebugReply {
     #[serde(flatten)]
     pub content: Value,
+}
+impl Default for DebugReply {
+    fn default() -> Self {
+        Self {
+            content: Value::Null,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -1244,6 +1668,14 @@ pub struct IsCompleteReply {
     /// and use their own autoindentation rules. For other statuses, this
     /// field does not exist.
     pub indent: String,
+}
+impl Default for IsCompleteReply {
+    fn default() -> Self {
+        Self {
+            status: IsCompleteReplyStatus::Unknown,
+            indent: String::new(),
+        }
+    }
 }
 
 impl IsCompleteReply {
@@ -1289,6 +1721,17 @@ pub enum HistoryRequest {
         raw: bool,
     },
 }
+impl Default for HistoryRequest {
+    fn default() -> Self {
+        Self::Range {
+            session: None,
+            start: 0,
+            stop: 0,
+            output: false,
+            raw: false,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
@@ -1301,6 +1744,9 @@ pub enum HistoryEntry {
     InputOutput(usize, usize, (String, String)),
 }
 
+/// A reply containing execution history.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#history>
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HistoryReply {
     pub history: Vec<HistoryEntry>,
@@ -1308,6 +1754,15 @@ pub struct HistoryReply {
     pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
+}
+impl Default for HistoryReply {
+    fn default() -> Self {
+        Self {
+            history: Vec::new(),
+            status: ReplyStatus::Ok,
+            error: None,
+        }
+    }
 }
 
 impl HistoryReply {
@@ -1320,7 +1775,10 @@ impl HistoryReply {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+/// A request to check if the code is complete and ready for execution.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#code-completeness>
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct IsCompleteRequest {
     pub code: String,
 }
@@ -1341,9 +1799,19 @@ impl ExecutionState {
     }
 }
 
+/// A message indicating the current status of the kernel.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#kernel-status>
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Status {
     pub execution_state: ExecutionState,
+}
+impl Default for Status {
+    fn default() -> Self {
+        Self {
+            execution_state: ExecutionState::Idle,
+        }
+    }
 }
 
 impl Status {
@@ -1533,8 +2001,7 @@ mod test {
                     "ok": [1, 2, 3]
                 }
             },
-            "metadata": {},
-            "transient": {}
+            "metadata": {}
         });
 
         assert_eq!(display_data_value, expected_display_data_value);

@@ -1,10 +1,25 @@
-//! Runtimelib: A Rust library for interacting with Jupyter kernels and managing interactive computing environments.
-//!
-//! This library provides bindings to Jupyter kernels over ZeroMQ.
+#![doc = include_str!("../README.md")]
 
-pub use jupyter_serde::media;
-pub use jupyter_serde::media::*;
-pub use jupyter_serde::ExecutionCount;
+#[deprecated(
+    since = "0.24.0",
+    note = "This re-export will be removed in a future version. Please use jupyter_protocol::media directly."
+)]
+#[doc(hidden)]
+pub use jupyter_protocol::media;
+
+#[deprecated(
+    since = "0.24.0",
+    note = "This re-export will be removed in a future version. Please use jupyter_protocol::media directly."
+)]
+#[doc(hidden)]
+pub use jupyter_protocol::media::*;
+
+#[deprecated(
+    since = "0.24.0",
+    note = "This re-export will be removed in a future version. Please use jupyter_protocol::media directly."
+)]
+#[doc(hidden)]
+pub use jupyter_protocol::ExecutionCount;
 
 pub mod kernelspec;
 pub use kernelspec::*;

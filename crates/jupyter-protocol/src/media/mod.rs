@@ -1,3 +1,47 @@
+//! Provides types and utilities for working with rich media content in Jupyter messages.
+//!
+//! This module defines the `Media` and `MediaType` structures, which represent
+//! MIME bundles in Jupyter messages. These are used for rich content display
+//! in notebooks and other Jupyter frontends.
+//!
+//! The main types in this module are:
+//!
+//! - [`Media`]: Represents a collection of media types.
+//! - [`MediaType`]: An enum representing various MIME types.
+//!
+//! # Examples
+//!
+//! Creating a media bundle with multiple types:
+//!
+//! ```rust
+//! use jupyter_protocol::media::{Media, MediaType};
+//!
+//! let media = Media::new(vec![
+//!     MediaType::Plain("Hello, world!".to_string()),
+//!     MediaType::Html("<h1>Hello, world!</h1>".to_string()),
+//! ]);
+//! ```
+//!
+//! Finding the richest media type:
+//!
+//! ```rust
+//! use jupyter_protocol::media::{Media, MediaType};
+//!
+//! let media = Media::new(vec![
+//!     MediaType::Plain("Hello, world!".to_string()),
+//!     MediaType::Html("<h1>Hello, world!</h1>".to_string()),
+//!     MediaType::Markdown("**Hello, world!**".to_string()),
+//! ]);
+//!
+//! let richest = media.richest(|media_type| match media_type {
+//!     MediaType::Html(_) => 3,
+//!     MediaType::Markdown(_) => 2,
+//!     MediaType::Plain(_) => 1,
+//!     _ => 0,
+//! });
+//!
+//! assert!(matches!(richest, Some(MediaType::Html(_))));
+//! ```
 use serde::{de, Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -341,7 +385,7 @@ impl Media {
     /// # Examples
     ///
     /// ```rust
-    /// use jupyter_serde::media::{Media, MediaType};
+    /// use jupyter_protocol::media::{Media, MediaType};
     ///
     /// let raw = r#"{
     ///    "text/plain": "FancyThing()",

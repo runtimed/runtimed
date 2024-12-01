@@ -4,7 +4,7 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
-use jupyter_serde::JupyterKernelspec;
+use jupyter_protocol::JupyterKernelspec;
 
 #[cfg(feature = "tokio-runtime")]
 use tokio::{fs, io::AsyncReadExt, process::Command};

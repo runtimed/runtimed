@@ -437,19 +437,22 @@ mod test {
 
                             for media in content {
                                 match media {
-                                    jupyter_serde::media::MediaType::Png(data) => {
+                                    jupyter_protocol::media::MediaType::Png(data) => {
                                         assert_eq!(
                                             data,
                                             "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9Qz0AEYBxVSF+F\nAAhKDveksOjmAAAAAElFTkSuQmCC\n"
                                         );
                                     }
-                                    jupyter_serde::media::MediaType::Plain(data) => {
+                                    jupyter_protocol::media::MediaType::Plain(data) => {
                                         assert_eq!(
                                             data,
                                             "<IPython.core.display.Image at 0x111275490>"
                                         );
                                     }
-                                    jupyter_serde::media::MediaType::Other((mimetype, value)) => {
+                                    jupyter_protocol::media::MediaType::Other((
+                                        mimetype,
+                                        value,
+                                    )) => {
                                         panic!(
                                             "Unexpected othering of media type: {} {:?}",
                                             mimetype, value
