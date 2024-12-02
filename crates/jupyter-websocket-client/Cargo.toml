@@ -14,7 +14,7 @@ serde_json = { workspace = true }
 futures = { workspace = true }
 uuid = { workspace = true }
 url = "2.5.2"
-async-tungstenite = { version = "0.22", features = [
+async-tungstenite = { version = "0.28", features = [
     "async-std-runtime",
     "async-tls",
 ] }
