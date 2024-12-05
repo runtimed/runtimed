@@ -108,15 +108,30 @@ impl GraphQLKernel {
 
         if status.is_success() {
             let json: serde_json::Value = serde_json::from_str(&body)?;
+
+            let data = json.get("data").unwrap();
+
             let formatted = serde_json::to_string_pretty(&json)?;
 
             let media = Media::new(vec![
-                MediaType::Json(json.as_object().unwrap().clone()),
+                MediaType::Json(data.as_object().unwrap().clone()),
                 MediaType::Plain(formatted),
             ]);
 
+            let mut metadata = serde_json::Map::new();
+            let mut json_metadata = serde_json::Map::new();
+            json_metadata.insert("expanded".to_string(), json!(true));
+            json_metadata.insert("root".to_string(), json!("GraphQL Response"));
+            metadata.insert("application/json".to_string(), json!(json_metadata));
+
+            let display_data = DisplayData {
+                data: media,
+                metadata,
+                transient: None,
+            };
+
             self.iopub
-                .send(DisplayData::new(media).as_child_of(parent_message))
+                .send(display_data.as_child_of(parent_message))
                 .await?;
         } else {
             self.iopub
