@@ -1,12 +1,10 @@
 use std::collections::HashMap;
 
-use anyhow::Context;
-use async_trait::async_trait;
 use clap::Parser;
 use jupyter_protocol::{
-    ConnectionInfo, ErrorOutput, ExecuteReply, ExecuteRequest, ExecutionCount, JupyterMessage,
-    JupyterMessageContent, KernelInfoReply, KernelInfoRequest, Media, MediaType, ReplyStatus,
-    Status, StreamContent,
+    ConnectionInfo, ErrorOutput, ExecuteReply, ExecuteRequest, ExecutionCount, IsCompleteReply,
+    IsCompleteReplyStatus, JupyterMessage, JupyterMessageContent, KernelInfoReply, Media,
+    MediaType, ReplyStatus, Status, StreamContent,
 };
 use reqwest::Client;
 use runtimelib::{DisplayData, KernelIoPubConnection, KernelShellConnection};
@@ -34,7 +32,7 @@ impl GraphQLKernel {
         }
     }
 
-    async fn kernel_info_reply(&mut self) -> KernelInfoReply {
+    fn kernel_info_reply(&mut self) -> KernelInfoReply {
         KernelInfoReply {
             status: ReplyStatus::Ok,
             protocol_version: "5.3".to_string(),
@@ -179,8 +177,56 @@ impl GraphQLKernel {
                 self.execute(req, msg).await?;
             }
             JupyterMessageContent::KernelInfoRequest(_) => {
-                let reply = self.kernel_info_reply().await;
+                let reply = self.kernel_info_reply();
                 shell.send(reply.as_child_of(msg)).await?;
+            }
+            JupyterMessageContent::IsCompleteRequest(_req) => {
+                let reply = IsCompleteReply {
+                    status: IsCompleteReplyStatus::Complete,
+                    indent: String::new(),
+                };
+                shell.send(reply.as_child_of(msg)).await?;
+            }
+            JupyterMessageContent::HistoryRequest(_) => {
+                let reply = jupyter_protocol::HistoryReply {
+                    // sticking this in as an example for now
+                    history: vec![jupyter_protocol::HistoryEntry::Input(
+                        0,
+                        0,
+                        r#"query Query {
+  country(code: "BR") {
+    name
+    native
+    capital
+    emoji
+    currency
+    languages {
+      code
+      name
+    }
+  }
+}"#
+                        .to_string(),
+                    )],
+                    status: jupyter_protocol::ReplyStatus::Ok,
+                    error: None,
+                };
+                shell.send(reply.as_child_of(msg)).await?;
+            }
+            JupyterMessageContent::CompleteRequest(req) => {
+                shell
+                    .send(
+                        jupyter_protocol::CompleteReply {
+                            matches: vec![],
+                            cursor_start: req.cursor_pos,
+                            cursor_end: req.cursor_pos,
+                            metadata: serde_json::Map::new(),
+                            status: jupyter_protocol::ReplyStatus::Ok,
+                            error: None,
+                        }
+                        .as_child_of(msg),
+                    )
+                    .await?;
             }
             _ => {}
         }
