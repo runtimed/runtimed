@@ -4,12 +4,11 @@ use clap::Parser;
 use jupyter_protocol::{
     ConnectionInfo, ErrorOutput, ExecuteReply, ExecuteRequest, ExecutionCount, IsCompleteReply,
     IsCompleteReplyStatus, JupyterMessage, JupyterMessageContent, KernelInfoReply, Media,
-    MediaType, ReplyStatus, Status, StreamContent,
+    MediaType, ReplyStatus, Status,
 };
 use reqwest::Client;
 use runtimelib::{DisplayData, KernelIoPubConnection, KernelShellConnection};
 use serde_json::json;
-use std::path::PathBuf;
 use tokio::fs;
 use uuid::Uuid;
 
@@ -151,7 +150,7 @@ impl GraphQLKernel {
         Ok(())
     }
 
-    async fn handle_headers_command(&mut self, args: &[&str]) -> anyhow::Result<()> {
+    async fn handle_headers_command(&mut self, _args: &[&str]) -> anyhow::Result<()> {
         // %headers set <key> <value>
         // %headers clear
         // %headers show
