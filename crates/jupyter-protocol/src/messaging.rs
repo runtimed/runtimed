@@ -2079,4 +2079,37 @@ mod test {
         assert!(parent_header.is_object());
         assert!(parent_header.as_object().unwrap().is_empty());
     }
+
+    #[test]
+    fn test_user_expressions_serialization() {
+        let request = ExecuteRequest {
+            code: "pass".to_string(),
+            silent: false,
+            store_history: true,
+            user_expressions: Some(HashMap::from([(
+                String::from("expression"),
+                String::from("42 + 7"),
+            )])),
+            allow_stdin: false,
+            stop_on_error: true,
+        };
+        let request_value = serde_json::to_value(request.clone()).unwrap();
+
+        let expected_request_value = serde_json::json!({
+            "code": "pass",
+            "silent": false,
+            "store_history": true,
+            "user_expressions": {"expression": "42 + 7"},
+            "allow_stdin": false,
+            "stop_on_error": true
+        });
+
+        assert_eq!(request_value, expected_request_value);
+
+        let deserialized_request: ExecuteRequest = serde_json::from_value(request_value).unwrap();
+        assert_eq!(
+            deserialized_request.user_expressions,
+            request.user_expressions
+        );
+    }
 }
