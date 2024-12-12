@@ -43,7 +43,7 @@ pub mod messaging;
 pub use messaging::*;
 
 pub mod connection_info;
-pub use connection_info::ConnectionInfo;
+pub use connection_info::{ConnectionInfo, Transport};
 
 mod time;
 
