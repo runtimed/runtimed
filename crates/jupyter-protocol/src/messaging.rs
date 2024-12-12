@@ -804,7 +804,6 @@ pub struct ReplyError {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ClearOutput {
     /// Wait to clear the output until new output is available.  Clears the
-
     /// existing output immediately before the new output is displayed.
     /// Useful for creating simple animations with minimal flickering.
     pub wait: bool,
