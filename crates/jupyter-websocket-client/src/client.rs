@@ -1,5 +1,11 @@
 use anyhow::{Context, Result};
-use async_tungstenite::{async_std::connect_async, tungstenite::http::Response};
+use async_tungstenite::{
+    async_std::connect_async,
+    tungstenite::{
+        client::IntoClientRequest,
+        http::{HeaderValue, Request, Response},
+    },
+};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -150,7 +156,14 @@ impl RemoteServer {
             self.token
         );
 
-        let response = connect_async(ws_url).await;
+        let mut req: Request<()> = ws_url.into_client_request()?;
+        let headers = req.headers_mut();
+        headers.insert(
+            "User-Agent",
+            HeaderValue::from_str("runtimed/jupyter-websocket-client")?,
+        );
+
+        let response = connect_async(req).await;
 
         let (ws_stream, response) = response?;
 
