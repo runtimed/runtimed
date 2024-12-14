@@ -1,8 +1,8 @@
 [package]
-name = "ollama-kernel"
-version = "0.4.0"
+name = "graphql-kernel"
+version = "0.1.0"
 edition = "2021"
-description = "Ollama Jupyter Kernel"
+description = "GraphQL Jupyter Kernel"
 repository = "https://github.com/runtimed/runtimed"
 license = "BSD-3-Clause"
 
