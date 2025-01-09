@@ -24,5 +24,5 @@ cargo release -p ollama-kernel minor
 ```
 
 ```
-cargo release -p sidecar minor
+cargo release -p sidecar -p runt-cli minor
 ```
