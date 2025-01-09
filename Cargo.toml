@@ -9,6 +9,7 @@ members = [
     "crates/jupyter-protocol",
     "crates/ollama-kernel",
     "crates/mybinder",
+    "crates/runt",
 ]
 
 default-members = [
