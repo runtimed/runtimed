@@ -7,7 +7,7 @@ repository = "https://github.com/runtimed/runtimed"
 license = "BSD-3-Clause"
 
 [dependencies]
-jupyter-protocol = { path = "../jupyter-protocol", version = "0.5.0" }
+jupyter-protocol = { workspace = true }
 
 [package.metadata]
 deprecated = true
