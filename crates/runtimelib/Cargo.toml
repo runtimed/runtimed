@@ -17,7 +17,7 @@ bytes = { workspace = true }
 chrono = { workspace = true }
 data-encoding = "2.5.0"
 dirs = "5.0.1"
-smol = { version = "1.2", optional = true }
+smol = { version = "2", optional = true }
 futures = { workspace = true }
 jupyter-protocol = { workspace = true }
 ring = "0.17.7"
