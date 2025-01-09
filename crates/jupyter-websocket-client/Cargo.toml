@@ -18,4 +18,4 @@ async-tungstenite = { version = "0.28", features = [
     "async-std-runtime",
     "async-tls",
 ] }
-jupyter-protocol = { path = "../jupyter-protocol", version = "0.5.0" }
+jupyter-protocol = { workspace = true }

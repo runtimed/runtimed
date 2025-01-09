@@ -9,6 +9,7 @@ members = [
     "crates/jupyter-protocol",
     "crates/ollama-kernel",
     "crates/mybinder",
+    "crates/runt",
 ]
 
 default-members = [
@@ -34,6 +35,8 @@ chrono = { version = "0.4", default-features = false, features = [
 futures = "0.3"
 bytes = "1"
 base64 = "0.22"
+runtimelib = { path = "crates/runtimelib", version = "0.24.0" }
+jupyter-protocol = { path = "crates/jupyter-protocol", version = "0.5.0" }
 
 [profile.release]
 strip = true

@@ -1,16 +1,14 @@
 [package]
-name = "nbformat"
-version = "0.9.0"
+name = "runt"
+version = "0.1.0"
 edition = "2021"
-description = "Parse Jupyter Notebooks"
-repository = "https://github.com/runtimed/runtimed"
-license = "BSD-3-Clause"
 
 [dependencies]
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
-chrono = { workspace = true }
 jupyter-protocol = { workspace = true }
-thiserror = "1.0"
+runtimelib = { workspace = true, features = ["tokio-runtime"] }
+clap = { version = "4.5.1", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
