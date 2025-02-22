@@ -9,6 +9,9 @@ use data_encoding::HEXLOWER;
 
 use std::net::{IpAddr, SocketAddr};
 
+#[cfg(feature = "aws-lc-rs")]
+use aws_lc_rs::hmac;
+#[cfg(feature = "ring")]
 use ring::hmac;
 use serde_json;
 use serde_json::Value;

@@ -20,7 +20,8 @@ dirs = "5.0.1"
 smol = { version = "2", optional = true }
 futures = { workspace = true }
 jupyter-protocol = { workspace = true }
-ring = "0.17.7"
+ring = { version = "0.17.7", optional = true }
+aws-lc-rs = { version = "1.9", optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
@@ -28,6 +29,9 @@ shellexpand = "3.1.0"
 glob = "0.3.1"
 
 [features]
+default = ["ring"]
+ring = ["dep:ring"]
+aws-lc-rs = ["dep:aws-lc-rs"]
 async-dispatcher-runtime = [
     "zeromq/async-dispatcher-runtime",
     "async-dispatcher",
@@ -51,5 +55,5 @@ features = ["attributes"]
 optional = true
 
 [package.metadata.docs.rs]
-features = ["async-dispatcher-runtime"]
+features = ["async-dispatcher-runtime", "ring"]
 no-default-features = true
