@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use async_tungstenite::{
-    async_std::connect_async,
+    tokio::connect_async,
     tungstenite::{
         client::IntoClientRequest,
         http::{HeaderValue, Request, Response},
