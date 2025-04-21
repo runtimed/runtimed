@@ -14,8 +14,6 @@ serde_json = { workspace = true }
 futures = { workspace = true }
 uuid = { workspace = true }
 url = "2.5.2"
-async-tungstenite = { version = "0.28", features = [
-    "async-std-runtime",
-    "async-tls",
-] }
+async-tungstenite = { workspace = true }
+tokio = { workspace = true }
 jupyter-protocol = { workspace = true }
