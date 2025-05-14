@@ -168,6 +168,36 @@ where
     }
 }
 
+/// Deserializes the `parent_header` of a `JupyterMessage`.
+/// 
+/// This function handles the case where the parent header is `None`
+/// or an empty object, and also allows for deserialization from
+/// non-object types.
+fn deserialize_parent_header<'de, D>(deserializer: D) -> Result<Option<Header>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::Error;
+    let value = Value::deserialize(deserializer)?;
+    if value.is_null() {
+        Ok(None)
+    } else if let Some(obj) = value.as_object() {
+        if obj.is_empty() {
+            Ok(None)
+        } else {
+            // Try to deserialize as Header
+            serde_json::from_value(Value::Object(obj.clone()))
+                .map(Some)
+                .map_err(D::Error::custom)
+        }
+    } else {
+        // Try to deserialize as Header (for non-object types)
+        serde_json::from_value(value)
+            .map(Some)
+            .map_err(D::Error::custom)
+    }
+}
+
 /// A message in the Jupyter protocol format.
 ///
 /// A Jupyter message consists of several parts:
@@ -221,7 +251,10 @@ pub struct JupyterMessage {
     #[serde(skip_serializing, skip_deserializing)]
     pub zmq_identities: Vec<Bytes>,
     pub header: Header,
-    #[serde(serialize_with = "serialize_parent_header")]
+    #[serde(
+        serialize_with = "serialize_parent_header",
+        deserialize_with = "deserialize_parent_header"
+    )]
     pub parent_header: Option<Header>,
     pub metadata: Value,
     pub content: JupyterMessageContent,
@@ -2109,6 +2142,78 @@ mod test {
         assert_eq!(
             deserialized_request.user_expressions,
             request.user_expressions
+        );
+    }
+
+    #[test]
+    fn test_jupyter_message_parent_header_deserialize() {
+        let msg = r#"
+  {
+    "buffers": [],
+    "channel": "shell",
+    "content": {},
+    "header": {
+        "date": "2025-05-14T14:32:23.490Z",
+        "msg_id": "44bd6b44-78a1-4892-87df-c0861a005d56",
+        "msg_type": "kernel_info_request",
+        "session": "b75bddaa-6d69-4340-ba13-81516192370e",
+        "username": "",
+        "version": "5.2"
+    },
+    "metadata": {},
+    "parent_header": {
+        "date": "2025-05-14T14:32:23.490Z",
+        "msg_id": "2aaf8916-6b83-4f5a-80dd-633e94f5d8e1",
+        "msg_type": "kernel_info_request",
+        "session": "e2a3165d-76a8-4fef-850f-712102589660",
+        "username": "",
+        "version": "5.2"
+    }
+}
+        "#;
+
+        let message: JupyterMessage = serde_json::from_str(msg).unwrap();
+        assert!(message.parent_header.is_some());
+        assert_eq!(
+            message.parent_header.as_ref().unwrap().msg_type,
+            "kernel_info_request"
+        );
+        assert_eq!(
+            message.parent_header.as_ref().unwrap().msg_id,
+            "2aaf8916-6b83-4f5a-80dd-633e94f5d8e1"
+        );
+        assert_eq!(
+            message.header.msg_id,
+            "44bd6b44-78a1-4892-87df-c0861a005d56"
+        );
+    }
+
+    #[test]
+    fn test_jupyter_message_empty_parent_header_deserialize() {
+        let msg = r#"
+  {
+    "buffers": [],
+    "channel": "shell",
+    "content": {},
+    "header": {
+        "date": "2025-05-14T14:32:23.490Z",
+        "msg_id": "44bd6b44-78a1-4892-87df-c0861a005d56",
+        "msg_type": "kernel_info_request",
+        "session": "b75bddaa-6d69-4340-ba13-81516192370e",
+        "username": "",
+        "version": "5.2"
+    },
+    "metadata": {},
+    "parent_header": {}
+}
+        "#;
+
+        let message: JupyterMessage = serde_json::from_str(msg).unwrap();
+        assert!(message.parent_header.is_none());
+        assert_eq!(message.header.msg_type, "kernel_info_request");
+        assert_eq!(
+            message.header.msg_id,
+            "44bd6b44-78a1-4892-87df-c0861a005d56"
         );
     }
 }
