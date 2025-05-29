@@ -45,18 +45,17 @@ where
     D: serde::Deserializer<'de>,
 {
     let cells: Vec<serde_json::Value> = Deserialize::deserialize(deserializer)?;
-    cells
-        .into_iter()
-        .enumerate()
-        .filter_map(|(index, cell)| match serde_json::from_value::<Cell>(cell) {
-            Ok(cell) => Some(Ok(cell)),
+    let mut result = Vec::with_capacity(cells.len());
+    for (index, cell) in cells.into_iter().enumerate() {
+        match serde_json::from_value::<Cell>(cell) {
+            Ok(cell) => result.push(cell),
             Err(e) => {
-                eprintln!(
-                    "Warning: Failed to deserialize cell at index {}: {}",
+                return Err(serde::de::Error::custom(format!(
+                    "Failed to deserialize cell at index {}: {}",
                     index, e
-                );
-                None
+                )));
             }
-        })
-        .collect()
+        }
+    }
+    Ok(result)
 }
