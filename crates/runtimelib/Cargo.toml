@@ -2,7 +2,7 @@
 name = "runtimelib"
 version = "0.26.0"
 edition = "2021"
-description = "Jupyter runtime library1"
+description = "Jupyter runtime library"
 repository = "https://github.com/runtimed/runtimed"
 license = "BSD-3-Clause"
 readme = "./README.md"
