@@ -27,9 +27,9 @@ pub fn parse_notebook(json: &str) -> Result<Notebook, NotebookError> {
 
     match (nbformat, nbformat_minor) {
         (4, 5) => Ok(Notebook::V4(serde_json::from_value::<v4::Notebook>(value)?)),
-        (4, 1) | (4, 2) | (4, 3) | (4, 4) => Ok(Notebook::Legacy(serde_json::from_value::<
-            legacy::Notebook,
-        >(value)?)),
+        (4, 0) | (4, 1) | (4, 2) | (4, 3) | (4, 4) => Ok(Notebook::Legacy(
+            serde_json::from_value::<legacy::Notebook>(value)?,
+        )),
         _ => Err(NotebookError::UnsupportedVersion(nbformat, nbformat_minor)),
     }
 }

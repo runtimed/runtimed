@@ -10,7 +10,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
-
+      
+      - name: Install rust
+        uses: dsherret/rust-toolchain-file@v1
+      
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"

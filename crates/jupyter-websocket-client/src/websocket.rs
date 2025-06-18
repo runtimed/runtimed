@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use async_tungstenite::{async_std::ConnectStream, tungstenite::Message, WebSocketStream};
+use async_tungstenite::{tokio::ConnectStream, tungstenite::Message, WebSocketStream};
 use futures::{Sink, SinkExt as _, Stream, StreamExt};
 
 use jupyter_protocol::{JupyterConnection, JupyterMessage};
@@ -48,7 +48,7 @@ impl Sink<JupyterMessage> for JupyterWebSocket {
         let message_str =
             serde_json::to_string(&item).context("Failed to serialize JupyterMessage")?;
         self.inner
-            .start_send_unpin(Message::Text(message_str))
+            .start_send_unpin(Message::Text(message_str.into()))
             .map_err(Into::into)
     }
 
