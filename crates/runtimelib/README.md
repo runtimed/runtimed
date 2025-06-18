@@ -10,14 +10,14 @@ Runtimelib allows you to pick which async runtime you want to use. If you're usi
 
 ```toml
 [dependencies]
-runtimelib = { version = "0.24.0", features = ["tokio-runtime"] }
+runtimelib = { version = "0.27.0", features = ["tokio-runtime"] }
 ```
 
 ### Async-dispatcher Users
 
 ```toml
 [dependencies]
-runtimelib = { version = "0.24.0", features = ["async-dispatcher-runtime"] }
+runtimelib = { version = "0.27.0", features = ["async-dispatcher-runtime"] }
 ```
 
 ## Key Features
