@@ -7,7 +7,7 @@ repository = "https://github.com/runtimed/runtimed"
 license = "BSD-3-Clause"
 
 [dependencies]
-runtimelib = { workspace = true, features = ["tokio-runtime"] }
+runtimelib = { workspace = true, features = ["tokio-runtime", "ring"] }
 jupyter-protocol = { workspace = true }
 async-trait = { workspace = true }
 anyhow = { workspace = true }
