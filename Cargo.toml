@@ -40,7 +40,7 @@ futures = "0.3"
 bytes = "1"
 base64 = "0.22"
 runtimelib = { path = "crates/runtimelib", version = "0.27.0", default-features = false }
-jupyter-protocol = { path = "crates/jupyter-protocol", version = "0.7.0" }
+jupyter-protocol = { path = "crates/jupyter-protocol", version = "0.8.0" }
 tokio = { version = "1.36.0", features = ["full"] }
 
 [profile.release]
