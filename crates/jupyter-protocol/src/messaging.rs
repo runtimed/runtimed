@@ -169,7 +169,7 @@ where
 }
 
 /// Deserializes the `parent_header` of a `JupyterMessage`.
-/// 
+///
 /// This function handles the case where the parent header is `None`
 /// or an empty object, and also allows for deserialization from
 /// non-object types.
@@ -1820,6 +1820,8 @@ pub struct IsCompleteRequest {
 pub enum ExecutionState {
     Busy,
     Idle,
+    Starting,
+    Restarting,
 }
 
 impl ExecutionState {
@@ -1827,6 +1829,8 @@ impl ExecutionState {
         match self {
             ExecutionState::Busy => "busy",
             ExecutionState::Idle => "idle",
+            ExecutionState::Starting => "starting",
+            ExecutionState::Restarting => "restarting",
         }
     }
 }
@@ -1856,6 +1860,18 @@ impl Status {
     pub fn idle() -> Self {
         Self {
             execution_state: ExecutionState::Idle,
+        }
+    }
+
+    pub fn starting() -> Self {
+        Self {
+            execution_state: ExecutionState::Starting,
+        }
+    }
+
+    pub fn restarting() -> Self {
+        Self {
+            execution_state: ExecutionState::Restarting,
         }
     }
 }
