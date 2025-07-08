@@ -16,7 +16,7 @@ base64 = { workspace = true }
 bytes = { workspace = true }
 chrono = { workspace = true }
 data-encoding = "2.5.0"
-dirs = "5.0.1"
+dirs = "6.0"
 smol = { version = "2", optional = true }
 futures = { workspace = true }
 jupyter-protocol = { workspace = true }
