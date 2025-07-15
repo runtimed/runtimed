@@ -1,10 +1,11 @@
-use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
 use jupyter_protocol::JupyterKernelspec;
+
+use crate::{Result, RuntimeError};
 
 #[cfg(feature = "tokio-runtime")]
 use tokio::{fs, io::AsyncReadExt, process::Command};
@@ -31,7 +32,9 @@ impl KernelspecDir {
 
         let argv = self.kernelspec.argv;
         if argv.is_empty() {
-            return Err(anyhow!("Empty argv in kernelspec {}", kernel_name));
+            return Err(RuntimeError::EmptyArgv {
+                kernel_name: kernel_name.to_owned(),
+            });
         }
 
         let mut cmd_builder = Command::new(&argv[0]);

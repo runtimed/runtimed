@@ -45,6 +45,9 @@ pub use messaging::*;
 pub mod connection_info;
 pub use connection_info::{ConnectionInfo, Transport};
 
+mod error;
+pub use error::JupyterError;
+
 mod time;
 
 mod execution_count;
@@ -61,6 +64,6 @@ use futures::{Sink, Stream};
 
 #[async_trait]
 pub trait JupyterConnection:
-    Sink<JupyterMessage> + Stream<Item = Result<JupyterMessage, anyhow::Error>>
+    Sink<JupyterMessage> + Stream<Item = core::result::Result<JupyterMessage, Self::Error>>
 {
 }

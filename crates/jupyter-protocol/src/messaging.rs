@@ -47,7 +47,7 @@
 //!     }
 //! }
 //! ```
-use crate::time;
+use crate::{time, JupyterError};
 
 pub use crate::{
     media::{Media, MediaType},
@@ -329,7 +329,7 @@ impl JupyterMessage {
         self.content.message_type()
     }
 
-    pub fn from_value(message: Value) -> Result<JupyterMessage, anyhow::Error> {
+    pub fn from_value(message: Value) -> Result<JupyterMessage, JupyterError> {
         let message = serde_json::from_value::<UnknownJupyterMessage>(message)?;
 
         let content =
@@ -338,11 +338,10 @@ impl JupyterMessage {
         let content = match content {
             Ok(content) => content,
             Err(err) => {
-                return Err(anyhow::anyhow!(
-                    "Error deserializing content for msg_type `{}`: {}",
-                    &message.header.msg_type,
-                    err
-                ));
+                return Err(JupyterError::ParseError {
+                    msg_type: Some(message.header.msg_type),
+                    source: err,
+                })
             }
         };
 

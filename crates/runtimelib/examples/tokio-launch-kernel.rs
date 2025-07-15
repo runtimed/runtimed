@@ -1,13 +1,13 @@
 #[cfg(feature = "async-dispatcher-runtime")]
-fn main() -> anyhow::Result<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // todo: Show example using async-std-runtime
     // For now, check out for something similar https://github.com/runtimed/smoke/blob/main/src/main.rs
-    anyhow::Ok(())
+    Ok(())
 }
 
 #[cfg(feature = "tokio-runtime")]
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     use jupyter_protocol::{
         ConnectionInfo, ExecuteRequest, ExecutionState, JupyterMessage, JupyterMessageContent,
     };
@@ -18,7 +18,7 @@ async fn main() -> anyhow::Result<()> {
     let kernel_specification = kernelspecs
         .iter()
         .find(|k| k.kernel_name.eq(kernel_name))
-        .ok_or(anyhow::anyhow!("Python kernel not found"))?;
+        .expect("Python kernel not found");
 
     let ip = std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1));
     let ports = runtimelib::peek_ports(ip, 5).await?;
@@ -39,9 +39,9 @@ async fn main() -> anyhow::Result<()> {
 
     let runtime_dir = runtimelib::dirs::runtime_dir();
     tokio::fs::create_dir_all(&runtime_dir).await.map_err(|e| {
-        anyhow::anyhow!(
-            "Failed to create jupyter runtime dir {:?}: {}",
-            runtime_dir,
+        format!(
+            "Failed to create jupyter runtime dir {}: {}",
+            runtime_dir.display(),
             e
         )
     })?;
