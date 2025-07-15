@@ -1823,6 +1823,18 @@ pub enum ExecutionState {
     Other(String),
 }
 
+impl ExecutionState {
+    pub fn as_str(&self) -> &str {
+        match self {
+            ExecutionState::Busy => "busy",
+            ExecutionState::Idle => "idle",
+            ExecutionState::Starting => "starting",
+            ExecutionState::Restarting => "restarting",
+            ExecutionState::Other(s) => s,
+        }
+    }
+}
+
 impl serde::Serialize for ExecutionState {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
