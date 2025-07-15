@@ -34,7 +34,7 @@ use zeromq::Socket as _;
 use zeromq::SocketRecv as _;
 use zeromq::SocketSend as _;
 
-use crate::{Result, RuntimeLibError};
+use crate::{Result, RuntimeError};
 
 /// Find a set of open ports. This function creates a listener with the port set to 0.
 /// The listener is closed at the end of the function when the listener goes out of scope.
@@ -149,11 +149,11 @@ impl RawMessage {
         let delimiter_index = multipart
             .iter()
             .position(|part| &part[..] == DELIMITER)
-            .ok_or(RuntimeLibError::MissingDelimiter)?;
+            .ok_or(RuntimeError::MissingDelimiter)?;
         let mut parts = multipart.into_vec();
 
         let jparts: Vec<_> = parts.drain(delimiter_index + 2..).collect();
-        let expected_hmac = parts.pop().ok_or(RuntimeLibError::MissingHmac)?;
+        let expected_hmac = parts.pop().ok_or(RuntimeError::MissingHmac)?;
         // Remove delimiter, so that what's left is just the identities.
         parts.pop();
         let zmq_identities = parts;
@@ -173,7 +173,7 @@ impl RawMessage {
             }
 
             hmac::verify(key, msg.as_ref(), sig.as_ref())
-                .map_err(|e| RuntimeLibError::VerifyError(e))?;
+                .map_err(|e| RuntimeError::VerifyError(e))?;
         }
 
         Ok(raw_message)
@@ -213,7 +213,7 @@ impl RawMessage {
         // ZmqMessage::try_from only fails if parts is empty, which it never
         // will be here.
         let message = zeromq::ZmqMessage::try_from(parts)
-            .map_err(|e| RuntimeLibError::ZmqMessageError(e.to_string()))?;
+            .map_err(|e| RuntimeError::ZmqMessageError(e.to_string()))?;
         Ok(message)
     }
 
@@ -239,7 +239,7 @@ impl RawMessage {
     fn into_jupyter_message(self) -> Result<JupyterMessage> {
         if self.jparts.len() < 4 {
             // Be explicit with error here
-            return Err(RuntimeLibError::InsufficientMessageParts(self.jparts.len()));
+            return Err(RuntimeError::InsufficientMessageParts(self.jparts.len()));
         }
 
         let header: Header = serde_json::from_slice(&self.jparts[0])?;
@@ -250,7 +250,7 @@ impl RawMessage {
         let content = match content {
             Ok(content) => content,
             Err(err) => {
-                return Err(RuntimeLibError::ParseError {
+                return Err(RuntimeError::ParseError {
                     msg_type: header.msg_type,
                     source: err,
                 });

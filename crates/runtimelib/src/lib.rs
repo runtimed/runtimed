@@ -28,7 +28,7 @@ pub mod dirs;
 pub use dirs::*;
 
 mod error;
-pub use error::{Result, RuntimeLibError};
+pub use error::{Result, RuntimeError};
 
 #[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
 pub mod connection;

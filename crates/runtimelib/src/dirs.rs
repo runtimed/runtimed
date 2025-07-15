@@ -1,4 +1,4 @@
-use crate::{Result, RuntimeLibError};
+use crate::{Result, RuntimeError};
 use dirs::{data_dir, home_dir};
 use serde_json::Value;
 use std::env;
@@ -16,7 +16,7 @@ pub async fn ask_jupyter() -> Result<Value> {
         .args(["--paths", "--json"])
         .output()
         .await
-        .map_err(|e| RuntimeLibError::CommandFailed {
+        .map_err(|e| RuntimeError::CommandFailed {
             command: "jupyter --paths --json",
             source: e,
         })?;
@@ -25,7 +25,7 @@ pub async fn ask_jupyter() -> Result<Value> {
         let paths: Value = serde_json::from_slice(&output.stdout)?;
         Ok(paths)
     } else {
-        Err(RuntimeLibError::JupyterCommandFailed(output.status))
+        Err(RuntimeError::JupyterCommandFailed(output.status))
     }
 }
 
@@ -81,12 +81,12 @@ pub fn system_data_dirs() -> Vec<PathBuf> {
 pub fn user_data_dir() -> Result<PathBuf> {
     if cfg!(target_os = "macos") {
         Ok(home_dir()
-            .ok_or(RuntimeLibError::DirNotFound("home"))?
+            .ok_or(RuntimeError::DirNotFound("home"))?
             .join("Library/Jupyter"))
     } else if cfg!(windows) {
         Ok(
             PathBuf::from(
-                env::var("APPDATA").map_err(|_| RuntimeLibError::DirNotFound("APPDATA"))?,
+                env::var("APPDATA").map_err(|_| RuntimeError::DirNotFound("APPDATA"))?,
             )
             .join("jupyter"),
         )
@@ -94,7 +94,7 @@ pub fn user_data_dir() -> Result<PathBuf> {
         // TODO: Respect XDG_DATA_HOME if set
         match data_dir() {
             None => Ok(home_dir()
-                .ok_or(RuntimeLibError::DirNotFound("home"))?
+                .ok_or(RuntimeError::DirNotFound("home"))?
                 .join(".local/share")),
             Some(data_dir) => {
                 return Ok(data_dir.join("jupyter"));

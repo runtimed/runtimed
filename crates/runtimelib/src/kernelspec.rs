@@ -5,7 +5,7 @@ use std::process::Stdio;
 
 use jupyter_protocol::JupyterKernelspec;
 
-use crate::{Result, RuntimeLibError};
+use crate::{Result, RuntimeError};
 
 #[cfg(feature = "tokio-runtime")]
 use tokio::{fs, io::AsyncReadExt, process::Command};
@@ -32,7 +32,7 @@ impl KernelspecDir {
 
         let argv = self.kernelspec.argv;
         if argv.is_empty() {
-            return Err(RuntimeLibError::EmptyArgv {
+            return Err(RuntimeError::EmptyArgv {
                 kernel_name: kernel_name.to_owned(),
             });
         }

@@ -1,7 +1,7 @@
-pub type Result<T> = std::result::Result<T, RuntimeLibError>;
+pub type Result<T> = std::result::Result<T, RuntimeError>;
 
 #[derive(Debug, thiserror::Error)]
-pub enum RuntimeLibError {
+pub enum RuntimeError {
     #[error("{0}")]
     DecodeError(#[from] data_encoding::DecodeError),
     #[error("Failed to get {0} directory")]
