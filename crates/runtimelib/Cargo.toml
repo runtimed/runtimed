@@ -11,7 +11,6 @@ readme = "./README.md"
 zeromq = { version = "0.5.0-pre", default-features = false, features = [
     "tcp-transport",
 ] }
-anyhow = { workspace = true }
 base64 = { workspace = true }
 bytes = { workspace = true }
 chrono = { workspace = true }
@@ -27,6 +26,7 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 shellexpand = "3.1.0"
 glob = "0.3.1"
+thiserror = { workspace = true }
 
 [features]
 default = ["ring"]

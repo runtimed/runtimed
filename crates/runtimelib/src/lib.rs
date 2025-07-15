@@ -27,6 +27,9 @@ pub use kernelspec::*;
 pub mod dirs;
 pub use dirs::*;
 
+mod error;
+pub use error::{Result, RuntimeLibError};
+
 #[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
 pub mod connection;
 #[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]

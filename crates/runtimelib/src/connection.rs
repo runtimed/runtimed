@@ -3,7 +3,6 @@
 //! This module provides structures for understanding the connection information,
 //! existing jupyter runtimes, and a client with ZeroMQ sockets to
 //! communicate with the kernels.
-use anyhow::{anyhow, bail, Result};
 use bytes::Bytes;
 use data_encoding::HEXLOWER;
 
@@ -34,6 +33,8 @@ use zeromq::Socket as _;
 
 use zeromq::SocketRecv as _;
 use zeromq::SocketSend as _;
+
+use crate::{Result, RuntimeLibError};
 
 /// Find a set of open ports. This function creates a listener with the port set to 0.
 /// The listener is closed at the end of the function when the listener goes out of scope.
@@ -93,7 +94,7 @@ impl<S: zeromq::Socket> Connection<S> {
 }
 
 impl<S: zeromq::SocketSend> Connection<S> {
-    pub async fn send(&mut self, message: JupyterMessage) -> Result<(), anyhow::Error> {
+    pub async fn send(&mut self, message: JupyterMessage) -> Result<()> {
         let message = message.with_session(&self.session_id);
         let raw_message: RawMessage = RawMessage::from_jupyter_message(message)?;
         let zmq_message = raw_message.into_zmq_message(&self.mac)?;
@@ -104,7 +105,7 @@ impl<S: zeromq::SocketSend> Connection<S> {
 }
 
 impl<S: zeromq::SocketRecv> Connection<S> {
-    pub async fn read(&mut self) -> Result<JupyterMessage, anyhow::Error> {
+    pub async fn read(&mut self) -> Result<JupyterMessage> {
         let raw_message = RawMessage::from_multipart(self.socket.recv().await?, &self.mac)?;
         let message = raw_message.into_jupyter_message()?;
         Ok(message)
@@ -112,7 +113,7 @@ impl<S: zeromq::SocketRecv> Connection<S> {
 }
 
 impl KernelHeartbeatConnection {
-    pub async fn single_heartbeat(&mut self) -> Result<(), anyhow::Error> {
+    pub async fn single_heartbeat(&mut self) -> Result<()> {
         let _msg = self.socket.recv().await?;
         self.socket
             .send(zeromq::ZmqMessage::from(b"pong".to_vec()))
@@ -122,7 +123,7 @@ impl KernelHeartbeatConnection {
 }
 
 impl ClientHeartbeatConnection {
-    pub async fn single_heartbeat(&mut self) -> Result<(), anyhow::Error> {
+    pub async fn single_heartbeat(&mut self) -> Result<()> {
         self.socket
             .send(zeromq::ZmqMessage::from(b"ping".to_vec()))
             .await?;
@@ -144,15 +145,15 @@ impl RawMessage {
     pub fn from_multipart(
         multipart: zeromq::ZmqMessage,
         key: &Option<hmac::Key>,
-    ) -> Result<RawMessage, anyhow::Error> {
+    ) -> Result<RawMessage> {
         let delimiter_index = multipart
             .iter()
             .position(|part| &part[..] == DELIMITER)
-            .ok_or_else(|| anyhow!("Missing delimiter"))?;
+            .ok_or(RuntimeLibError::MissingDelimiter)?;
         let mut parts = multipart.into_vec();
 
         let jparts: Vec<_> = parts.drain(delimiter_index + 2..).collect();
-        let expected_hmac = parts.pop().ok_or_else(|| anyhow!("Missing hmac"))?;
+        let expected_hmac = parts.pop().ok_or(RuntimeLibError::MissingHmac)?;
         // Remove delimiter, so that what's left is just the identities.
         parts.pop();
         let zmq_identities = parts;
@@ -171,9 +172,8 @@ impl RawMessage {
                 msg.extend(part);
             }
 
-            if let Err(err) = hmac::verify(key, msg.as_ref(), sig.as_ref()) {
-                bail!("{}", err);
-            }
+            hmac::verify(key, msg.as_ref(), sig.as_ref())
+                .map_err(|e| RuntimeLibError::VerifyError(e))?;
         }
 
         Ok(raw_message)
@@ -198,10 +198,7 @@ impl RawMessage {
         hmac_ctx
     }
 
-    fn into_zmq_message(
-        self,
-        key: &Option<hmac::Key>,
-    ) -> Result<zeromq::ZmqMessage, anyhow::Error> {
+    fn into_zmq_message(self, key: &Option<hmac::Key>) -> Result<zeromq::ZmqMessage> {
         let hmac = self.hmac(key);
 
         let mut parts: Vec<bytes::Bytes> = Vec::new();
@@ -215,11 +212,12 @@ impl RawMessage {
         }
         // ZmqMessage::try_from only fails if parts is empty, which it never
         // will be here.
-        let message = zeromq::ZmqMessage::try_from(parts).map_err(|err| anyhow::anyhow!(err))?;
+        let message = zeromq::ZmqMessage::try_from(parts)
+            .map_err(|e| RuntimeLibError::ZmqMessageError(e.to_string()))?;
         Ok(message)
     }
 
-    fn from_jupyter_message(jupyter_message: JupyterMessage) -> Result<RawMessage, anyhow::Error> {
+    fn from_jupyter_message(jupyter_message: JupyterMessage) -> Result<RawMessage> {
         let mut jparts: Vec<Bytes> = vec![
             serde_json::to_vec(&jupyter_message.header)?.into(),
             if let Some(parent_header) = jupyter_message.parent_header.as_ref() {
@@ -238,10 +236,10 @@ impl RawMessage {
         Ok(raw_message)
     }
 
-    fn into_jupyter_message(self) -> Result<JupyterMessage, anyhow::Error> {
+    fn into_jupyter_message(self) -> Result<JupyterMessage> {
         if self.jparts.len() < 4 {
             // Be explicit with error here
-            return Err(anyhow!("Insufficient message parts {}", self.jparts.len()));
+            return Err(RuntimeLibError::InsufficientMessageParts(self.jparts.len()));
         }
 
         let header: Header = serde_json::from_slice(&self.jparts[0])?;
@@ -252,11 +250,10 @@ impl RawMessage {
         let content = match content {
             Ok(content) => content,
             Err(err) => {
-                return Err(anyhow!(
-                    "Error deserializing content for msg_type `{}`: {}",
-                    &header.msg_type,
-                    err
-                ));
+                return Err(RuntimeLibError::ParseError {
+                    msg_type: header.msg_type,
+                    source: err,
+                });
             }
         };
 
@@ -283,62 +280,62 @@ impl RawMessage {
 pub async fn create_kernel_iopub_connection(
     connection_info: &ConnectionInfo,
     session_id: &str,
-) -> anyhow::Result<KernelIoPubConnection> {
+) -> Result<KernelIoPubConnection> {
     let endpoint = connection_info.iopub_url();
 
     let mut socket = zeromq::PubSocket::new();
     socket.bind(&endpoint).await?;
-    anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
+    Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
 pub async fn create_kernel_shell_connection(
     connection_info: &ConnectionInfo,
     session_id: &str,
-) -> anyhow::Result<KernelShellConnection> {
+) -> Result<KernelShellConnection> {
     let endpoint = connection_info.shell_url();
 
     let mut socket = zeromq::RouterSocket::new();
     socket.bind(&endpoint).await?;
-    anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
+    Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
 pub async fn create_kernel_control_connection(
     connection_info: &ConnectionInfo,
     session_id: &str,
-) -> anyhow::Result<KernelControlConnection> {
+) -> Result<KernelControlConnection> {
     let endpoint = connection_info.control_url();
 
     let mut socket = zeromq::RouterSocket::new();
     socket.bind(&endpoint).await?;
-    anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
+    Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
 pub async fn create_kernel_stdin_connection(
     connection_info: &ConnectionInfo,
     session_id: &str,
-) -> anyhow::Result<KernelStdinConnection> {
+) -> Result<KernelStdinConnection> {
     let endpoint = connection_info.stdin_url();
 
     let mut socket = zeromq::RouterSocket::new();
     socket.bind(&endpoint).await?;
-    anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
+    Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
 pub async fn create_kernel_heartbeat_connection(
     connection_info: &ConnectionInfo,
-) -> anyhow::Result<KernelHeartbeatConnection> {
+) -> Result<KernelHeartbeatConnection> {
     let endpoint = connection_info.hb_url();
 
     let mut socket = zeromq::RepSocket::new();
     socket.bind(&endpoint).await?;
-    anyhow::Ok(KernelHeartbeatConnection { socket })
+    Ok(KernelHeartbeatConnection { socket })
 }
 
 pub async fn create_client_iopub_connection(
     connection_info: &ConnectionInfo,
     topic: &str,
     session_id: &str,
-) -> anyhow::Result<ClientIoPubConnection> {
+) -> Result<ClientIoPubConnection> {
     let endpoint = connection_info.iopub_url();
 
     let mut socket = zeromq::SubSocket::new();
@@ -346,48 +343,48 @@ pub async fn create_client_iopub_connection(
 
     socket.connect(&endpoint).await?;
 
-    anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
+    Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
 pub async fn create_client_shell_connection(
     connection_info: &ConnectionInfo,
     session_id: &str,
-) -> anyhow::Result<ClientShellConnection> {
+) -> Result<ClientShellConnection> {
     let endpoint = connection_info.shell_url();
 
     let mut socket = zeromq::DealerSocket::new();
     socket.connect(&endpoint).await?;
-    anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
+    Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
 pub async fn create_client_control_connection(
     connection_info: &ConnectionInfo,
     session_id: &str,
-) -> anyhow::Result<ClientControlConnection> {
+) -> Result<ClientControlConnection> {
     let endpoint = connection_info.control_url();
 
     let mut socket = zeromq::DealerSocket::new();
     socket.connect(&endpoint).await?;
-    anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
+    Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
 pub async fn create_client_stdin_connection(
     connection_info: &ConnectionInfo,
     session_id: &str,
-) -> anyhow::Result<ClientStdinConnection> {
+) -> Result<ClientStdinConnection> {
     let endpoint = connection_info.stdin_url();
 
     let mut socket = zeromq::DealerSocket::new();
     socket.connect(&endpoint).await?;
-    anyhow::Ok(Connection::new(socket, &connection_info.key, session_id))
+    Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
 pub async fn create_client_heartbeat_connection(
     connection_info: &ConnectionInfo,
-) -> anyhow::Result<ClientHeartbeatConnection> {
+) -> Result<ClientHeartbeatConnection> {
     let endpoint = connection_info.hb_url();
 
     let mut socket = zeromq::ReqSocket::new();
     socket.connect(&endpoint).await?;
-    anyhow::Ok(ClientHeartbeatConnection { socket })
+    Ok(ClientHeartbeatConnection { socket })
 }
