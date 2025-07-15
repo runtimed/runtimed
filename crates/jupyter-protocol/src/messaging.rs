@@ -339,7 +339,7 @@ impl JupyterMessage {
             Ok(content) => content,
             Err(err) => {
                 return Err(JupyterError::ParseError {
-                    msg_type: Some(message.header.msg_type),
+                    msg_type: message.header.msg_type,
                     source: err,
                 })
             }
