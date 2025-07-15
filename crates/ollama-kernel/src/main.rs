@@ -115,9 +115,10 @@ impl OllamaKernel {
         &mut self,
         parent: &JupyterMessage,
     ) -> anyhow::Result<()> {
-        self.iopub
+        Ok(self
+            .iopub
             .send(ClearOutput { wait: true }.as_child_of(parent))
-            .await
+            .await?)
     }
 
     async fn send_markdown(
@@ -125,9 +126,10 @@ impl OllamaKernel {
         markdown: &str,
         parent: &JupyterMessage,
     ) -> anyhow::Result<()> {
-        self.iopub
+        Ok(self
+            .iopub
             .send(DisplayData::from(MediaType::Markdown(markdown.to_string())).as_child_of(parent))
-            .await
+            .await?)
     }
 
     async fn send_json(
@@ -144,9 +146,10 @@ impl OllamaKernel {
             }
         };
 
-        self.iopub
+        Ok(self
+            .iopub
             .send(DisplayData::from(MediaType::Json(json_object)).as_child_of(parent))
-            .await
+            .await?)
     }
 
     async fn send_error(
@@ -155,7 +158,8 @@ impl OllamaKernel {
         evalue: &str,
         parent: &JupyterMessage,
     ) -> anyhow::Result<()> {
-        self.iopub
+        Ok(self
+            .iopub
             .send(
                 ErrorOutput {
                     ename: ename.to_string(),
@@ -164,13 +168,14 @@ impl OllamaKernel {
                 }
                 .as_child_of(parent),
             )
-            .await
+            .await?)
     }
 
     async fn push_stdout(&mut self, text: &str, parent: &JupyterMessage) -> anyhow::Result<()> {
-        self.iopub
+        Ok(self
+            .iopub
             .send(StreamContent::stdout(text).as_child_of(parent))
-            .await
+            .await?)
     }
 
     async fn command(&mut self, command: &str, parent: &JupyterMessage) -> anyhow::Result<()> {
