@@ -173,7 +173,7 @@ impl RawMessage {
             }
 
             hmac::verify(key, msg.as_ref(), sig.as_ref())
-                .map_err(|e| RuntimeError::VerifyError(e))?;
+                .map_err( RuntimeError::VerifyError)?;
         }
 
         Ok(raw_message)

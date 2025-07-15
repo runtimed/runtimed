@@ -1,5 +1,5 @@
 #[cfg(feature = "async-dispatcher-runtime")]
-fn main() -> Result<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // todo: Show example using async-std-runtime
     // For now, check out for something similar https://github.com/runtimed/smoke/blob/main/src/main.rs
     Ok(())
