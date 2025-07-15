@@ -1821,15 +1821,17 @@ pub enum ExecutionState {
     Idle,
     Starting,
     Restarting,
+    Other(String),
 }
 
 impl ExecutionState {
-    pub fn as_str(&self) -> &str {
+    pub fn as_str<'a>(&'a self) -> &'a str {
         match self {
             ExecutionState::Busy => "busy",
             ExecutionState::Idle => "idle",
             ExecutionState::Starting => "starting",
             ExecutionState::Restarting => "restarting",
+            ExecutionState::Other(s) => s,
         }
     }
 }
@@ -1871,6 +1873,12 @@ impl Status {
     pub fn restarting() -> Self {
         Self {
             execution_state: ExecutionState::Restarting,
+        }
+    }
+
+    pub fn other(state: impl Into<String>) -> Self {
+        Self {
+            execution_state: ExecutionState::Other(state.into()),
         }
     }
 }
