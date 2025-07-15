@@ -41,6 +41,7 @@ bytes = "1"
 base64 = "0.22"
 runtimelib = { path = "crates/runtimelib", version = "0.28.0", default-features = false }
 jupyter-protocol = { path = "crates/jupyter-protocol", version = "0.8.1" }
+thiserror = "2"
 tokio = { version = "1.36.0", features = ["full"] }
 
 [profile.release]
