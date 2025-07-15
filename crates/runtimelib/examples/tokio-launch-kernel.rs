@@ -18,7 +18,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let kernel_specification = kernelspecs
         .iter()
         .find(|k| k.kernel_name.eq(kernel_name))
-        .ok_or(Err("Python kernel not found"))?;
+        .expect("Python kernel not found");
 
     let ip = std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1));
     let ports = runtimelib::peek_ports(ip, 5).await?;
