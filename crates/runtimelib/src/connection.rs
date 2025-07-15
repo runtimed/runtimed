@@ -172,8 +172,7 @@ impl RawMessage {
                 msg.extend(part);
             }
 
-            hmac::verify(key, msg.as_ref(), sig.as_ref())
-                .map_err( RuntimeError::VerifyError)?;
+            hmac::verify(key, msg.as_ref(), sig.as_ref()).map_err(RuntimeError::VerifyError)?;
         }
 
         Ok(raw_message)

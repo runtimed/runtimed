@@ -85,10 +85,8 @@ pub fn user_data_dir() -> Result<PathBuf> {
             .join("Library/Jupyter"))
     } else if cfg!(windows) {
         Ok(
-            PathBuf::from(
-                env::var("APPDATA").map_err(|_| RuntimeError::DirNotFound("APPDATA"))?,
-            )
-            .join("jupyter"),
+            PathBuf::from(env::var("APPDATA").map_err(|_| RuntimeError::DirNotFound("APPDATA"))?)
+                .join("jupyter"),
         )
     } else {
         // TODO: Respect XDG_DATA_HOME if set
