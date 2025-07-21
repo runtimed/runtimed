@@ -339,7 +339,7 @@ impl JupyterMessage {
             Ok(content) => content,
             Err(err) => {
                 return Err(JupyterError::ParseError {
-                    msg_type: Some(message.header.msg_type),
+                    msg_type: message.header.msg_type,
                     source: err,
                 })
             }
@@ -1814,13 +1814,13 @@ pub struct IsCompleteRequest {
     pub code: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ExecutionState {
     Busy,
     Idle,
     Starting,
     Restarting,
+    Other(String),
 }
 
 impl ExecutionState {
@@ -1830,7 +1830,53 @@ impl ExecutionState {
             ExecutionState::Idle => "idle",
             ExecutionState::Starting => "starting",
             ExecutionState::Restarting => "restarting",
+            ExecutionState::Other(s) => s,
         }
+    }
+}
+
+impl serde::Serialize for ExecutionState {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            ExecutionState::Busy => serializer.serialize_str("busy"),
+            ExecutionState::Idle => serializer.serialize_str("idle"),
+            ExecutionState::Starting => serializer.serialize_str("starting"),
+            ExecutionState::Restarting => serializer.serialize_str("restarting"),
+            ExecutionState::Other(s) => serializer.serialize_str(s),
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ExecutionState {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct ExecutionStateVisitor;
+
+        impl serde::de::Visitor<'_> for ExecutionStateVisitor {
+            type Value = ExecutionState;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a string representing an execution state")
+            }
+            fn visit_str<E>(self, value: &str) -> Result<ExecutionState, E>
+            where
+                E: serde::de::Error,
+            {
+                match value {
+                    "busy" => Ok(ExecutionState::Busy),
+                    "idle" => Ok(ExecutionState::Idle),
+                    "starting" => Ok(ExecutionState::Starting),
+                    "restarting" => Ok(ExecutionState::Restarting),
+                    other => Ok(ExecutionState::Other(other.to_string())),
+                }
+            }
+        }
+        deserializer.deserialize_str(ExecutionStateVisitor)
     }
 }
 
@@ -1871,6 +1917,12 @@ impl Status {
     pub fn restarting() -> Self {
         Self {
             execution_state: ExecutionState::Restarting,
+        }
+    }
+
+    pub fn other(state: impl Into<String>) -> Self {
+        Self {
+            execution_state: ExecutionState::Other(state.into()),
         }
     }
 }
@@ -2230,5 +2282,26 @@ mod test {
             message.header.msg_id,
             "44bd6b44-78a1-4892-87df-c0861a005d56"
         );
+    }
+
+    #[test]
+    fn test_execution_state_other_serde() {
+        let json = r#""busy""#;
+        let state: ExecutionState = serde_json::from_str(json).unwrap();
+        assert_eq!(state, ExecutionState::Busy);
+        let serialized = serde_json::to_string(&state).unwrap();
+        assert_eq!(serialized, "\"busy\"");
+
+        let state = ExecutionState::Idle;
+        let serialized = serde_json::to_string(&state).unwrap();
+        assert_eq!(serialized, "\"idle\"");
+        let state: ExecutionState = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(state, ExecutionState::Idle);
+
+        let json = r#""disconnected""#;
+        let state: ExecutionState = serde_json::from_str(json).unwrap();
+        assert_eq!(state, ExecutionState::Other("disconnected".to_string()));
+        let serialized = serde_json::to_string(&state).unwrap();
+        assert_eq!(serialized, "\"disconnected\"");
     }
 }
