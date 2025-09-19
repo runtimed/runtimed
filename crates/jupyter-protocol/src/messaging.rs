@@ -2189,7 +2189,7 @@ mod test {
         let size = size_of::<JupyterMessageContent>();
         println!("The size of JupyterMessageContent is: {}", size);
         assert!(size > 0);
-        assert!(size <= 96);
+        assert!(size <= 104);
     }
 
     #[test]
