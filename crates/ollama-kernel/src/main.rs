@@ -543,11 +543,11 @@ Please generate a few responses to complete their text for them.
             language_info: LanguageInfo {
                 name: "markdown".to_string(),
                 version: "0.1".to_string(),
-                mimetype: "text/markdown".to_string(),
-                file_extension: ".md".to_string(),
-                pygments_lexer: "markdown".to_string(),
-                codemirror_mode: CodeMirrorMode::Simple("markdown".to_string()),
-                nbconvert_exporter: "script".to_string(),
+                mimetype: Some("text/markdown".to_string()),
+                file_extension: Some(".md".to_string()),
+                pygments_lexer: Some("markdown".to_string()),
+                codemirror_mode: Some(CodeMirrorMode::Simple("markdown".to_string())),
+                nbconvert_exporter: Some("script".to_string()),
             },
             banner: "Ollama Kernel".to_string(),
             help_links: vec![

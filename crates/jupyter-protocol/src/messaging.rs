@@ -912,6 +912,7 @@ impl Default for ExecuteRequest {
 /// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#execution-results>
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecuteReply {
+    #[serde(default)]
     pub status: ReplyStatus,
     pub execution_count: ExecutionCount,
 
@@ -1022,11 +1023,16 @@ impl CodeMirrorMode {
 pub struct LanguageInfo {
     pub name: String,
     pub version: String,
-    pub mimetype: String,
-    pub file_extension: String,
-    pub pygments_lexer: String,
-    pub codemirror_mode: CodeMirrorMode,
-    pub nbconvert_exporter: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mimetype: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_extension: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pygments_lexer: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub codemirror_mode: Option<CodeMirrorMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nbconvert_exporter: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -1195,6 +1201,7 @@ impl From<MediaType> for DisplayData {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct UpdateDisplayData {
     pub data: Media,
+    #[serde(default)]
     pub metadata: serde_json::Map<String, Value>,
     pub transient: Transient,
 }
@@ -1257,6 +1264,7 @@ impl Default for ExecuteInput {
 pub struct ExecuteResult {
     pub execution_count: ExecutionCount,
     pub data: Media,
+    #[serde(default)]
     pub metadata: serde_json::Map<String, Value>,
     pub transient: Option<Transient>,
 }
@@ -1338,6 +1346,8 @@ pub struct CommOpen {
     pub comm_id: CommId,
     pub target_name: String,
     pub data: serde_json::Map<String, Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_module: Option<String>,
 }
 impl Default for CommOpen {
     fn default() -> Self {
@@ -1345,6 +1355,7 @@ impl Default for CommOpen {
             comm_id: CommId("".to_string()),
             target_name: String::new(),
             data: serde_json::Map::new(),
+            target_module: None,
         }
     }
 }
@@ -1383,7 +1394,7 @@ impl Default for CommMsg {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct CommInfoRequest {
-    pub target_name: String,
+    pub target_name: Option<String>,
 }
 
 #[derive(Eq, Hash, PartialEq, Serialize, Deserialize, Debug, Clone)]
@@ -1408,6 +1419,7 @@ pub struct CommInfo {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommInfoReply {
+    #[serde(default)]
     pub status: ReplyStatus,
     pub comms: HashMap<CommId, CommInfo>,
     // pub comms: HashMap<CommId, CommInfo>,
@@ -1593,7 +1605,7 @@ pub struct InspectReply {
     pub found: bool,
     pub data: Media,
     pub metadata: serde_json::Map<String, Value>,
-
+    #[serde(default)]
     pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
@@ -1628,7 +1640,7 @@ pub struct CompleteReply {
     pub cursor_start: usize,
     pub cursor_end: usize,
     pub metadata: serde_json::Map<String, Value>,
-
+    #[serde(default)]
     pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
@@ -1750,6 +1762,7 @@ pub enum HistoryRequest {
         unique: bool,
         output: bool,
         raw: bool,
+        n: i32,
     },
 }
 impl Default for HistoryRequest {
@@ -1816,16 +1829,24 @@ pub struct IsCompleteRequest {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExecutionState {
+    Unknown,
+    Starting,
     Busy,
     Idle,
-    Starting,
     Restarting,
+    Terminating,
+    AutoRestarting,
+    Dead,
     Other(String),
 }
 
 impl ExecutionState {
     pub fn as_str(&self) -> &str {
         match self {
+            ExecutionState::Unknown => "unknown",
+            ExecutionState::Terminating => "terminating",
+            ExecutionState::AutoRestarting => "autorestarting",
+            ExecutionState::Dead => "dead",
             ExecutionState::Busy => "busy",
             ExecutionState::Idle => "idle",
             ExecutionState::Starting => "starting",
@@ -1841,6 +1862,10 @@ impl serde::Serialize for ExecutionState {
         S: serde::Serializer,
     {
         match self {
+            ExecutionState::Unknown => serializer.serialize_str("unknown"),
+            ExecutionState::Terminating => serializer.serialize_str("terminating"),
+            ExecutionState::AutoRestarting => serializer.serialize_str("autorestarting"),
+            ExecutionState::Dead => serializer.serialize_str("dead"),
             ExecutionState::Busy => serializer.serialize_str("busy"),
             ExecutionState::Idle => serializer.serialize_str("idle"),
             ExecutionState::Starting => serializer.serialize_str("starting"),
@@ -1868,6 +1893,10 @@ impl<'de> serde::Deserialize<'de> for ExecutionState {
                 E: serde::de::Error,
             {
                 match value {
+                    "unknown" => Ok(ExecutionState::Unknown),
+                    "terminating" => Ok(ExecutionState::Terminating),
+                    "autorestarting" => Ok(ExecutionState::AutoRestarting),
+                    "dead" => Ok(ExecutionState::Dead),
                     "busy" => Ok(ExecutionState::Busy),
                     "idle" => Ok(ExecutionState::Idle),
                     "starting" => Ok(ExecutionState::Starting),
@@ -2160,7 +2189,7 @@ mod test {
         let size = size_of::<JupyterMessageContent>();
         println!("The size of JupyterMessageContent is: {}", size);
         assert!(size > 0);
-        assert!(size <= 96);
+        assert!(size <= 104);
     }
 
     #[test]
