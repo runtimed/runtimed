@@ -13,4 +13,15 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 jupyter-protocol = { workspace = true }
+
 thiserror = "1.0"
+
+# WASM-specific dependencies - only add js features when targeting wasm32
+[target.'cfg(target_arch = "wasm32")'.dependencies.uuid]
+version = "1"
+default-features = false
+features = ["serde", "v4", "v5", "js"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies.getrandom]
+version = "0.2"
+features = ["js"]
