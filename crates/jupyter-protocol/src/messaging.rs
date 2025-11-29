@@ -1393,6 +1393,7 @@ impl Default for CommMsg {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(deny_unknown_fields)]
 pub struct CommInfoRequest {
     pub target_name: Option<String>,
 }
