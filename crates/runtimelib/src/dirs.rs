@@ -94,9 +94,7 @@ pub fn user_data_dir() -> Result<PathBuf> {
             None => Ok(home_dir()
                 .ok_or(RuntimeError::DirNotFound("home"))?
                 .join(".local/share")),
-            Some(data_dir) => {
-                return Ok(data_dir.join("jupyter"));
-            }
+            Some(data_dir) => Ok(data_dir.join("jupyter")),
         }
     }
 }
