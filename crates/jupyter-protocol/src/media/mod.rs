@@ -248,6 +248,7 @@ where
             "text/latex" => MediaType::Latex(text),
             "application/javascript" => MediaType::Javascript(text),
             "text/markdown" => MediaType::Markdown(text),
+            "image/svg+xml" => MediaType::Svg(text),
 
             // Keep unknown mediatypes exactly as they were
             _ => MediaType::Other((key.clone(), value)),
