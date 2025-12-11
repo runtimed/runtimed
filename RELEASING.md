@@ -1,28 +1,62 @@
 # Releasing
 
-We push releases using `cargo-release` within the workspace, which keeps dependent packages up to date and published together. Make sure to run it dry first then run with `--execute` afterward.
+We use `cargo-release` within the workspace. Always run dry first (the default), then run with `--execute` when ready.
 
-Since there are troubles with features being incompatible between packages (namely tokio vs async-std), we have to release packages in this dependency order:
+## Dependency Order
+
+The workspace has this dependency structure:
 
 ```
-cargo release -p jupyter-serde -p nbformat -p jupyter-protocol -p jupyter-websocket-client minor
+jupyter-protocol (no internal deps)
+    ↓
+jupyter-serde, nbformat, jupyter-websocket-client, runtimelib
+    ↓
+ollama-kernel, sidecar, runt-cli
 ```
+
+`mybinder` is standalone with no internal dependencies.
+
+## Release Commands
+
+### 1. jupyter-protocol (first, everything depends on it)
+
+```
+cargo release -p jupyter-protocol <patch|minor|major>
+```
+
+### 2. Protocol consumers
+
+These all depend on `jupyter-protocol` and can be released together:
+
+```
+cargo release -p jupyter-serde -p nbformat -p jupyter-websocket-client <patch|minor|major>
+```
+
+Runtimelib requires a feature flag when publishing:
+
+```
+cargo release -p runtimelib --features tokio-runtime <patch|minor|major>
+```
+
+### 3. Binaries (last, depend on runtimelib)
 
 > [!WARNING]
-> Runtimelib _must_ be shipped before Ollama kernel and sidecar
+> Runtimelib _must_ be published before these.
 
-Runtimelib requires at least one feature flag being selected when publishing. For now, this uses `tokio-runtime`.
-
-```
-cargo release -p runtimelib --features tokio-runtime minor
-```
-
-Binaries that rely on `runtimelib` use different async runtimes and also don't have flags on themselves, so you must ship each individually.
+These use different async runtimes and must be released individually:
 
 ```
-cargo release -p ollama-kernel minor
+cargo release -p ollama-kernel <patch|minor|major>
 ```
 
 ```
-cargo release -p sidecar -p runt-cli minor
+cargo release -p sidecar -p runt-cli <patch|minor|major>
+```
+
+## Targeted Patch Releases
+
+If changes only touch specific crates, you can release just those (and their dependents if needed). Check what changed since last release:
+
+```
+git log --oneline <last-tag>..HEAD --name-only | grep -E '^crates/' | sort -u
 ```
