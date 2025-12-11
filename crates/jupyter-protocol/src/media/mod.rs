@@ -227,7 +227,7 @@ where
             _ => return Err(de::Error::custom("Invalid value for text-based media type")),
         };
 
-        if key.starts_with("image/") {
+        if key.starts_with("image/") && !key.starts_with("image/svg+xml") {
             // If we ever want to turn this into Vec<u8> we could do that here. We would need to strip all the whitespace from the base64
             // encoded image too though. `let text = text.replace("\n", "").replace(" ", "");`
             // For consistency with other notebook frontends though, we'll keep it the same
@@ -236,7 +236,6 @@ where
                 "image/png" => MediaType::Png(text),
                 "image/jpeg" => MediaType::Jpeg(text),
                 "image/gif" => MediaType::Gif(text),
-                "image/svg+xml" => MediaType::Svg(text),
                 _ => MediaType::Other((key.clone(), value)),
             };
             content.push(mediatype);
