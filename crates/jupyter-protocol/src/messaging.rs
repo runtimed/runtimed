@@ -637,7 +637,6 @@ macro_rules! impl_message_traits {
                 #[doc = concat!("Create a new `JupyterMessage` for a `", stringify!($name), "`.\n\n")]
                 /// ⚠️ If you use this method with `runtimelib`, you must set the zmq identities yourself. If you
                 /// have a message that "caused" your message to be sent, use that message with `as_child_of` instead.
-                #[must_use]
                 fn from(content: $name) -> Self {
                     JupyterMessage::new(content, None)
                 }
@@ -645,7 +644,6 @@ macro_rules! impl_message_traits {
 
             impl From<$name> for JupyterMessageContent {
                 #[doc = concat!("Create a new `JupyterMessageContent` for a `", stringify!($name), "`.\n\n")]
-                #[must_use]
                 fn from(content: $name) -> Self {
                     JupyterMessageContent::$name(content)
                 }
@@ -759,7 +757,6 @@ impl From<HistoryRequest> for JupyterMessage {
     /// Create a new `JupyterMessage` for a `HistoryRequest`.
     /// ⚠️ If you use this method with `runtimelib`, you must set the zmq identities yourself. If you
     /// have a message that "caused" your message to be sent, use that message with `as_child_of` instead.
-    #[must_use]
     fn from(content: HistoryRequest) -> Self {
         JupyterMessage::new(content, None)
     }
@@ -767,7 +764,6 @@ impl From<HistoryRequest> for JupyterMessage {
 
 impl From<HistoryRequest> for JupyterMessageContent {
     /// Create a new `JupyterMessageContent` for a `HistoryRequest`.
-    #[must_use]
     fn from(content: HistoryRequest) -> Self {
         JupyterMessageContent::HistoryRequest(content)
     }
