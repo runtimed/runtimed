@@ -227,7 +227,7 @@ where
             _ => return Err(de::Error::custom("Invalid value for text-based media type")),
         };
 
-        if key.starts_with("image/") {
+        if key.starts_with("image/") && !key.starts_with("image/svg+xml") {
             // If we ever want to turn this into Vec<u8> we could do that here. We would need to strip all the whitespace from the base64
             // encoded image too though. `let text = text.replace("\n", "").replace(" ", "");`
             // For consistency with other notebook frontends though, we'll keep it the same
@@ -454,6 +454,39 @@ mod test {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn svg_deserialized_correctly() {
+        let raw = r#"{
+            "image/svg+xml": "<svg xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"50\" cy=\"50\" r=\"40\"/></svg>",
+            "text/plain": "<IPython.core.display.SVG object>"
+        }"#;
+
+        let bundle: Media = serde_json::from_str(raw).unwrap();
+
+        assert_eq!(bundle.content.len(), 2);
+        assert!(bundle
+            .content
+            .contains(&MediaType::Svg("<svg xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"50\" cy=\"50\" r=\"40\"/></svg>".to_string())));
+        assert!(bundle
+            .content
+            .contains(&MediaType::Plain("<IPython.core.display.SVG object>".to_string())));
+    }
+
+    #[test]
+    fn svg_array_deserialized_correctly() {
+        let raw = r#"{
+            "image/svg+xml": ["<svg>\n", "  <circle/>\n", "</svg>"],
+            "text/plain": "svg"
+        }"#;
+
+        let bundle: Media = serde_json::from_str(raw).unwrap();
+
+        assert_eq!(bundle.content.len(), 2);
+        assert!(bundle
+            .content
+            .contains(&MediaType::Svg("<svg>\n  <circle/>\n</svg>".to_string())));
+    }
 
     #[test]
     fn richest_middle() {
