@@ -1,6 +1,6 @@
 [package]
 name = "jupyter-websocket-client"
-version = "0.15.0"
+version = "0.15.1"
 edition = "2021"
 description = "Connect to Jupyter Servers over WebSockets"
 repository = "https://github.com/runtimed/runtimed"
