@@ -416,6 +416,7 @@ pub enum JupyterMessageContent {
     InspectRequest(InspectRequest),
     InterruptReply(InterruptReply),
     InterruptRequest(InterruptRequest),
+    IoPubWelcome(IoPubWelcome),
     IsCompleteReply(IsCompleteReply),
     IsCompleteRequest(IsCompleteRequest),
     // This field is much larger than the most frequent ones
@@ -457,6 +458,7 @@ impl JupyterMessageContent {
             JupyterMessageContent::InspectRequest(_) => "inspect_request",
             JupyterMessageContent::InterruptReply(_) => "interrupt_reply",
             JupyterMessageContent::InterruptRequest(_) => "interrupt_request",
+            JupyterMessageContent::IoPubWelcome(_) => "iopub_welcome",
             JupyterMessageContent::IsCompleteReply(_) => "is_complete_reply",
             JupyterMessageContent::IsCompleteRequest(_) => "is_complete_request",
             JupyterMessageContent::KernelInfoReply(_) => "kernel_info_reply",
@@ -558,6 +560,10 @@ impl JupyterMessageContent {
             "interrupt_request" => Ok(JupyterMessageContent::InterruptRequest(
                 serde_json::from_value(content)?,
             )),
+
+            "iopub_welcome" => Ok(JupyterMessageContent::IoPubWelcome(serde_json::from_value(
+                content,
+            )?)),
 
             "is_complete_reply" => Ok(JupyterMessageContent::IsCompleteReply(
                 serde_json::from_value(content)?,
@@ -683,6 +689,7 @@ impl_message_traits!(
     InspectRequest,
     InterruptReply,
     InterruptRequest,
+    IoPubWelcome,
     IsCompleteReply,
     IsCompleteRequest,
     // KernelInfoReply, // special case due to boxing
@@ -1952,6 +1959,25 @@ impl Status {
     }
 }
 
+/// An `iopub_welcome` message on the `iopub` channel.
+///
+/// Per JEP 65, when IOPub is implemented as XPUB, this message is sent
+/// to clients upon subscription to indicate the kernel is ready to publish.
+///
+/// See [JEP 65](https://github.com/jupyter/enhancement-proposals/blob/master/65-jupyter-xpub/jupyter-xpub.md)
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct IoPubWelcome {
+    /// The subscription topic that was received from the client.
+    /// Typically an empty string for wildcard subscriptions.
+    pub subscription: String,
+}
+
+impl IoPubWelcome {
+    pub fn new(subscription: String) -> Self {
+        Self { subscription }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use serde_json::json;
@@ -2328,5 +2354,49 @@ mod test {
         assert_eq!(state, ExecutionState::Other("disconnected".to_string()));
         let serialized = serde_json::to_string(&state).unwrap();
         assert_eq!(serialized, "\"disconnected\"");
+    }
+
+    #[test]
+    fn test_iopub_welcome_message() {
+        // Test creating IoPubWelcome message
+        let welcome = IoPubWelcome::new("".to_string());
+        assert_eq!(welcome.subscription, "");
+
+        // Test serialization
+        let welcome_value = serde_json::to_value(&welcome).unwrap();
+        let expected_value = serde_json::json!({
+            "subscription": ""
+        });
+        assert_eq!(welcome_value, expected_value);
+
+        // Test deserialization
+        let json_str = r#"{"subscription": ""}"#;
+        let deserialized: IoPubWelcome = serde_json::from_str(json_str).unwrap();
+        assert_eq!(deserialized.subscription, "");
+
+        // Test with non-empty subscription
+        let welcome_with_topic = IoPubWelcome::new("kernel.output".to_string());
+        assert_eq!(welcome_with_topic.subscription, "kernel.output");
+
+        // Test conversion to JupyterMessage
+        let message: JupyterMessage = welcome.clone().into();
+        assert_eq!(message.header.msg_type, "iopub_welcome");
+        match message.content {
+            JupyterMessageContent::IoPubWelcome(w) => {
+                assert_eq!(w.subscription, "");
+            }
+            _ => panic!("Expected IoPubWelcome"),
+        }
+
+        // Test from_type_and_content
+        let content_value = serde_json::json!({"subscription": "test_topic"});
+        let content =
+            JupyterMessageContent::from_type_and_content("iopub_welcome", content_value).unwrap();
+        match content {
+            JupyterMessageContent::IoPubWelcome(w) => {
+                assert_eq!(w.subscription, "test_topic");
+            }
+            _ => panic!("Expected IoPubWelcome"),
+        }
     }
 }
