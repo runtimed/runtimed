@@ -218,15 +218,17 @@ where
             "image/png" => MediaType::Png(value_to_text::<D>(value)?),
             "image/jpeg" => MediaType::Jpeg(value_to_text::<D>(value)?),
             "image/gif" => MediaType::Gif(value_to_text::<D>(value)?),
+            "application/json" => {
+                let obj: JsonObject = serde_json::from_value(value).map_err(de::Error::custom)?;
+                MediaType::Json(obj)
+            }
             // Check if the key matches ^application/(.*\\+)?json$ in order to skip the multiline string handling
             _ if key.starts_with("application/") && key.ends_with("json") => {
-                match serde_json::from_value(Value::Object(serde_json::Map::from_iter([
-                    ("type".to_string(), Value::String(key.clone())),
-                    ("data".to_string(), value.clone()),
-                ]))) {
-                    Ok(mediatype) => mediatype,
-                    Err(_) => MediaType::Other((key, value)),
-                }
+                serde_json::from_value(Value::Object(serde_json::Map::from_iter([
+                    ("type".to_string(), Value::String(key)),
+                    ("data".to_string(), value),
+                ])))
+                .map_err(de::Error::custom)?
             }
             _ => MediaType::Other((key, value)),
         };
