@@ -144,8 +144,9 @@ pub enum MediaType {
     Other((String, Value)),
 }
 
-impl std::hash::Hash for MediaType {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl MediaType {
+    /// Returns the MIME type string associated with the `MediaType` variant.
+    pub fn mime_type(&self) -> &str {
         match &self {
             MediaType::Plain(_) => "text/plain",
             MediaType::Html(_) => "text/html",
@@ -173,7 +174,12 @@ impl std::hash::Hash for MediaType {
             MediaType::Vdom(_) => "application/vdom.v1+json",
             MediaType::Other((key, _)) => key.as_str(),
         }
-        .hash(state)
+    }
+}
+
+impl std::hash::Hash for MediaType {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.mime_type().hash(state)
     }
 }
 
@@ -202,62 +208,49 @@ where
     let mut content = Vec::new();
 
     for (key, value) in map {
-        // Check if the key matches ^application/(.*\\+)?json$ in order to skip the multiline string handling
-        if key.starts_with("application/") && key.ends_with("json") {
-            let media_type =
+        let mediatype = match key.as_str() {
+            "text/plain" => MediaType::Plain(value_to_text::<D>(value)?),
+            "text/html" => MediaType::Html(value_to_text::<D>(value)?),
+            "text/latex" => MediaType::Latex(value_to_text::<D>(value)?),
+            "application/javascript" => MediaType::Javascript(value_to_text::<D>(value)?),
+            "text/markdown" => MediaType::Markdown(value_to_text::<D>(value)?),
+            "image/svg+xml" => MediaType::Svg(value_to_text::<D>(value)?),
+            "image/png" => MediaType::Png(value_to_text::<D>(value)?),
+            "image/jpeg" => MediaType::Jpeg(value_to_text::<D>(value)?),
+            "image/gif" => MediaType::Gif(value_to_text::<D>(value)?),
+            // Check if the key matches ^application/(.*\\+)?json$ in order to skip the multiline string handling
+            _ if key.starts_with("application/") && key.ends_with("json") => {
                 match serde_json::from_value(Value::Object(serde_json::Map::from_iter([
                     ("type".to_string(), Value::String(key.clone())),
                     ("data".to_string(), value.clone()),
                 ]))) {
                     Ok(mediatype) => mediatype,
                     Err(_) => MediaType::Other((key, value)),
-                };
-            content.push(media_type);
-            continue;
-        }
-
-        // Now we know we're getting a plain string or an array of strings
-        let text: String = match value.clone() {
-            Value::String(s) => s,
-            Value::Array(arr) => arr
-                .into_iter()
-                .filter_map(|v| v.as_str().map(String::from))
-                .collect::<Vec<String>>()
-                .join(""),
-            _ => return Err(de::Error::custom("Invalid value for text-based media type")),
+                }
+            }
+            _ => MediaType::Other((key, value)),
         };
-
-        if key.starts_with("image/") && !key.starts_with("image/svg+xml") {
-            // If we ever want to turn this into Vec<u8> we could do that here. We would need to strip all the whitespace from the base64
-            // encoded image too though. `let text = text.replace("\n", "").replace(" ", "");`
-            // For consistency with other notebook frontends though, we'll keep it the same
-
-            let mediatype: MediaType = match key.as_str() {
-                "image/png" => MediaType::Png(text),
-                "image/jpeg" => MediaType::Jpeg(text),
-                "image/gif" => MediaType::Gif(text),
-                _ => MediaType::Other((key.clone(), value)),
-            };
-            content.push(mediatype);
-            continue;
-        }
-
-        let mediatype: MediaType = match key.as_str() {
-            "text/plain" => MediaType::Plain(text),
-            "text/html" => MediaType::Html(text),
-            "text/latex" => MediaType::Latex(text),
-            "application/javascript" => MediaType::Javascript(text),
-            "text/markdown" => MediaType::Markdown(text),
-            "image/svg+xml" => MediaType::Svg(text),
-
-            // Keep unknown mediatypes exactly as they were
-            _ => MediaType::Other((key.clone(), value)),
-        };
-
         content.push(mediatype);
     }
-
     Ok(content)
+}
+
+fn value_to_text<'de, D>(value: Value) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    match value {
+        Value::String(s) => Ok(s),
+        Value::Array(arr) => {
+            let text = arr
+                .iter()
+                .filter_map(|v| v.as_str())
+                .collect::<Vec<&str>>()
+                .join("");
+            Ok(text)
+        }
+        _ => Err(de::Error::custom("Invalid value for text-based media type")),
+    }
 }
 
 pub fn serialize_media_for_wire<S>(
@@ -288,23 +281,15 @@ where
     let mut map = HashMap::new();
 
     for media_type in content {
-        let (key, value) = match media_type {
+        let key = media_type.mime_type().to_string();
+        let value = match media_type {
             MediaType::Plain(text)
             | MediaType::Html(text)
             | MediaType::Latex(text)
             | MediaType::Javascript(text)
             | MediaType::Markdown(text)
             | MediaType::Svg(text) => {
-                let key = match media_type {
-                    MediaType::Plain(_) => "text/plain",
-                    MediaType::Html(_) => "text/html",
-                    MediaType::Latex(_) => "text/latex",
-                    MediaType::Javascript(_) => "application/javascript",
-                    MediaType::Markdown(_) => "text/markdown",
-                    MediaType::Svg(_) => "image/svg+xml",
-                    _ => unreachable!(),
-                };
-                let value = if with_multiline {
+                if with_multiline {
                     let lines: Vec<&str> = text.lines().collect();
 
                     if lines.len() > 1 {
@@ -318,8 +303,7 @@ where
                     }
                 } else {
                     Value::String(text.clone())
-                };
-                (key.to_string(), value)
+                }
             }
             // ** Treat images in a special way **
             // Jupyter, in practice, will attempt to keep the multiline version of the image around if it was written in
@@ -329,13 +313,7 @@ where
             // As an example, some frontends will convert images to base64 and then split them into 80 character chunks
             // with newlines interspersed. We could perform the chunking but then in many cases we will no longer match.
             MediaType::Jpeg(text) | MediaType::Png(text) | MediaType::Gif(text) => {
-                let key = match media_type {
-                    MediaType::Jpeg(_) => "image/jpeg",
-                    MediaType::Png(_) => "image/png",
-                    MediaType::Gif(_) => "image/gif",
-                    _ => unreachable!(),
-                };
-                let value = if with_multiline {
+                if with_multiline {
                     let lines: Vec<&str> = text.lines().collect();
 
                     if lines.len() > 1 {
@@ -349,20 +327,16 @@ where
                     }
                 } else {
                     Value::String(text.clone())
-                };
-
-                (key.to_string(), value)
+                }
             }
             // Keep unknown media types as is
-            MediaType::Other((key, value)) => (key.clone(), value.clone()),
+            MediaType::Other((_, value)) => value.clone(),
             _ => {
                 let serialized =
                     serde_json::to_value(media_type).map_err(serde::ser::Error::custom)?;
-                if let Value::Object(obj) = serialized {
-                    if let (Some(Value::String(key)), Some(data)) =
-                        (obj.get("type"), obj.get("data"))
-                    {
-                        (key.clone(), data.clone())
+                if let Value::Object(mut obj) = serialized {
+                    if let Some(data) = obj.remove("data") {
+                        data
                     } else {
                         continue;
                     }
@@ -468,9 +442,9 @@ mod test {
         assert!(bundle
             .content
             .contains(&MediaType::Svg("<svg xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"50\" cy=\"50\" r=\"40\"/></svg>".to_string())));
-        assert!(bundle
-            .content
-            .contains(&MediaType::Plain("<IPython.core.display.SVG object>".to_string())));
+        assert!(bundle.content.contains(&MediaType::Plain(
+            "<IPython.core.display.SVG object>".to_string()
+        )));
     }
 
     #[test]
