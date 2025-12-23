@@ -5,8 +5,10 @@ use std::collections::HashMap;
 #[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TabularDataResource {
-    pub name: String,
-    pub profile: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<PathOrPaths>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -219,8 +221,8 @@ mod tests {
         }"#;
 
         let table: TabularDataResource = serde_json::from_str(raw).unwrap();
-        assert_eq!(table.name, "resource-name");
-        assert_eq!(table.profile, "tabular-data-resource");
+        assert_eq!(table.name, Some("resource-name".to_string()));
+        assert_eq!(table.profile, Some("tabular-data-resource".to_string()));
         assert_eq!(table.title, None);
         assert_eq!(table.data.as_ref().unwrap().len(), 2);
         assert_eq!(table.schema.fields.len(), 2);
@@ -277,8 +279,8 @@ mod tests {
                 }]
             }"#;
         let table: TabularDataResource = serde_json::from_str(raw).unwrap();
-        assert_eq!(table.name, "solar-system");
-        assert_eq!(table.profile, "tabular-data-resource");
+        assert_eq!(table.name, Some("solar-system".to_string()));
+        assert_eq!(table.profile, Some("tabular-data-resource".to_string()));
         assert_eq!(table.title.as_ref().unwrap(), "The Solar System");
         assert_eq!(table.data, None);
         assert_eq!(table.schema.fields.len(), 3);
