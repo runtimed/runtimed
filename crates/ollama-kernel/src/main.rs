@@ -138,11 +138,11 @@ impl OllamaKernel {
         parent: &JupyterMessage,
     ) -> anyhow::Result<()> {
         let json_object = match json_object {
-            Value::Object(obj) => obj,
+            Value::Object(obj) => Value::Object(obj),
             _ => {
                 let mut map = serde_json::Map::new();
                 map.insert("value".to_string(), json_object);
-                map
+                Value::Object(map)
             }
         };
 
