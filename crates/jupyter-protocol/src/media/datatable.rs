@@ -183,13 +183,13 @@ pub struct Dialect {
     pub case_sensitive_header: Option<bool>,
 }
 
-
-#[cfg(test)]mod tests {
+#[cfg(test)]
+mod tests {
     use super::*;
 
     #[test]
     fn test_deserialize_minimal_datatable() {
-        //
+        // source: https://specs.frictionlessdata.io/tabular-data-resource/#examples
         let raw = r#"{
           "profile": "tabular-data-resource",
           "name": "resource-name",
@@ -224,11 +224,15 @@ pub struct Dialect {
         assert_eq!(table.title, None);
         assert_eq!(table.data.as_ref().unwrap().len(), 2);
         assert_eq!(table.schema.fields.len(), 2);
-        assert_eq!(table.schema.primary_key, Some(PrimaryKey::Single("id".to_string())));
+        assert_eq!(
+            table.schema.primary_key,
+            Some(PrimaryKey::Single("id".to_string()))
+        );
     }
 
     #[test]
     fn test_deserialize_comprensive_datatable() {
+        // source: https://specs.frictionlessdata.io/tabular-data-resource/#examples
         let raw = r#"{
               "profile": "tabular-data-resource",
               "name": "solar-system",
@@ -272,16 +276,22 @@ pub struct Dialect {
                   "path": "https://creativecommons.org/licenses/by/4.0/"
                 }]
             }"#;
-            let table: TabularDataResource = serde_json::from_str(raw).unwrap();
-            assert_eq!(table.name, "solar-system");
-            assert_eq!(table.profile, "tabular-data-resource");
-            assert_eq!(table.title.as_ref().unwrap(), "The Solar System");
-            assert_eq!(table.data, None);
-            assert_eq!(table.schema.fields.len(), 3);
-            assert_eq!(table.schema.primary_key, Some(PrimaryKey::Single("id".to_string())));
-            assert_eq!(table.dialect.as_ref().unwrap().delimiter.as_ref().unwrap(), ";");
-            assert_eq!(table.dialect.as_ref().unwrap().double_quote.unwrap(), true);
-            assert_eq!(table.sources.as_ref().unwrap().len(), 1);
-            assert_eq!(table.licenses.as_ref().unwrap().len(), 1);
-        }
+        let table: TabularDataResource = serde_json::from_str(raw).unwrap();
+        assert_eq!(table.name, "solar-system");
+        assert_eq!(table.profile, "tabular-data-resource");
+        assert_eq!(table.title.as_ref().unwrap(), "The Solar System");
+        assert_eq!(table.data, None);
+        assert_eq!(table.schema.fields.len(), 3);
+        assert_eq!(
+            table.schema.primary_key,
+            Some(PrimaryKey::Single("id".to_string()))
+        );
+        assert_eq!(
+            table.dialect.as_ref().unwrap().delimiter.as_ref().unwrap(),
+            ";"
+        );
+        assert_eq!(table.dialect.as_ref().unwrap().double_quote.unwrap(), true);
+        assert_eq!(table.sources.as_ref().unwrap().len(), 1);
+        assert_eq!(table.licenses.as_ref().unwrap().len(), 1);
     }
+}
