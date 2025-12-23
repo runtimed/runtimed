@@ -290,7 +290,7 @@ mod tests {
             table.dialect.as_ref().unwrap().delimiter.as_ref().unwrap(),
             ";"
         );
-        assert_eq!(table.dialect.as_ref().unwrap().double_quote.unwrap(), true);
+        assert!(table.dialect.as_ref().unwrap().double_quote.unwrap());
         assert_eq!(table.sources.as_ref().unwrap().len(), 1);
         assert_eq!(table.licenses.as_ref().unwrap().len(), 1);
     }
