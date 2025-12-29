@@ -50,7 +50,7 @@ pub mod datatable;
 
 pub use datatable::TabularDataResource;
 
-pub type JsonObject = serde_json::Map<String, serde_json::Value>;
+pub type JsonObject = serde_json::Value;
 
 /// An enumeration representing various Media types, otherwise known as MIME (Multipurpose Internet Mail Extensions) types.
 /// These types are used to indicate the nature of the data in a rich content message such as `DisplayData`, `UpdateDisplayData`, and `ExecuteResult`.
@@ -218,18 +218,25 @@ where
             "image/png" => MediaType::Png(value_to_text::<D>(value)?),
             "image/jpeg" => MediaType::Jpeg(value_to_text::<D>(value)?),
             "image/gif" => MediaType::Gif(value_to_text::<D>(value)?),
-            "application/json" => {
-                let obj: JsonObject = serde_json::from_value(value).map_err(de::Error::custom)?;
-                MediaType::Json(obj)
+            "application/json" => MediaType::Json(value),
+            "application/geo+json" => MediaType::GeoJson(value),
+            "application/vnd.dataresource+json" => {
+                let table: TabularDataResource =
+                    serde_json::from_value(value).map_err(de::Error::custom)?;
+                MediaType::DataTable(Box::new(table))
             }
-            // Check if the key matches ^application/(.*\\+)?json$ in order to skip the multiline string handling
-            _ if key.starts_with("application/") && key.ends_with("json") => {
-                serde_json::from_value(Value::Object(serde_json::Map::from_iter([
-                    ("type".to_string(), Value::String(key)),
-                    ("data".to_string(), value),
-                ])))
-                .map_err(de::Error::custom)?
-            }
+            "application/vnd.plotly.v1+json" => MediaType::Plotly(value),
+            "application/vnd.jupyter.widget-view+json" => MediaType::WidgetView(value),
+            "application/vnd.jupyter.widget-state+json" => MediaType::WidgetState(value),
+            "application/vnd.vegalite.v2+json" => MediaType::VegaLiteV2(value),
+            "application/vnd.vegalite.v3+json" => MediaType::VegaLiteV3(value),
+            "application/vnd.vegalite.v4+json" => MediaType::VegaLiteV4(value),
+            "application/vnd.vegalite.v5+json" => MediaType::VegaLiteV5(value),
+            "application/vnd.vegalite.v6+json" => MediaType::VegaLiteV6(value),
+            "application/vnd.vega.v3+json" => MediaType::VegaV3(value),
+            "application/vnd.vega.v4+json" => MediaType::VegaV4(value),
+            "application/vnd.vega.v5+json" => MediaType::VegaV5(value),
+            "application/vdom.v1+json" => MediaType::Vdom(value),
             _ => MediaType::Other((key, value)),
         };
         content.push(mediatype);
@@ -651,5 +658,54 @@ mod test {
         assert!(bundle
             .content
             .contains(&MediaType::Html("<h1>\n  Hello, world!\n</h1>".to_string())));
+    }
+
+    #[test]
+    fn deserialize_unknown_json_media_type() {
+        let raw = r#"{
+                "application/x-custom+json": {"custom_key": "custom_value"}
+            }"#;
+
+        let bundle: Media = serde_json::from_str(raw).unwrap();
+        println!("{:?}", bundle);
+        assert_eq!(bundle.content.len(), 1);
+        assert!(bundle.content.contains(&MediaType::Other((
+            "application/x-custom+json".to_string(),
+            json!({"custom_key": "custom_value"})
+        ))));
+    }
+
+    #[test]
+    fn deserialize_json_media_type() {
+        let raw_json: &str = r#"{
+                "application/json": {"id": 1, "key": "value"}
+            }"#;
+        let bundle: Media = serde_json::from_str(raw_json).unwrap();
+        assert!(bundle
+            .content
+            .contains(&MediaType::Json(json!({"id": 1, "key": "value"}))));
+        let raw_array: &str = r#"{
+                "application/json": [
+                    {"id": 1, "key": "value"},
+                    {"id": 2, "key": "another value"}
+                ]
+            }"#;
+        let bundle: Media = serde_json::from_str(raw_array).unwrap();
+        assert!(bundle.content.contains(&MediaType::Json(json!([
+            {"id": 1, "key": "value"},
+            {"id": 2, "key": "another value"}
+        ]))));
+        let raw_string: &str = r#"{
+                "application/json": "Just a plain string"
+            }"#;
+        let bundle: Media = serde_json::from_str(raw_string).unwrap();
+        assert!(bundle
+            .content
+            .contains(&MediaType::Json(json!("Just a plain string"))));
+        let raw_number: &str = r#"{
+                "application/json": 42
+            }"#;
+        let bundle: Media = serde_json::from_str(raw_number).unwrap();
+        assert!(bundle.content.contains(&MediaType::Json(json!(42))));
     }
 }
