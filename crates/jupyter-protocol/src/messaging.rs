@@ -103,6 +103,10 @@ pub enum Channel {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct UnknownJupyterMessage {
     pub header: Header,
+    #[serde(
+        serialize_with = "serialize_parent_header",
+        deserialize_with = "deserialize_parent_header"
+    )]
     pub parent_header: Option<Header>,
     pub metadata: Value,
     pub content: Value,
@@ -246,7 +250,7 @@ where
 /// );
 /// ```
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Serialize, Clone)]
 pub struct JupyterMessage {
     #[serde(skip_serializing, skip_deserializing)]
     pub zmq_identities: Vec<Bytes>,
@@ -359,6 +363,29 @@ impl JupyterMessage {
     }
 }
 
+impl<'de> Deserialize<'de> for JupyterMessage {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let message = UnknownJupyterMessage::deserialize(deserializer)?;
+
+        let content =
+            JupyterMessageContent::from_type_and_content(&message.header.msg_type, message.content)
+                .map_err(serde::de::Error::custom)?;
+
+        Ok(JupyterMessage {
+            zmq_identities: Vec::new(),
+            header: message.header,
+            parent_header: message.parent_header,
+            metadata: message.metadata,
+            content,
+            buffers: message.buffers,
+            channel: None,
+        })
+    }
+}
+
 impl fmt::Debug for JupyterMessage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(
@@ -389,7 +416,7 @@ impl fmt::Debug for JupyterMessage {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum JupyterMessageContent {
     ClearOutput(ClearOutput),
@@ -2397,6 +2424,27 @@ mod test {
                 assert_eq!(w.subscription, "test_topic");
             }
             _ => panic!("Expected IoPubWelcome"),
+        }
+    }
+
+    #[test]
+    fn test_deserialize_jupyter_message() {
+        let original_message = JupyterMessage::new(
+            ExecuteRequest::new("print('Hello world!')".to_string()),
+            None,
+        );
+        let serialized = serde_json::to_string(&original_message).unwrap();
+        let deserialized: JupyterMessage = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(original_message.header.msg_id, deserialized.header.msg_id);
+        assert_eq!(
+            original_message.header.msg_type,
+            deserialized.header.msg_type
+        );
+        match deserialized.content {
+            JupyterMessageContent::ExecuteRequest(req) => {
+                assert_eq!(req.code, "print('Hello world!')");
+            }
+            _ => panic!("Expected ExecuteRequest"),
         }
     }
 }
