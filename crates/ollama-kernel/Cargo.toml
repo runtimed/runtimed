@@ -1,6 +1,6 @@
 [package]
 name = "ollama-kernel"
-version = "0.6.1"
+version = "1.0.0"
 edition = "2021"
 description = "Ollama Jupyter Kernel"
 repository = "https://github.com/runtimed/runtimed"
