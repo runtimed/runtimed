@@ -112,6 +112,7 @@ struct UnknownJupyterMessage {
     pub content: Value,
     #[serde(skip_serializing, skip_deserializing)]
     pub buffers: Vec<Bytes>,
+    pub channel: Option<Channel>,
 }
 
 /// Represents a Jupyter message header.
@@ -381,7 +382,7 @@ impl<'de> Deserialize<'de> for JupyterMessage {
             metadata: message.metadata,
             content,
             buffers: message.buffers,
-            channel: None,
+            channel: message.channel,
         })
     }
 }
