@@ -69,8 +69,8 @@ impl KernelspecDir {
 #[cfg(feature = "tokio-runtime")]
 pub async fn list_kernelspecs() -> Vec<KernelspecDir> {
     let mut kernelspecs = Vec::new();
-    let dirs = crate::dirs::data_dirs().await;
-    for data_dir in dirs {
+    let data_dirs = crate::dirs::data_dirs();
+    for data_dir in data_dirs {
         let mut specs = read_kernelspec_jsons(&data_dir).await;
         kernelspecs.append(&mut specs);
     }
@@ -83,7 +83,7 @@ pub async fn list_kernelspecs() -> Vec<KernelspecDir> {
 /// exists before doing an actual read of the kernelspec JSON file.
 #[cfg(feature = "tokio-runtime")]
 pub async fn find_kernelspec(name: &str) -> Result<KernelspecDir> {
-    let dirs = crate::dirs::data_dirs().await;
+    let dirs = crate::dirs::data_dirs();
     let mut available_kernels = Vec::new();
 
     for data_dir in &dirs {

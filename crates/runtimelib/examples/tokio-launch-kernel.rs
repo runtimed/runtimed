@@ -37,7 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         kernel_name: Some(kernel_name.to_string()),
     };
 
-    let runtime_dir = runtimelib::dirs::runtime_dir().await;
+    let runtime_dir = runtimelib::dirs::runtime_dir();
     tokio::fs::create_dir_all(&runtime_dir).await.map_err(|e| {
         format!(
             "Failed to create jupyter runtime dir {}: {}",
