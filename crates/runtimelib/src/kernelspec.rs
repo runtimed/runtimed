@@ -69,12 +69,42 @@ impl KernelspecDir {
 #[cfg(feature = "tokio-runtime")]
 pub async fn list_kernelspecs() -> Vec<KernelspecDir> {
     let mut kernelspecs = Vec::new();
-    let data_dirs = crate::dirs::data_dirs();
-    for data_dir in data_dirs {
+    let dirs = crate::dirs::data_dirs().await;
+    for data_dir in dirs {
         let mut specs = read_kernelspec_jsons(&data_dir).await;
         kernelspecs.append(&mut specs);
     }
     kernelspecs
+}
+
+/// Find a kernelspec by name.
+///
+/// This function first uses `list_kernelspec_names_at` to soft-check if the kernel
+/// exists before doing an actual read of the kernelspec JSON file.
+#[cfg(feature = "tokio-runtime")]
+pub async fn find_kernelspec(name: &str) -> Result<KernelspecDir> {
+    let dirs = crate::dirs::data_dirs().await;
+    let mut available_kernels = Vec::new();
+
+    for data_dir in &dirs {
+        let kernel_names = list_kernelspec_names_at(data_dir).await;
+        available_kernels.extend(kernel_names.clone());
+
+        if kernel_names.contains(&name.to_string()) {
+            let kernel_path = data_dir.join("kernels").join(name);
+            let kernelspec = read_kernelspec_json(&kernel_path.join("kernel.json")).await?;
+            return Ok(KernelspecDir {
+                kernel_name: name.to_string(),
+                path: kernel_path,
+                kernelspec,
+            });
+        }
+    }
+
+    Err(crate::RuntimeError::KernelNotFound {
+        name: name.to_string(),
+        available: available_kernels,
+    })
 }
 
 // Design choice here is to not report any errors, keep going if possible,

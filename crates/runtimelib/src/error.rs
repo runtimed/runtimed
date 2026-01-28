@@ -42,4 +42,6 @@ pub enum RuntimeError {
     ZmqError(#[from] zeromq::ZmqError),
     #[error("{0}")]
     ZmqMessageError(String),
+    #[error("Kernel '{name}' not found. Available kernels: {available:?}")]
+    KernelNotFound { name: String, available: Vec<String> },
 }
