@@ -28,3 +28,6 @@ Untitled*.ipynb
 
 # Local environment configuration files
 .env
+
+# Hone directory
+.hone
