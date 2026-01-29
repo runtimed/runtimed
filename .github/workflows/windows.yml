@@ -67,7 +67,7 @@ jobs:
               run: hone --version
 
             - name: Build runt
-              run: cargo build -p runt --verbose
+              run: cargo build -p runt-cli --verbose
 
             - name: Add runt to PATH
               run: echo "${{ github.workspace }}\target\debug" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append

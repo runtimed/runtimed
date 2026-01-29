@@ -92,7 +92,7 @@ jobs:
               run: hone --version
 
             - name: Build runt
-              run: cargo build -p runt --verbose
+              run: cargo build -p runt-cli --verbose
 
             - name: Add runt to PATH
               run: echo "${{ github.workspace }}/target/debug" >> $GITHUB_PATH
