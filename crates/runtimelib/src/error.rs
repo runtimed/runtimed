@@ -44,4 +44,8 @@ pub enum RuntimeError {
     ZmqMessageError(String),
     #[error("Kernel '{name}' not found. Available kernels: {available:?}")]
     KernelNotFound { name: String, available: Vec<String> },
+    #[error("Failed to extract kernel id from connection file {path}")]
+    KernelIdMissing { path: String },
+    #[error("Kernel shutdown failed: {details}")]
+    KernelShutdownFailed { details: String },
 }
