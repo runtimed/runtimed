@@ -1,38 +1,38 @@
 name: Tests (Windows)
 on:
-  push:
-    branches: ["main"]
-  pull_request:
-    branches: ["main"]
+    push:
+        branches: ["main"]
+    pull_request:
+        branches: ["main"]
 
 jobs:
-  build:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Install rust
-        uses: dsherret/rust-toolchain-file@v1
-      
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-          cache: "pip"
-      - run: pip install -r .github/requirements.txt
-      - run: python -m ipykernel install --user --name=python
-      - run: python -m ipykernel install --user --name=python3
+    build:
+        runs-on: windows-latest
+        steps:
+            - uses: actions/checkout@v3
 
-      - name: Install Rust
-        run: choco install rust
+            - name: Install rust
+              uses: dsherret/rust-toolchain-file@v1
 
-      - name: Verify Rust installation
-        run: cargo --version
+            - uses: actions/setup-python@v5
+              with:
+                  python-version: "3.10"
+                  cache: "pip"
+            - run: pip install -r .github/requirements.txt
+            - run: python -m ipykernel install --user --name=python
+            - run: python -m ipykernel install --user --name=python3
 
-      - name: Build
-        run: cargo build -p runtimelib --verbose --features tokio-runtime
+            - name: Install Rust
+              run: choco install rust
 
-      - name: Run tests
-        run: cargo test -p runtimelib --verbose --features tokio-runtime
+            - name: Verify Rust installation
+              run: cargo --version
 
-      - name: Run Doc Tests
-        run: cargo test -p runtimelib --doc --verbose --features tokio-runtime
+            - name: Build
+              run: cargo build -p runtimelib --verbose --features tokio-runtime
+
+            - name: Run tests
+              run: cargo test -p runtimelib --verbose --features tokio-runtime
+
+            - name: Run Doc Tests
+              run: cargo test -p runtimelib --doc --verbose --features tokio-runtime
