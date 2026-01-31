@@ -81,15 +81,6 @@ jobs:
             - run: python -m ipykernel install --user --name=python
             - run: python -m ipykernel install --user --name=python3
 
-            - name: Install hone CLI
-              run: curl https://i.safia.sh/captainsafia/hone/preview | sh
-
-            - name: Add hone to PATH
-              run: echo "$HOME/.hone/bin" >> $GITHUB_PATH
-
-            - name: Verify hone installation
-              run: hone --version
-
             - name: Build runt
               run: cargo build -p runt-cli --verbose
 
@@ -97,4 +88,6 @@ jobs:
               run: echo "${{ github.workspace }}/target/debug" >> $GITHUB_PATH
 
             - name: Run hone tests for runt
-              run: hone run crates/runt/tests/
+              uses: captainsafia/hone/hone-github-action@main
+              with:
+                  tests: crates/runt/tests/
