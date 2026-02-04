@@ -5,6 +5,7 @@ use clap::Parser;
 use env_logger;
 use futures::StreamExt;
 use log::{debug, error, info};
+use rust_embed::Embed;
 
 use jupyter_protocol::{Channel, ConnectionInfo, Header, JupyterMessage, JupyterMessageContent};
 
@@ -22,6 +23,10 @@ use wry::{
     http::{Method, Request, Response},
     WebViewBuilder,
 };
+
+#[derive(Embed)]
+#[folder = "ui/dist"]
+struct Asset;
 
 #[derive(Parser)]
 #[clap(name = "sidecar", version = "0.1.0", author = "Kyle Kelley")]
@@ -41,14 +46,12 @@ struct WryJupyterMessage {
     parent_header: Option<Header>,
     metadata: Value,
     content: JupyterMessageContent,
-    #[serde(
-        serialize_with = "serialize_base64",
-    )]
+    #[serde(serialize_with = "serialize_base64")]
     buffers: Vec<Bytes>,
     channel: Option<Channel>,
 }
 
-impl <'de> Deserialize<'de> for WryJupyterMessage {
+impl<'de> Deserialize<'de> for WryJupyterMessage {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -59,15 +62,15 @@ impl <'de> Deserialize<'de> for WryJupyterMessage {
             parent_header: Option<Header>,
             metadata: Value,
             content: Value,
-            #[serde(
-                deserialize_with = "deserialize_base64"
-            )]
+            #[serde(deserialize_with = "deserialize_base64")]
             buffers: Vec<Bytes>,
             channel: Option<Channel>,
         }
 
         let helper = WryJupyterMessageHelper::deserialize(deserializer)?;
-        let content: JupyterMessageContent = JupyterMessageContent::from_type_and_content(&helper.header.msg_type ,helper.content).map_err(serde::de::Error::custom)?;
+        let content: JupyterMessageContent =
+            JupyterMessageContent::from_type_and_content(&helper.header.msg_type, helper.content)
+                .map_err(serde::de::Error::custom)?;
 
         Ok(WryJupyterMessage {
             header: helper.header,
@@ -287,21 +290,46 @@ fn main() -> Result<()> {
 }
 
 fn get_response(request: Request<Vec<u8>>) -> Result<Response<Vec<u8>>> {
-    match (request.method(), request.uri().path()) {
-        (&Method::GET, "/") => Ok(Response::builder()
-            .header("Content-Type", "text/html")
-            .status(200)
-            .body(include_bytes!("./static/index.html").into())
-            .unwrap()),
-        (&Method::GET, "/main.js") => Ok(Response::builder()
-            .header("Content-Type", "application/javascript")
-            .status(200)
-            .body(include_bytes!("./static/main.js").into())
-            .unwrap()),
-        _ => Ok(Response::builder()
-            .header("Content-Type", "text/plain")
-            .status(404)
-            .body("Not Found".as_bytes().to_vec())
-            .unwrap()),
+    if request.method() != &Method::GET {
+        return Ok(Response::builder()
+            .status(405)
+            .body("Method Not Allowed".as_bytes().to_vec())
+            .unwrap());
+    }
+
+    let path = request.uri().path();
+
+    // Normalize path: "/" -> "index.html", strip leading "/"
+    let file_path = if path == "/" {
+        "index.html"
+    } else {
+        path.trim_start_matches('/')
+    };
+
+    debug!("Serving asset: {}", file_path);
+
+    match Asset::get(file_path) {
+        Some(content) => {
+            // Guess MIME type from file extension
+            let mime_type = mime_guess::from_path(file_path)
+                .first_or_octet_stream()
+                .to_string();
+
+            debug!("Found asset {} with mime type {}", file_path, mime_type);
+
+            Ok(Response::builder()
+                .header("Content-Type", mime_type)
+                .status(200)
+                .body(content.data.into_owned())
+                .unwrap())
+        }
+        None => {
+            debug!("Asset not found: {}", file_path);
+            Ok(Response::builder()
+                .header("Content-Type", "text/plain")
+                .status(404)
+                .body("Not Found".as_bytes().to_vec())
+                .unwrap())
+        }
     }
 }
