@@ -21,7 +21,7 @@ from ipykernel.connect import get_connection_file
 connection_file = get_connection_file()
 
 sidecar = subprocess.Popen(
-    ["/Users/kylekelley/code/src/github.com/runtimed/runtimed/target/debug/sidecar", "--quiet", connection_file],
+    ["sidecar", "--quiet", connection_file],
     stdout=subprocess.PIPE, stderr=subprocess.PIPE
 )
 ```
