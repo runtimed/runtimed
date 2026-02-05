@@ -1,74 +1,74 @@
 # Sidecar Widget Implementation - Handoff
 
-## Current State
+## Overview
 
-We've integrated [nteract elements](https://nteract-elements.vercel.app/) components into sidecar for rendering Jupyter outputs and widgets. The UI is built with Vite + React + Tailwind and embedded into the Rust binary via `rust-embed`.
+The sidecar is a standalone Jupyter output viewer built with Rust (Wry/Tauri webview) and React. It connects to a running Jupyter kernel and displays outputs including interactive widgets.
+
+We're using components from [nteract/elements](https://nteract-elements.vercel.app/) for the UI, which provides shadcn/ui-based Jupyter components.
+
+## Current State
 
 ### What's Working ✅
 
-1. **Output Rendering** - All standard Jupyter outputs render correctly:
-   - `text/plain`, `text/html`, `text/markdown`
+1. **Output Rendering** - All standard MIME types:
+   - text/plain, text/html, text/markdown
    - Images (PNG, JPEG, SVG)
    - JSON (interactive tree view)
    - ANSI terminal colors
    - Error tracebacks
 
-2. **Built-in ipywidgets** - Two-way binding works:
+2. **ipywidgets Controls** - Two-way binding works:
    - IntSlider, FloatSlider
    - IntProgress, FloatProgress
-   - Button, Checkbox
+   - Button (all styles), Checkbox
    - Text, Textarea
    - Dropdown, RadioButtons, SelectMultiple
    - ToggleButton, ToggleButtons
    - Tab, Accordion
    - Box, HBox, VBox, GridBox
-   - All 19 widget controls implemented with shadcn/ui
 
-3. **anywidget Support** - Full lifecycle support:
+3. **anywidget Support** - Full lifecycle:
    - Factory pattern (`export default () => ({ render, initialize })`)
-   - Standard pattern (`export default { render }`)
    - CSS injection with cleanup
-   - Two-way state binding (`model.get/set/save_changes`)
-   - Custom messages (`model.send` + `model.on("msg:custom")`)
+   - Two-way state binding
+   - Custom messages with binary buffers
+   - **quak works!** (complex data table with Arrow IPC)
 
-4. **quak / Data Widgets** - Complex anywidgets work:
-   - SQL query dispatch via `model.send()`
-   - Arrow IPC binary buffer responses
-   - Mosaic coordinator integration
-   - Full interactive data tables with histograms
+### What's NOT Working ❌
 
-## Key Fix: DataView[] for Buffers
+Some ipywidgets controls are not yet implemented. Reported in https://github.com/nteract/elements/issues/89:
 
-The critical fix for anywidget support was converting buffers to `DataView[]` instead of `ArrayBuffer[]`.
+| Model | Description |
+|-------|-------------|
+| `HTMLModel` | Render arbitrary HTML (very common) |
+| `ColorPickerModel` | Color picker input |
+| `IntRangeSliderModel` | Dual-handle integer range slider |
+| `FloatRangeSliderModel` | Dual-handle float range slider |
 
-**The Problem:**
-JupyterLab services deserializes binary message buffers as `DataView[]`. Anywidgets like quak access the underlying ArrayBuffer via `buffers[0].buffer`:
+## Recent Fixes
+
+### 1. DataView[] for Buffers
+
+JupyterLab deserializes binary buffers as `DataView[]`, not `ArrayBuffer[]`. Anywidgets access the underlying buffer via `buffers[0].buffer`:
 
 ```typescript
-// quak widget.ts
-const buffer = buffers[0].buffer;  // DataView.buffer → ArrayBuffer
-const table = decodeIPC(buffer);
+// In App.tsx - decode base64 to DataView
+return new DataView(bytes.buffer);  // NOT bytes.buffer directly
 ```
 
-We were passing `ArrayBuffer[]` directly, which doesn't have a `.buffer` property.
+### 2. Content Wrapping in send()
 
-**The Fix (App.tsx):**
+The `send()` method must wrap content for ipywidgets protocol:
+
 ```typescript
-// Decode base64 buffers to DataView (matching JupyterLab's format)
-if (message.buffers && Array.isArray(message.buffers)) {
-  message.buffers = message.buffers.map((b64) => {
-    if (typeof b64 === "string") {
-      const binary = atob(b64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
-      return new DataView(bytes.buffer);  // DataView, not ArrayBuffer!
-    }
-    return b64;
-  });
-}
+// CORRECT:
+data: { method: "custom", content: content }
+
+// WRONG:
+data: { method: "custom", ...content }
 ```
+
+Both fixes have been submitted to nteract/elements and merged.
 
 ## Architecture
 
@@ -81,9 +81,8 @@ if (message.buffers && Array.isArray(message.buffers)) {
 │  │  (React UI) │◀───│  (ZMQ/JSON)  │◀───│   (Python)    │  │
 │  └─────────────┘    └──────────────┘    └───────────────┘  │
 │        │                   │                    │          │
-│        ▼                   ▼                    ▼          │
 │   POST /message       Shell channel        comm_msg        │
-│   (state updates)     (send to kernel)     (widget sync)   │
+│   (widget updates)    (to kernel)          (widget sync)   │
 │                                                             │
 │   globalThis.onMessage  IOPub channel     comm_open/msg    │
 │   (receive outputs)     (from kernel)     (widget state)   │
@@ -94,68 +93,35 @@ if (message.buffers && Array.isArray(message.buffers)) {
 
 | File | Purpose |
 |------|---------|
+| `ui/src/App.tsx` | Main app, message handling, buffer decoding |
 | `ui/src/lib/widget-store.ts` | Widget model state management |
 | `ui/src/lib/widget-store-context.tsx` | React context and hooks |
 | `ui/src/lib/use-comm-router.ts` | Jupyter comm protocol handling |
 | `ui/src/lib/buffer-utils.ts` | Buffer path handling for binary data |
 | `ui/src/components/widgets/anywidget-view.tsx` | anywidget ESM loader + AFM interface |
 | `ui/src/components/widgets/widget-view.tsx` | Routes to correct widget renderer |
-| `ui/src/components/widgets/controls/` | All 19 built-in widget components |
-| `ui/src/App.tsx` | Main app, message handling, buffer decoding |
-| `src/main.rs` | Rust: IOPub listener, Shell sender, Webview |
+| `ui/src/components/widgets/widget-registry.ts` | Maps model names to React components |
+| `ui/src/components/widgets/controls/` | Individual widget implementations |
+| `src/main.rs` | Rust: ZMQ, Webview, message routing |
 
-## AFM (AnyWidget Frontend Module) Interface
+## nteract/elements Integration
 
-Our `createAFMModelProxy()` implements the full AFM interface:
+We use shadcn's registry system to pull components:
 
-```typescript
-interface AnyWidgetModel {
-  get(key: string): unknown;           // Read from state (pending or committed)
-  set(key: string, value: unknown);    // Buffer local changes
-  save_changes(): void;                // Send buffered changes to kernel
-  on(event: string, callback: Function);   // Subscribe to events
-  off(event: string, callback?: Function); // Unsubscribe
-  send(content: object, callbacks?, buffers?: ArrayBuffer[]); // Custom message
-  widget_manager: {
-    get_model(modelId: string): Promise<AnyWidgetModel>;  // Access other models
-  };
-}
+```bash
+cd crates/sidecar/ui
+npx shadcn@latest add https://nteract-elements.vercel.app/r/widget-store.json
+npx shadcn@latest add https://nteract-elements.vercel.app/r/anywidget-view.json
 ```
 
-### Event Types
-- `change:key` - Fires when specific state key changes
-- `change` - Fires on any state change  
-- `msg:custom` - Fires when kernel sends custom message response
+**Note:** After pulling, you may need to adjust import paths. The registry installs to `@/registry/widgets/` but our structure uses `@/lib/` and `@/components/widgets/`.
 
-### Custom Message Protocol
-```typescript
-// Frontend → Kernel
-data: { method: "custom", content: { ...userContent } }
+Related issues:
+- https://github.com/nteract/elements/issues/63 - Widget support RFC
+- https://github.com/nteract/elements/issues/73 - Phase II widgets
+- https://github.com/nteract/elements/issues/89 - Phase III (HTMLModel, etc.)
 
-// Kernel → Frontend  
-data: { method: "custom", content: { ...responseContent } }
-buffers: [DataView, ...]  // Binary data (Arrow IPC, etc.)
-```
-
-## Debugging
-
-Key log prefixes:
-- `[sidecar]` - Message routing in App.tsx
-- `[anywidget]` - ESM loading and lifecycle
-- `[AFM]` - AnyWidget Frontend Module proxy (get/set/send/on)
-
-Example successful quak flow:
-```
-[anywidget] Loading ESM module...
-[anywidget] Calling factory function...
-[anywidget] Calling initialize...
-[AFM] on: msg:custom
-[anywidget] Calling render...
-[AFM] send - full content: {"type":"arrow","sql":"SELECT...","uuid":"..."}
-[sidecar] comm_msg details: {hasBuffers: true, bufferCount: 1, method: "custom"}
-```
-
-## Build Commands
+## Build & Test
 
 ```bash
 # Build UI
@@ -163,16 +129,16 @@ cd crates/sidecar/ui
 npm install
 npm run build
 
-# Build Rust (debug - includes devtools)
+# Build Rust (debug - includes devtools via Cmd+Option+I)
 cargo build -p sidecar
 
-# Run with info logging
-RUST_LOG=info ./target/debug/sidecar /path/to/connection.json
+# Run
+RUST_LOG=info ./target/debug/sidecar /path/to/kernel-connection.json
 ```
 
-## Testing
+### Test Setup
 
-**Terminal 1** - Start a kernel:
+**Terminal 1** - Start kernel:
 ```bash
 python -m ipykernel_launcher -f /tmp/kernel.json
 ```
@@ -182,45 +148,68 @@ python -m ipykernel_launcher -f /tmp/kernel.json
 RUST_LOG=info ./target/debug/sidecar /tmp/kernel.json
 ```
 
-**Terminal 3** - Connect Jupyter console:
+**Terminal 3** - Jupyter console:
 ```bash
 jupyter console --existing /tmp/kernel.json
 ```
 
-Test ipywidgets:
-```python
-import ipywidgets as widgets
-slider = widgets.IntSlider(value=50, min=0, max=100, description='Test:')
-slider.observe(lambda change: print(f"Value: {change['new']}"), names='value')
-display(slider)
-```
+### Test Commands
 
-Test quak:
 ```python
+# Basic ipywidgets
+import ipywidgets as widgets
+widgets.IntSlider(value=50, min=0, max=100, description='Test:')
+
+# quak (anywidget with binary data)
 import polars as pl
 import quak
 df = pl.read_parquet("https://github.com/uwdata/mosaic/raw/main/data/athletes.parquet")
 quak.Widget(df)
+
+# Complex composition
+tabs = widgets.Tab(children=[
+    widgets.VBox([widgets.IntSlider(), widgets.FloatSlider()]),
+    widgets.VBox([widgets.Text(), widgets.Textarea()]),
+])
+tabs.set_title(0, 'Sliders')
+tabs.set_title(1, 'Text')
+display(tabs)
 ```
 
-## nteract-elements Update Needed
+## Next Steps
 
-The current nteract-elements registry has a bug in the `send()` implementation:
+1. **Wait for nteract/elements Phase III** - HTMLModel, ColorPicker, RangeSliders
+   - Track: https://github.com/nteract/elements/issues/89
+   - Once released, pull updated components and test
 
-```typescript
-// WRONG (spreads content into data):
-data: { method: "custom", ...content, buffer_paths: [] }
+2. **Add missing controls locally** (if needed before upstream):
+   - `HTMLModel` - Just render `value` as innerHTML (sanitized)
+   - `ColorPickerModel` - Use shadcn or native `<input type="color">`
+   - `IntRangeSliderModel` / `FloatRangeSliderModel` - Dual-thumb slider
 
-// CORRECT (wraps content):
-data: { method: "custom", content: content }
+3. **Test more anywidgets**:
+   - `jupyter-scatter` - WebGL scatter plots
+   - `ipyleaflet` - Maps (may need additional work)
+   - `drawdata` - Drawing widget
+
+4. **Layout models** - IPY_MODEL_ references for widget layout/style properties
+
+5. **Output widget** - Nested output capture (`widgets.Output()`)
+
+## Debugging
+
+Console log prefixes:
+- `[sidecar]` - Message routing in App.tsx
+- `[anywidget]` - ESM loading and lifecycle
+- `[AFM]` - AnyWidget Frontend Module proxy (get/set/send/on)
+
+Open devtools with **Cmd+Option+I** (debug builds only).
+
+## Git History
+
+Recent commits on `sidecar-with-elements` branch:
 ```
-
-The correct version (which we have here) follows ipywidgets protocol where Python's `_handle_msg` extracts `data['content']`.
-
-## Remaining Work
-
-1. **Test more anywidgets** - Try ipyleaflet, ipyvolume, etc.
-2. **Layout models** - IPY_MODEL_ references for layout/style
-3. **Output widgets** - Nested output capture
-4. **Performance** - Virtualize large outputs
-5. **Backport to nteract-elements** - DataView fix and send() fix
+fix(sidecar): use DataView[] for buffers to match JupyterLab protocol
+feat(sidecar): shadcn widget controls + anywidget AFM proxy
+feat(sidecar): implement two-way widget binding
+```
