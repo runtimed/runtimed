@@ -15,11 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { WidgetComponentProps } from "@/lib/widget-registry";
+import type { WidgetComponentProps } from "../widget-registry";
 import {
   useWidgetModelValue,
   useWidgetStoreRequired,
-} from "@/lib/widget-store-context";
+} from "../widget-store-context";
 
 export function DropdownWidget({ modelId, className }: WidgetComponentProps) {
   const { sendUpdate } = useWidgetStoreRequired();

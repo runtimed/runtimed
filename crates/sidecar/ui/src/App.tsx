@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { MediaRouter } from "@/components/media-router";
 // Register built-in ipywidgets (IntSlider, etc.)
-import "@/lib";
+import "@/components/widgets/controls";
 import { AnsiStreamOutput, AnsiErrorOutput } from "@/components/ansi-output";
 import { WidgetDebugger } from "@/components/widget-debugger";
 import {
   WidgetStoreProvider,
   useWidgetStoreRequired,
-} from "@/lib/widget-store-context";
-import { WidgetView } from "@/lib/widget-view";
+} from "@/components/widgets/widget-store-context";
+import { WidgetView } from "@/components/widgets/widget-view";
 import type {
   JupyterMessage,
   JupyterOutput,

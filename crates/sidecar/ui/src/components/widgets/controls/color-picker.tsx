@@ -8,11 +8,11 @@
 
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
-import type { WidgetComponentProps } from "@/lib/widget-registry";
+import type { WidgetComponentProps } from "../widget-registry";
 import {
   useWidgetModelValue,
   useWidgetStoreRequired,
-} from "@/lib/widget-store-context";
+} from "../widget-store-context";
 
 export function ColorPicker({ modelId, className }: WidgetComponentProps) {
   const { sendUpdate } = useWidgetStoreRequired();

@@ -9,8 +9,8 @@
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import type { WidgetComponentProps } from "@/lib/widget-registry";
-import { useWidgetModelValue } from "@/lib/widget-store-context";
+import type { WidgetComponentProps } from "../widget-registry";
+import { useWidgetModelValue } from "../widget-store-context";
 
 export function IntProgress({ modelId, className }: WidgetComponentProps) {
   // Subscribe to individual state keys

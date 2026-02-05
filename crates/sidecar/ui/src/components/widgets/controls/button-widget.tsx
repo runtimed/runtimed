@@ -8,11 +8,11 @@
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import type { WidgetComponentProps } from "@/lib/widget-registry";
+import type { WidgetComponentProps } from "../widget-registry";
 import {
   useWidgetModelValue,
   useWidgetStoreRequired,
-} from "@/lib/widget-store-context";
+} from "../widget-store-context";
 
 // Map ipywidgets button_style to shadcn variants
 const STYLE_MAP: Record<

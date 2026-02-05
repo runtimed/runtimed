@@ -9,11 +9,11 @@
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import type { WidgetComponentProps } from "@/lib/widget-registry";
+import type { WidgetComponentProps } from "../widget-registry";
 import {
   useWidgetModelValue,
   useWidgetStoreRequired,
-} from "@/lib/widget-store-context";
+} from "../widget-store-context";
 
 export function RadioButtonsWidget({
   modelId,

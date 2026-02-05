@@ -19,8 +19,6 @@
     "hooks": "@/hooks"
   },
   "registries": {
-    "@nteract": {
-      "url": "https://nteract-elements.vercel.app/r/{name}.json"
-    }
+    "@nteract": "https://nteract-elements.vercel.app/r/{name}.json"
   }
 }

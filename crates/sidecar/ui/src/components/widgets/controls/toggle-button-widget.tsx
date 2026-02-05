@@ -8,11 +8,11 @@
 
 import { cn } from "@/lib/utils";
 import { Toggle } from "@/components/ui/toggle";
-import type { WidgetComponentProps } from "@/lib/widget-registry";
+import type { WidgetComponentProps } from "../widget-registry";
 import {
   useWidgetModelValue,
   useWidgetStoreRequired,
-} from "@/lib/widget-store-context";
+} from "../widget-store-context";
 
 export function ToggleButtonWidget({
   modelId,

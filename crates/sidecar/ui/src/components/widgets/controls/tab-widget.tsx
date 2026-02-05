@@ -13,13 +13,13 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import type { WidgetComponentProps } from "@/lib/widget-registry";
+import type { WidgetComponentProps } from "../widget-registry";
 import {
   parseModelRef,
   useWidgetModelValue,
   useWidgetStoreRequired,
-} from "@/lib/widget-store-context";
-import { WidgetView } from "@/lib/widget-view";
+} from "../widget-store-context";
+import { WidgetView } from "../widget-view";
 
 export function TabWidget({ modelId, className }: WidgetComponentProps) {
   const { sendUpdate } = useWidgetStoreRequired();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useWidgetModels } from "@/lib/widget-store-context";
+import { useWidgetModels } from "@/components/widgets/widget-store-context";
 import { JsonOutput } from "@/components/json-output";
 import {
   Sheet,

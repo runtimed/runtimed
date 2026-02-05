@@ -8,9 +8,9 @@
  */
 
 import { cn } from "@/lib/utils";
-import type { WidgetComponentProps } from "@/lib/widget-registry";
-import { parseModelRef, useWidgetModelValue } from "@/lib/widget-store-context";
-import { WidgetView } from "@/lib/widget-view";
+import type { WidgetComponentProps } from "../widget-registry";
+import { parseModelRef, useWidgetModelValue } from "../widget-store-context";
+import { WidgetView } from "../widget-view";
 
 // Map ipywidgets box_style to Tailwind classes
 const BOX_STYLE_MAP: Record<string, string> = {

@@ -1,29 +1,30 @@
 "use client";
 
 /**
- * Text widget - renders a text input field.
+ * Textarea widget - renders a multi-line text input.
  *
- * Maps to ipywidgets TextModel.
+ * Maps to ipywidgets TextareaModel.
  */
 
 import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { WidgetComponentProps } from "@/lib/widget-registry";
+import { Textarea } from "@/components/ui/textarea";
+import type { WidgetComponentProps } from "../widget-registry";
 import {
   useWidgetModelValue,
   useWidgetStoreRequired,
-} from "@/lib/widget-store-context";
+} from "../widget-store-context";
 
-export function TextWidget({ modelId, className }: WidgetComponentProps) {
-  const { sendUpdate, sendCustom } = useWidgetStoreRequired();
+export function TextareaWidget({ modelId, className }: WidgetComponentProps) {
+  const { sendUpdate } = useWidgetStoreRequired();
 
   // Subscribe to individual state keys
   const value = useWidgetModelValue<string>(modelId, "value") ?? "";
   const description = useWidgetModelValue<string>(modelId, "description");
   const placeholder = useWidgetModelValue<string>(modelId, "placeholder") ?? "";
   const disabled = useWidgetModelValue<boolean>(modelId, "disabled") ?? false;
+  const rows = useWidgetModelValue<number>(modelId, "rows") ?? 4;
   const continuousUpdate =
     useWidgetModelValue<boolean>(modelId, "continuous_update") ?? true;
 
@@ -36,7 +37,7 @@ export function TextWidget({ modelId, className }: WidgetComponentProps) {
   }, [value]);
 
   const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newValue = e.target.value;
       setLocalValue(newValue);
 
@@ -53,39 +54,24 @@ export function TextWidget({ modelId, className }: WidgetComponentProps) {
     }
   }, [modelId, continuousUpdate, localValue, value, sendUpdate]);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter") {
-        // Send submit event
-        sendCustom(modelId, { event: "submit" });
-        // Also ensure value is synced
-        if (!continuousUpdate && localValue !== value) {
-          sendUpdate(modelId, { value: localValue });
-        }
-      }
-    },
-    [modelId, continuousUpdate, localValue, value, sendUpdate, sendCustom],
-  );
-
   return (
     <div
-      className={cn("flex items-center gap-3", className)}
+      className={cn("flex flex-col gap-2", className)}
       data-widget-id={modelId}
-      data-widget-type="Text"
+      data-widget-type="Textarea"
     >
-      {description && <Label className="shrink-0 text-sm">{description}</Label>}
-      <Input
-        type="text"
+      {description && <Label className="text-sm">{description}</Label>}
+      <Textarea
         value={localValue}
         placeholder={placeholder}
         disabled={disabled}
+        rows={rows}
         onChange={handleChange}
         onBlur={handleBlur}
-        onKeyDown={handleKeyDown}
-        className="flex-1"
+        className="resize-y"
       />
     </div>
   );
 }
 
-export default TextWidget;
+export default TextareaWidget;

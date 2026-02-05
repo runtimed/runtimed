@@ -8,8 +8,8 @@
 
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
-import type { WidgetComponentProps } from "@/lib/widget-registry";
-import { useWidgetModelValue } from "@/lib/widget-store-context";
+import type { WidgetComponentProps } from "../widget-registry";
+import { useWidgetModelValue } from "../widget-store-context";
 
 export function HTMLWidget({ modelId, className }: WidgetComponentProps) {
   const value = useWidgetModelValue<string>(modelId, "value") ?? "";
