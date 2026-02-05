@@ -138,7 +138,9 @@ function AppContent() {
         message,
       );
 
-      // Decode base64 buffers if present
+      // Decode base64 buffers to DataView (matching JupyterLab's format)
+      // JupyterLab services deserializes buffers as DataView[], not ArrayBuffer[]
+      // This is important for anywidgets like quak that expect buffers[i].buffer
       if (message.buffers && Array.isArray(message.buffers)) {
         message.buffers = message.buffers.map((b64) => {
           if (typeof b64 === "string") {
@@ -147,7 +149,11 @@ function AppContent() {
             for (let i = 0; i < binary.length; i++) {
               bytes[i] = binary.charCodeAt(i);
             }
-            return bytes.buffer;
+            return new DataView(bytes.buffer);
+          }
+          // If already a DataView or ArrayBuffer, wrap in DataView for consistency
+          if (b64 instanceof ArrayBuffer) {
+            return new DataView(b64);
           }
           return b64;
         });

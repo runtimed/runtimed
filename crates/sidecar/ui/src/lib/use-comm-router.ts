@@ -15,7 +15,7 @@
 
 import { useCallback } from "react";
 import type { WidgetStore } from "./widget-store";
-import { applyBufferPaths } from "./buffer-utils";
+import { applyBufferPaths, type BufferType } from "./buffer-utils";
 
 // === Message Types ===
 
@@ -64,7 +64,7 @@ export interface JupyterCommMessage {
       [key: string]: unknown;
     };
   };
-  buffers?: ArrayBuffer[];
+  buffers?: BufferType[];
   channel?: string | null;
 }
 
@@ -112,13 +112,13 @@ export interface UseCommRouterReturn {
   sendUpdate: (
     commId: string,
     state: Record<string, unknown>,
-    buffers?: ArrayBuffer[]
+    buffers?: ArrayBuffer[],
   ) => void;
   /** Send a custom message to the kernel */
   sendCustom: (
     commId: string,
     content: Record<string, unknown>,
-    buffers?: ArrayBuffer[]
+    buffers?: ArrayBuffer[],
   ) => void;
   /** Close a comm channel */
   closeComm: (commId: string) => void;
@@ -133,7 +133,10 @@ const SESSION_ID = crypto.randomUUID();
  * Create a complete Jupyter message header with all fields.
  * All fields are required for compatibility with strongly-typed backends.
  */
-function createHeader(msgType: string, username: string): FullJupyterMessageHeader {
+function createHeader(
+  msgType: string,
+  username: string,
+): FullJupyterMessageHeader {
   return {
     msg_id: crypto.randomUUID(),
     msg_type: msgType,
@@ -152,7 +155,7 @@ function createUpdateMessage(
   commId: string,
   state: Record<string, unknown>,
   buffers: ArrayBuffer[] | undefined,
-  username: string
+  username: string,
 ): OutgoingJupyterCommMessage {
   return {
     header: createHeader("comm_msg", username),
@@ -179,7 +182,7 @@ function createCustomMessage(
   commId: string,
   content: Record<string, unknown>,
   buffers: ArrayBuffer[] | undefined,
-  username: string
+  username: string,
 ): OutgoingJupyterCommMessage {
   return {
     header: createHeader("comm_msg", username),
@@ -202,7 +205,10 @@ function createCustomMessage(
  * Create a comm_close message.
  * Includes all required fields for Jupyter protocol compliance.
  */
-function createCloseMessage(commId: string, username: string): OutgoingJupyterCommMessage {
+function createCloseMessage(
+  commId: string,
+  username: string,
+): OutgoingJupyterCommMessage {
   return {
     header: createHeader("comm_close", username),
     parent_header: null,
@@ -296,7 +302,7 @@ export function useCommRouter({
         }
       }
     },
-    [store]
+    [store],
   );
 
   /**
@@ -307,14 +313,14 @@ export function useCommRouter({
     (
       commId: string,
       state: Record<string, unknown>,
-      buffers?: ArrayBuffer[]
+      buffers?: ArrayBuffer[],
     ) => {
       // Optimistic update: apply locally first for responsive UI
       store.updateModel(commId, state, buffers);
       // Then send to kernel
       sendMessage(createUpdateMessage(commId, state, buffers, username));
     },
-    [sendMessage, store, username]
+    [sendMessage, store, username],
   );
 
   /**
@@ -324,11 +330,11 @@ export function useCommRouter({
     (
       commId: string,
       content: Record<string, unknown>,
-      buffers?: ArrayBuffer[]
+      buffers?: ArrayBuffer[],
     ) => {
       sendMessage(createCustomMessage(commId, content, buffers, username));
     },
-    [sendMessage, username]
+    [sendMessage, username],
   );
 
   /**
@@ -340,7 +346,7 @@ export function useCommRouter({
       sendMessage(createCloseMessage(commId, username));
       store.deleteModel(commId);
     },
-    [sendMessage, store, username]
+    [sendMessage, store, username],
   );
 
   return {

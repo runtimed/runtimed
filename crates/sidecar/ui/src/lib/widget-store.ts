@@ -1,10 +1,12 @@
+import type { BufferType } from "./buffer-utils";
+
 export interface WidgetModel {
   /** comm_id from the Jupyter protocol */
   id: string;
   /** Widget state (value, min, max, description, etc.) */
   state: Record<string, unknown>;
-  /** Binary buffers for data-heavy widgets */
-  buffers: ArrayBuffer[];
+  /** Binary buffers for data-heavy widgets (DataView[] from JupyterLab, stored as-is) */
+  buffers: BufferType[];
   /** Model class name, e.g., "IntSliderModel", "AnyModel" */
   modelName: string;
   /** Model module, e.g., "@jupyter-widgets/controls", "anywidget" */
@@ -15,7 +17,7 @@ type Listener = () => void;
 type KeyListener = (value: unknown) => void;
 type CustomMessageCallback = (
   content: Record<string, unknown>,
-  buffers?: ArrayBuffer[]
+  buffers?: DataView[],
 ) => void;
 
 export interface WidgetStore {
@@ -29,13 +31,13 @@ export interface WidgetStore {
   createModel: (
     commId: string,
     state: Record<string, unknown>,
-    buffers?: ArrayBuffer[]
+    buffers?: BufferType[],
   ) => void;
   /** Update a model's state (on comm_msg with method: "update") */
   updateModel: (
     commId: string,
     statePatch: Record<string, unknown>,
-    buffers?: ArrayBuffer[]
+    buffers?: BufferType[],
   ) => void;
   /** Delete a model (on comm_close) */
   deleteModel: (commId: string) => void;
@@ -43,18 +45,18 @@ export interface WidgetStore {
   subscribeToKey: (
     modelId: string,
     key: string,
-    callback: KeyListener
+    callback: KeyListener,
   ) => () => void;
   /** Emit a custom message to listeners for a model */
   emitCustomMessage: (
     commId: string,
     content: Record<string, unknown>,
-    buffers?: ArrayBuffer[]
+    buffers?: BufferType[],
   ) => void;
   /** Subscribe to custom messages for a model */
   subscribeToCustomMessage: (
     commId: string,
-    callback: CustomMessageCallback
+    callback: CustomMessageCallback,
   ) => () => void;
 }
 
@@ -85,7 +87,7 @@ export function parseModelRef(ref: string): string | null {
  */
 export function resolveModelRef(
   value: unknown,
-  getModel: (id: string) => WidgetModel | undefined
+  getModel: (id: string) => WidgetModel | undefined,
 ): unknown {
   if (isModelRef(value)) {
     const refId = parseModelRef(value);
@@ -154,7 +156,7 @@ export function createWidgetStore(): WidgetStore {
     createModel(
       commId: string,
       state: Record<string, unknown>,
-      buffers: ArrayBuffer[] = []
+      buffers: BufferType[] = [],
     ): void {
       // Extract model metadata from state
       const modelName = (state._model_name as string) || "UnknownModel";
@@ -176,7 +178,7 @@ export function createWidgetStore(): WidgetStore {
     updateModel(
       commId: string,
       statePatch: Record<string, unknown>,
-      buffers?: ArrayBuffer[]
+      buffers?: BufferType[],
     ): void {
       const existing = models.get(commId);
       if (!existing) {
@@ -218,7 +220,7 @@ export function createWidgetStore(): WidgetStore {
     subscribeToKey(
       modelId: string,
       key: string,
-      callback: KeyListener
+      callback: KeyListener,
     ): () => void {
       // Ensure model entry exists
       if (!keyListeners.has(modelId)) {
@@ -249,17 +251,21 @@ export function createWidgetStore(): WidgetStore {
     emitCustomMessage(
       commId: string,
       content: Record<string, unknown>,
-      buffers?: ArrayBuffer[]
+      buffers?: BufferType[],
     ): void {
       const callbacks = customListeners.get(commId);
       if (callbacks) {
-        callbacks.forEach((cb) => cb(content, buffers));
+        // Convert to DataView[] if needed (JupyterLab convention)
+        const dataViewBuffers = buffers?.map((b) =>
+          b instanceof DataView ? b : new DataView(b),
+        );
+        callbacks.forEach((cb) => cb(content, dataViewBuffers));
       }
     },
 
     subscribeToCustomMessage(
       commId: string,
-      callback: CustomMessageCallback
+      callback: CustomMessageCallback,
     ): () => void {
       // Ensure entry exists
       if (!customListeners.has(commId)) {

@@ -2,6 +2,8 @@
  * Jupyter Protocol Message Types for Sidecar UI
  */
 
+import type { BufferType } from "@/lib/buffer-utils";
+
 export interface Header<MsgType extends string = string> {
   msg_id: string;
   msg_type: MsgType;
@@ -110,7 +112,7 @@ export interface DisplayDataMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: DisplayDataContent;
-  buffers: ArrayBuffer[];
+  buffers: BufferType[];
   channel?: string;
 }
 
@@ -119,7 +121,7 @@ export interface ExecuteResultMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: ExecuteResultContent;
-  buffers: ArrayBuffer[];
+  buffers: BufferType[];
   channel?: string;
 }
 
@@ -128,7 +130,7 @@ export interface StreamMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: StreamContent;
-  buffers: ArrayBuffer[];
+  buffers: BufferType[];
   channel?: string;
 }
 
@@ -137,7 +139,7 @@ export interface ErrorMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: ErrorContent;
-  buffers: ArrayBuffer[];
+  buffers: BufferType[];
   channel?: string;
 }
 
@@ -146,7 +148,7 @@ export interface CommOpenMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: CommOpenContent;
-  buffers: ArrayBuffer[];
+  buffers: BufferType[];
   channel?: string;
 }
 
@@ -155,7 +157,7 @@ export interface CommMsgMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: CommMsgContent;
-  buffers: ArrayBuffer[];
+  buffers: BufferType[];
   channel?: string;
 }
 
@@ -164,7 +166,7 @@ export interface CommCloseMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: CommCloseContent;
-  buffers: ArrayBuffer[];
+  buffers: BufferType[];
   channel?: string;
 }
 
@@ -173,7 +175,7 @@ export interface ExecuteInputMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: ExecuteInputContent;
-  buffers: ArrayBuffer[];
+  buffers: BufferType[];
   channel?: string;
 }
 
@@ -182,7 +184,7 @@ export interface StatusMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: StatusContent;
-  buffers: ArrayBuffer[];
+  buffers: BufferType[];
   channel?: string;
 }
 
@@ -191,7 +193,7 @@ export interface ClearOutputMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: ClearOutputContent;
-  buffers: ArrayBuffer[];
+  buffers: BufferType[];
   channel?: string;
 }
 
@@ -213,7 +215,7 @@ export function isDisplayData(msg: JupyterMessage): msg is DisplayDataMessage {
 }
 
 export function isExecuteResult(
-  msg: JupyterMessage
+  msg: JupyterMessage,
 ): msg is ExecuteResultMessage {
   return msg.header.msg_type === "execute_result";
 }
@@ -238,7 +240,9 @@ export function isCommClose(msg: JupyterMessage): msg is CommCloseMessage {
   return msg.header.msg_type === "comm_close";
 }
 
-export function isExecuteInput(msg: JupyterMessage): msg is ExecuteInputMessage {
+export function isExecuteInput(
+  msg: JupyterMessage,
+): msg is ExecuteInputMessage {
   return msg.header.msg_type === "execute_input";
 }
 
@@ -251,7 +255,7 @@ export function isClearOutput(msg: JupyterMessage): msg is ClearOutputMessage {
 }
 
 export function hasDisplayData(
-  msg: JupyterMessage
+  msg: JupyterMessage,
 ): msg is DisplayDataMessage | ExecuteResultMessage {
   return isDisplayData(msg) || isExecuteResult(msg);
 }
