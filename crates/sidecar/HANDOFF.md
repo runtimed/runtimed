@@ -1,144 +1,147 @@
-# Sidecar Widget Debugging - Handoff
+# Sidecar Widget Integration - Handoff
 
-## Current Issue: tqdm Progress Bars Look Wonky
+## Current State
 
-tqdm in Jupyter uses `tqdm.auto` which creates ipywidgets-based progress bars:
+The sidecar now has full ipywidgets support via the `@nteract` shadcn registry. Build passes and tqdm progress bars render correctly.
+
+### What's Working
+
+1. **Widget system from @nteract registry** - 51 widget files installed to `src/components/widgets/`
+2. **tqdm progress bars** - Render correctly with proper layout (HBox + HTMLWidget + FloatProgress)
+3. **Closed widget tracking** - `leave=False` progress bars disappear cleanly (no "Loading widget...")
+4. **Widget debugger panel** - Sheet-based inspector at `src/components/widget-debugger.tsx`
+5. **All 44 ipywidget controls** - Sliders, buttons, text inputs, dropdowns, etc.
+
+### Branch & PR
+
+- **Branch:** `sidecar-with-elements`
+- **PR:** #221 on runtimed/runtimed
+
+## Registry Setup
+
+The `@nteract` registry is configured in `components.json`:
+
+```json
+{
+  "registries": {
+    "@nteract": "https://nteract-elements.vercel.app/r/{name}.json"
+  }
+}
+```
+
+Install command:
+```bash
+pnpm dlx shadcn@latest registry add @nteract
+npx shadcn@latest add @nteract/widget-controls -yo
+```
+
+## Known Issues Filed Upstream
+
+| Issue | Description | Status |
+|-------|-------------|--------|
+| [nteract/elements#100](https://github.com/nteract/elements/issues/100) | Missing widget files in registry | Fixed |
+| [nteract/elements#101](https://github.com/nteract/elements/issues/101) | Wrong import paths for shadcn primitives (`@/components/command` vs `@/components/ui/command`) | Open |
+
+### Local Workaround for #101
+
+Fixed imports in these files (will need to reapply after fresh install until upstream fixes):
+- `combobox-widget.tsx` - command, popover imports
+- `tags-input-widget.tsx` - badge import
+
+```bash
+cd src/components/widgets/controls
+sed -i '' 's|from "@/components/command"|from "@/components/ui/command"|g' combobox-widget.tsx
+sed -i '' 's|from "@/components/popover"|from "@/components/ui/popover"|g' combobox-widget.tsx
+sed -i '' 's|from "@/components/badge"|from "@/components/ui/badge"|g' tags-input-widget.tsx
+```
+
+## Next Steps: Output Components
+
+The sidecar currently has custom output components in `src/components/`:
+- `ansi-output.tsx`
+- `html-output.tsx`
+- `image-output.tsx`
+- `json-output.tsx`
+- `markdown-output.tsx`
+- `svg-output.tsx`
+- `media-router.tsx`
+
+**nteract/elements also provides output components** that should be evaluated:
+- Check `@nteract/outputs` or similar registry items
+- Compare with our local implementations
+- Consider migrating to upstream versions for consistency
+
+### To investigate:
+
+```bash
+# See what output-related items are in the nteract registry
+curl -s https://nteract-elements.vercel.app/r/index.json | jq '.[] | select(.name | contains("output"))'
+```
+
+## File Structure
 
 ```
-HBox([
-  Label(description),
-  FloatProgress(bar),
-  HTML(stats)
-])
+src/
+├── components/
+│   ├── ui/                    # shadcn primitives
+│   ├── widgets/               # @nteract widget system
+│   │   ├── controls/          # 44 ipywidget components
+│   │   ├── widget-store.ts    # Model state management
+│   │   ├── widget-view.tsx    # Universal widget renderer
+│   │   └── ...
+│   ├── widget-debugger.tsx    # Local: debug panel
+│   ├── media-router.tsx       # Local: MIME type routing
+│   ├── json-output.tsx        # Local: JSON viewer
+│   └── ...                    # Other local outputs
+├── App.tsx                    # Main app, imports widget system
+└── types.ts                   # Jupyter message types
 ```
 
-**Observed problems:**
-1. Raw numeric values (96.00, 173131.00, etc.) appearing that should be hidden
-2. HBox children rendering as separate cards instead of inline
-3. Layout not matching JupyterLab's rendering
+## Key Integration Points
 
-## Hypothesis: We're Not Reading Layout/Style Models
+### App.tsx imports:
+```typescript
+import "@/components/widgets/controls";  // Registers all widgets
+import { WidgetStoreProvider, useWidgetStoreRequired } from "@/components/widgets/widget-store-context";
+import { WidgetView } from "@/components/widgets/widget-view";
+```
 
-ipywidgets use separate models for layout and styling:
+### Widget rendering in OutputCell:
+```typescript
+const widgetData = output.data["application/vnd.jupyter.widget-view+json"];
+if (widgetData?.model_id) {
+  return <WidgetView modelId={widgetData.model_id} />;
+}
+```
+
+## tqdm Fix Summary
+
+The key fixes for proper tqdm rendering (now upstream in nteract/elements):
+
+1. **HBox**: `items-baseline gap-1` - matches JupyterLab's `.widget-inline-hbox`
+2. **HTMLWidget**: `inline-flex shrink-0 items-baseline` - proper inline display
+3. **FloatProgress/IntProgress**: `flex-1` expansion, no numeric readout (tqdm controls display via HTML widgets)
+4. **Closed model tracking**: `wasModelClosed()` returns true for `comm_close`d widgets, `WidgetView` renders null
+
+## Testing
 
 ```python
-widget.layout  # -> LayoutModel (IPY_MODEL_xxx)
-widget.style   # -> StyleModel (IPY_MODEL_xxx)
+# tqdm test
+from tqdm.auto import tqdm
+import time
+
+for filename in tqdm(["a.txt", "b.txt", "c.txt"]):
+    for _ in tqdm(range(100), leave=False):
+        time.sleep(0.01)
 ```
 
-These models contain properties like:
-- `visibility: 'hidden' | 'visible'`
-- `display: 'none' | 'flex' | ...`
-- `width`, `height`, `flex`
-- `bar_color` (for progress bars)
+Expected: Inner bars disappear when complete, outer bar shows progress correctly.
 
-tqdm likely sets `layout.visibility = 'hidden'` on internal backing widgets (like the raw value displays), but if we're ignoring these fields, everything renders visible.
+## Build
 
-## Investigation: Capture Full Model State
-
-### Option 1: Console Logging
-
-Add to `widget-store.ts` in `createModel`:
-
-```typescript
-createModel(commId, state, buffers) {
-  console.log('[widget-store] createModel:', {
-    modelName: state._model_name,
-    modelModule: state._model_module,
-    allKeys: Object.keys(state),
-    layout: state.layout,  // IPY_MODEL_ reference?
-    style: state.style,    // IPY_MODEL_ reference?
-    fullState: state,
-  });
-  // ...
-}
+```bash
+cd crates/sidecar/ui
+npm run build
 ```
 
-Also log in `updateModel` to see what fields change.
-
-### Option 2: Widget Debugger Panel (Recommended)
-
-Add a collapsible debug panel to the sidecar UI that shows all widget models and their state in real-time. This would be invaluable for debugging widget rendering issues.
-
-**Suggested implementation:**
-
-```tsx
-// components/widget-debugger.tsx
-function WidgetDebugger() {
-  const models = useWidgetModels();
-  
-  return (
-    <details className="widget-debugger">
-      <summary>🔧 Widget Models ({models.size})</summary>
-      <div className="models-list">
-        {Array.from(models.entries()).map(([id, model]) => (
-          <details key={id}>
-            <summary>{model.modelName} ({id.slice(0, 8)}...)</summary>
-            <pre>{JSON.stringify(model.state, null, 2)}</pre>
-          </details>
-        ))}
-      </div>
-    </details>
-  );
-}
-```
-
-Add it to `App.tsx` below the header or as a slide-out panel. This gives immediate visibility into:
-- What models exist
-- Their full state including `layout` and `style` refs
-- How state changes over time
-
-## Expected Findings
-
-When inspecting tqdm's widget models, we'll likely see:
-
-1. **LayoutModel** instances with properties we're ignoring:
-   ```json
-   {
-     "_model_name": "LayoutModel",
-     "visibility": "hidden",
-     "width": "auto",
-     "display": "inline-flex"
-   }
-   ```
-
-2. **IPY_MODEL_ references** in widget state:
-   ```json
-   {
-     "_model_name": "FloatProgressModel",
-     "value": 50.0,
-     "layout": "IPY_MODEL_abc123",
-     "style": "IPY_MODEL_def456"
-   }
-   ```
-
-3. **ProgressStyleModel** with bar colors:
-   ```json
-   {
-     "_model_name": "ProgressStyleModel", 
-     "bar_color": "#00ff00"
-   }
-   ```
-
-## Next Steps
-
-1. **Add widget debugger panel** - Quick win for visibility
-2. **Log model state** - Capture tqdm's actual widget tree
-3. **Identify missing fields** - Compare what tqdm sends vs what we read
-4. **Implement LayoutModel support** - Apply visibility, display, flex properties
-5. **Implement StyleModel support** - Apply colors, custom styling
-
-## Files to Modify
-
-| File | Change |
-|------|--------|
-| `ui/src/App.tsx` | Add WidgetDebugger component |
-| `ui/src/components/widget-debugger.tsx` | New file - debug panel |
-| `ui/src/lib/widget-store.ts` | Add debug logging (temporary) |
-| `ui/src/components/*-widget.tsx` | Read layout/style refs and apply |
-
-## Related
-
-- ipywidgets Layout docs: https://ipywidgets.readthedocs.io/en/latest/examples/Widget%20Layout.html
-- ipywidgets Styling docs: https://ipywidgets.readthedocs.io/en/latest/examples/Widget%20Styling.html
-- tqdm notebook mode: https://tqdm.github.io/docs/notebook/
+Current build size: ~740KB index.js (includes KaTeX for HTMLMath widget)
