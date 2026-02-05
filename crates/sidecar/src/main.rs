@@ -6,6 +6,9 @@ use env_logger;
 use futures::StreamExt;
 use log::{debug, error, info};
 use rust_embed::Embed;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::sync::{Arc, Mutex};
 
 use jupyter_protocol::{Channel, ConnectionInfo, Header, JupyterMessage, JupyterMessageContent};
 
@@ -15,8 +18,9 @@ use smol::fs;
 use std::path::PathBuf;
 use tao::{
     dpi::Size,
-    event::{Event, WindowEvent},
+    event::{ElementState, Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder},
+    keyboard::{Key, ModifiersState},
     window::{Window, WindowBuilder},
 };
 use wry::{
@@ -37,6 +41,10 @@ struct Cli {
     /// Suppress output
     #[clap(short, long)]
     quiet: bool,
+
+    /// Dump all messages to a JSON file
+    #[clap(long)]
+    dump: Option<PathBuf>,
 }
 
 #[derive(Serialize)]
@@ -142,6 +150,7 @@ async fn run(
     connection_file_path: &PathBuf,
     event_loop: EventLoop<JupyterMessage>,
     window: Window,
+    dump_file: Option<Arc<Mutex<std::fs::File>>>,
 ) -> anyhow::Result<()> {
     let content = fs::read_to_string(&connection_file_path).await?;
     let connection_info = serde_json::from_str::<ConnectionInfo>(&content)?;
@@ -221,6 +230,18 @@ async fn run(
     smol::spawn(async move {
         while let Ok(message) = iopub.read().await {
             debug!("Received message from iopub: {:?}", message);
+
+            // Dump message to file if enabled
+            if let Some(ref file) = dump_file {
+                let serialized: WryJupyterMessage = message.clone().into();
+                if let Ok(json) = serde_json::to_string(&serialized) {
+                    if let Ok(mut f) = file.lock() {
+                        let _ = writeln!(f, "{}", json);
+                        let _ = f.flush();
+                    }
+                }
+            }
+
             match event_loop_proxy.send_event(message) {
                 Ok(_) => {
                     debug!("Sent message to event loop");
@@ -234,10 +255,45 @@ async fn run(
     })
     .detach();
 
+    // Track modifier keys for keyboard shortcuts
+    let mut modifiers = ModifiersState::default();
+
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
         match event {
+            Event::WindowEvent {
+                event: WindowEvent::ModifiersChanged(new_modifiers),
+                ..
+            } => {
+                modifiers = new_modifiers;
+            }
+            Event::WindowEvent {
+                event:
+                    WindowEvent::KeyboardInput {
+                        event: key_event, ..
+                    },
+                ..
+            } => {
+                // Cmd+Option+I to open devtools (macOS)
+                // Ctrl+Shift+I on other platforms
+                if key_event.state == ElementState::Pressed {
+                    let is_devtools_shortcut = if cfg!(target_os = "macos") {
+                        modifiers.super_key()
+                            && modifiers.alt_key()
+                            && key_event.logical_key == Key::Character("i".into())
+                    } else {
+                        modifiers.control_key()
+                            && modifiers.shift_key()
+                            && key_event.logical_key == Key::Character("I".into())
+                    };
+
+                    if is_devtools_shortcut {
+                        info!("Opening devtools");
+                        webview.open_devtools();
+                    }
+                }
+            }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
@@ -286,7 +342,19 @@ fn main() -> Result<()> {
         .build(&event_loop)
         .unwrap();
 
-    smol::block_on(run(&connection_file, event_loop, window))
+    // Set up dump file if requested
+    let dump_file = args.dump.map(|path| {
+        let file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&path)
+            .expect("Failed to open dump file");
+        info!("Dumping messages to {:?}", path);
+        Arc::new(Mutex::new(file))
+    });
+
+    smol::block_on(run(&connection_file, event_loop, window, dump_file))
 }
 
 fn get_response(request: Request<Vec<u8>>) -> Result<Response<Vec<u8>>> {

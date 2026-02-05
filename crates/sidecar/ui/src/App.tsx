@@ -1,9 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { MediaRouter } from "@/components/media-router";
+// Register built-in ipywidgets (IntSlider, etc.)
+import "@/components/widgets/controls";
+import { AnsiStreamOutput, AnsiErrorOutput } from "@/components/ansi-output";
 import {
-  AnsiStreamOutput,
-  AnsiErrorOutput,
-} from "@/components/ansi-output";
+  WidgetStoreProvider,
+  useWidgetStoreRequired,
+} from "@/components/widgets/widget-store-context";
+import { WidgetView } from "@/components/widgets/widget-view";
 import type {
   JupyterMessage,
   JupyterOutput,
@@ -46,7 +50,20 @@ function OutputCell({ output, index }: OutputCellProps) {
     );
   }
 
-  // display_data or execute_result
+  // Check for widget output
+  const widgetData = output.data["application/vnd.jupyter.widget-view+json"] as
+    | { model_id: string }
+    | undefined;
+
+  if (widgetData?.model_id) {
+    return (
+      <div className="output-cell widget-output px-4" data-index={index}>
+        <WidgetView modelId={widgetData.model_id} />
+      </div>
+    );
+  }
+
+  // display_data or execute_result (non-widget)
   return (
     <div className="output-cell" data-index={index}>
       {output.execution_count != null && (
@@ -64,10 +81,11 @@ function OutputCell({ output, index }: OutputCellProps) {
   );
 }
 
-export default function App() {
+function AppContent() {
   const [outputs, setOutputs] = useState<JupyterOutput[]>([]);
   const [kernelStatus, setKernelStatus] = useState<string>("unknown");
   const outputAreaRef = useRef<HTMLDivElement>(null);
+  const { handleMessage: handleWidgetMessage } = useWidgetStoreRequired();
 
   // Convert message to output format
   const messageToOutput = useCallback(
@@ -108,13 +126,17 @@ export default function App() {
 
       return null;
     },
-    []
+    [],
   );
 
   // Handle incoming Jupyter messages
   const handleMessage = useCallback(
     (message: JupyterMessage) => {
-      console.log("[sidecar] Received message:", message.header.msg_type, message);
+      console.log(
+        "[sidecar] Received message:",
+        message.header.msg_type,
+        message,
+      );
 
       // Decode base64 buffers if present
       if (message.buffers && Array.isArray(message.buffers)) {
@@ -131,6 +153,18 @@ export default function App() {
         });
       }
 
+      // Route comm messages to widget store
+      const msgType = message.header.msg_type;
+      if (
+        msgType === "comm_open" ||
+        msgType === "comm_msg" ||
+        msgType === "comm_close"
+      ) {
+        handleWidgetMessage(
+          message as Parameters<typeof handleWidgetMessage>[0],
+        );
+      }
+
       // Handle clear_output
       if (isClearOutput(message)) {
         if (message.content.wait) {
@@ -143,7 +177,8 @@ export default function App() {
 
       // Handle status updates
       if (message.header.msg_type === "status") {
-        const status = (message as { content: { execution_state: string } }).content.execution_state;
+        const status = (message as { content: { execution_state: string } })
+          .content.execution_state;
         setKernelStatus(status);
         return;
       }
@@ -153,10 +188,7 @@ export default function App() {
       if (output) {
         setOutputs((prev) => {
           // Merge consecutive stream outputs of the same type
-          if (
-            output.output_type === "stream" &&
-            prev.length > 0
-          ) {
+          if (output.output_type === "stream" && prev.length > 0) {
             const lastOutput = prev[prev.length - 1];
             if (
               lastOutput.output_type === "stream" &&
@@ -175,7 +207,7 @@ export default function App() {
         });
       }
     },
-    [messageToOutput]
+    [messageToOutput, handleWidgetMessage],
   );
 
   // Register global message handler
@@ -209,7 +241,7 @@ export default function App() {
                 kernelStatus === "idle" && "bg-green-500",
                 kernelStatus === "busy" && "bg-amber-500",
                 kernelStatus === "starting" && "bg-blue-500",
-                kernelStatus === "unknown" && "bg-gray-400"
+                kernelStatus === "unknown" && "bg-gray-400",
               )}
             />
             <span className="text-xs text-muted-foreground capitalize">
@@ -220,10 +252,7 @@ export default function App() {
       </header>
 
       {/* Output Area */}
-      <main
-        ref={outputAreaRef}
-        className="max-w-4xl mx-auto py-4 space-y-2"
-      >
+      <main ref={outputAreaRef} className="max-w-4xl mx-auto py-4 space-y-2">
         {outputs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
             <p className="text-sm">Waiting for outputs...</p>
@@ -243,5 +272,27 @@ export default function App() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function App() {
+  const sendMessage = useCallback(
+    (
+      msg: Parameters<typeof fetch>[1] extends { body: infer B } ? B : unknown,
+    ) => {
+      fetch("/message", {
+        method: "POST",
+        body: JSON.stringify(msg),
+      }).catch((err) => {
+        console.error("[sidecar] Failed to send message:", err);
+      });
+    },
+    [],
+  );
+
+  return (
+    <WidgetStoreProvider sendMessage={sendMessage}>
+      <AppContent />
+    </WidgetStoreProvider>
   );
 }
