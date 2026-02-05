@@ -178,23 +178,32 @@ display(tabs)
 
 ## Next Steps
 
-1. **Wait for nteract/elements Phase III** - HTMLModel, ColorPicker, RangeSliders
-   - Track: https://github.com/nteract/elements/issues/89
-   - Once released, pull updated components and test
+1. **Pull updated nteract/elements components**
+   - The DataView buffer fix and send() content wrapping fix have been merged upstream
+   - Pull fresh copies of `widget-store.json` and `anywidget-view.json`
+   - Adjust import paths as needed (registry uses `@/registry/widgets/`, we use `@/lib/`)
 
-2. **Add missing controls locally** (if needed before upstream):
-   - `HTMLModel` - Just render `value` as innerHTML (sanitized)
-   - `ColorPickerModel` - Use shadcn or native `<input type="color">`
-   - `IntRangeSliderModel` / `FloatRangeSliderModel` - Dual-thumb slider
+2. **Verify quak still works** after component update
+   ```python
+   import polars as pl
+   import quak
+   df = pl.read_parquet("https://github.com/uwdata/mosaic/raw/main/data/athletes.parquet")
+   quak.Widget(df)
+   ```
 
-3. **Test more anywidgets**:
-   - `jupyter-scatter` - WebGL scatter plots
-   - `ipyleaflet` - Maps (may need additional work)
-   - `drawdata` - Drawing widget
+3. **Test additional anywidgets**:
+   - `jupyter-scatter` - WebGL scatter plots with binary data
+   - `drawdata` - Drawing/annotation widget
+   - Any other anywidget-based libraries
 
-4. **Layout models** - IPY_MODEL_ references for widget layout/style properties
+4. **Don't worry about Phase III controls** - The nteract/elements team is actively working on:
+   - `HTMLModel`, `ColorPickerModel`, `IntRangeSliderModel`, `FloatRangeSliderModel`
+   - Track progress: https://github.com/nteract/elements/issues/89
+   - These will come in a future update
 
-5. **Output widget** - Nested output capture (`widgets.Output()`)
+5. **Future work** (lower priority):
+   - Layout models - IPY_MODEL_ references for widget layout/style
+   - Output widget - Nested output capture (`widgets.Output()`)
 
 ## Debugging
 
