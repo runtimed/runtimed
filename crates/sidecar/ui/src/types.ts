@@ -2,8 +2,6 @@
  * Jupyter Protocol Message Types for Sidecar UI
  */
 
-import type { BufferType } from "@/lib/buffer-utils";
-
 export interface Header<MsgType extends string = string> {
   msg_id: string;
   msg_type: MsgType;
@@ -112,7 +110,7 @@ export interface DisplayDataMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: DisplayDataContent;
-  buffers: BufferType[];
+  buffers: unknown[];
   channel?: string;
 }
 
@@ -121,7 +119,7 @@ export interface ExecuteResultMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: ExecuteResultContent;
-  buffers: BufferType[];
+  buffers: unknown[];
   channel?: string;
 }
 
@@ -130,7 +128,7 @@ export interface StreamMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: StreamContent;
-  buffers: BufferType[];
+  buffers: unknown[];
   channel?: string;
 }
 
@@ -139,7 +137,7 @@ export interface ErrorMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: ErrorContent;
-  buffers: BufferType[];
+  buffers: unknown[];
   channel?: string;
 }
 
@@ -148,7 +146,7 @@ export interface CommOpenMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: CommOpenContent;
-  buffers: BufferType[];
+  buffers: unknown[];
   channel?: string;
 }
 
@@ -157,7 +155,7 @@ export interface CommMsgMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: CommMsgContent;
-  buffers: BufferType[];
+  buffers: unknown[];
   channel?: string;
 }
 
@@ -166,7 +164,7 @@ export interface CommCloseMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: CommCloseContent;
-  buffers: BufferType[];
+  buffers: unknown[];
   channel?: string;
 }
 
@@ -175,7 +173,7 @@ export interface ExecuteInputMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: ExecuteInputContent;
-  buffers: BufferType[];
+  buffers: unknown[];
   channel?: string;
 }
 
@@ -184,7 +182,7 @@ export interface StatusMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: StatusContent;
-  buffers: BufferType[];
+  buffers: unknown[];
   channel?: string;
 }
 
@@ -193,7 +191,7 @@ export interface ClearOutputMessage {
   parent_header: Header | null;
   metadata: Record<string, unknown>;
   content: ClearOutputContent;
-  buffers: BufferType[];
+  buffers: unknown[];
   channel?: string;
 }
 

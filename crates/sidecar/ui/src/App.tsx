@@ -132,12 +132,6 @@ function AppContent() {
   // Handle incoming Jupyter messages
   const handleMessage = useCallback(
     (message: JupyterMessage) => {
-      console.log(
-        "[sidecar] Received message:",
-        message.header.msg_type,
-        message,
-      );
-
       // Decode base64 buffers to DataView (matching JupyterLab's format)
       // JupyterLab services deserializes buffers as DataView[], not ArrayBuffer[]
       // This is important for anywidgets like quak that expect buffers[i].buffer
@@ -166,17 +160,6 @@ function AppContent() {
         msgType === "comm_msg" ||
         msgType === "comm_close"
       ) {
-        // Detailed logging for comm_msg to debug anywidget responses
-        if (msgType === "comm_msg") {
-          const data = (message.content as { data?: { method?: string } }).data;
-          console.log("[sidecar] comm_msg details:", {
-            comm_id: (message.content as { comm_id?: string }).comm_id,
-            method: data?.method,
-            hasBuffers: message.buffers && message.buffers.length > 0,
-            bufferCount: message.buffers?.length ?? 0,
-            dataKeys: data ? Object.keys(data) : [],
-          });
-        }
         handleWidgetMessage(
           message as Parameters<typeof handleWidgetMessage>[0],
         );

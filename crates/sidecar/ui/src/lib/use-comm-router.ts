@@ -14,8 +14,8 @@
  */
 
 import { useCallback } from "react";
+import { applyBufferPaths } from "./buffer-utils";
 import type { WidgetStore } from "./widget-store";
-import { applyBufferPaths, type BufferType } from "./buffer-utils";
 
 // === Message Types ===
 
@@ -64,7 +64,7 @@ export interface JupyterCommMessage {
       [key: string]: unknown;
     };
   };
-  buffers?: BufferType[];
+  buffers?: ArrayBuffer[];
   channel?: string | null;
 }
 

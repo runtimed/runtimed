@@ -11,12 +11,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  type SendMessage,
   useWidgetModel,
   useWidgetStoreRequired,
-  type SendMessage,
   type WidgetModel,
   type WidgetStore,
-} from "@/lib/widget-store-context";
+} from "./widget-store-context";
 
 // === AFM Types ===
 
@@ -54,7 +54,7 @@ type WidgetLifecycle = {
   render?(context: {
     model: AnyWidgetModel;
     el: HTMLElement;
-  }): void | (() => void) | Promise<void | (() => void)>;
+  }): void | (() => void) | Promise<undefined | (() => void)>;
   initialize?(context: { model: AnyWidgetModel }): void | Promise<void>;
 };
 
@@ -73,7 +73,7 @@ interface AnyWidgetModule {
   render?(context: {
     model: AnyWidgetModel;
     el: HTMLElement;
-  }): void | (() => void) | Promise<void | (() => void)>;
+  }): void | (() => void) | Promise<undefined | (() => void)>;
   initialize?(context: { model: AnyWidgetModel }): void | Promise<void>;
 }
 
@@ -177,31 +177,17 @@ export function createAFMModelProxy(
     get(key: string): unknown {
       // Return pending change if it exists, otherwise current state
       if (key in pendingChanges) {
-        console.log("[AFM] get(pending):", key, "=", pendingChanges[key]);
         return pendingChanges[key];
       }
-      const value = getCurrentState()[key];
-      console.log(
-        "[AFM] get:",
-        key,
-        "=",
-        value === undefined
-          ? "undefined"
-          : typeof value === "string" && value.length > 100
-            ? `${value.slice(0, 100)}... (${value.length} chars)`
-            : value,
-      );
-      return value;
+      return getCurrentState()[key];
     },
 
     set(key: string, value: unknown): void {
       // Buffer the change locally
-      console.log("[AFM] set:", key, "=", value);
       pendingChanges[key] = value;
     },
 
     save_changes(): void {
-      console.log("[AFM] save_changes:", Object.keys(pendingChanges));
       if (Object.keys(pendingChanges).length === 0) return;
 
       // Send comm_msg with update method to kernel
@@ -229,12 +215,11 @@ export function createAFMModelProxy(
     },
 
     on(event: string, callback: EventCallback): void {
-      console.log("[AFM] on:", event);
       // Get or create listener set for this event
       if (!listeners.has(event)) {
         listeners.set(event, new Set());
       }
-      listeners.get(event)!.add(callback);
+      listeners.get(event)?.add(callback);
 
       // Handle change:* events by subscribing to the store
       if (event.startsWith("change:")) {
@@ -280,7 +265,7 @@ export function createAFMModelProxy(
 
       if (callback) {
         // Remove specific callback
-        listeners.get(event)!.delete(callback);
+        listeners.get(event)?.delete(callback);
       } else {
         // Remove all callbacks for this event
         listeners.delete(event);
@@ -291,7 +276,7 @@ export function createAFMModelProxy(
         const key = event.slice(7);
         const keyEvent = `change:${key}`;
 
-        if (!listeners.has(keyEvent) || listeners.get(keyEvent)!.size === 0) {
+        if (!listeners.has(keyEvent) || listeners.get(keyEvent)?.size === 0) {
           const unsubscribe = keyUnsubscribers.get(key);
           if (unsubscribe) {
             unsubscribe();
@@ -304,7 +289,7 @@ export function createAFMModelProxy(
       if (event === "msg:custom") {
         if (
           !listeners.has("msg:custom") ||
-          listeners.get("msg:custom")!.size === 0
+          listeners.get("msg:custom")?.size === 0
         ) {
           if (customMessageUnsubscriber) {
             customMessageUnsubscriber();
@@ -319,15 +304,9 @@ export function createAFMModelProxy(
       _callbacks?: Record<string, unknown>,
       buffers?: ArrayBuffer[],
     ): void {
-      console.log(
-        "[AFM] send - full content:",
-        JSON.stringify(content, null, 2),
-      );
-      console.log("[AFM] send - to comm_id:", model.id);
-      console.log("[AFM] send - buffers:", buffers?.length ?? 0);
       // Send custom message to kernel
       // Full Jupyter protocol message format for strongly-typed backends
-      // ipywidgets expects: data.method = "custom" and data.content = actual content
+      // Note: ipywidgets expects content to be nested in data.content, not spread
       sendMessage({
         header: createHeader("comm_msg"),
         parent_header: null,
@@ -336,7 +315,7 @@ export function createAFMModelProxy(
           comm_id: model.id,
           data: {
             method: "custom",
-            content: content,
+            content: content, // Wrap content properly for ipywidgets protocol
           },
         },
         buffers: buffers ?? [],
@@ -346,13 +325,10 @@ export function createAFMModelProxy(
 
     widget_manager: {
       async get_model(modelId: string): Promise<AnyWidgetModel> {
-        console.log("[AFM] widget_manager.get_model:", modelId);
         const refModel = store.getModel(modelId);
         if (!refModel) {
-          console.error("[AFM] Model not found:", modelId);
           throw new Error(`Model not found: ${modelId}`);
         }
-        console.log("[AFM] Found model:", refModel.modelName);
         // Create a proxy for the referenced model
         return createAFMModelProxy(
           refModel,
@@ -413,26 +389,13 @@ export function AnyWidgetView({ modelId, className }: AnyWidgetViewProps) {
   useEffect(() => {
     // Wait for container, model, and _esm to be ready
     // Note: _esm may arrive in a comm_msg after the initial comm_open
-    console.log("[anywidget] Effect running:", {
-      hasContainer: !!containerRef.current,
-      hasModel: !!model,
-      hasEsm: !!esm,
-      modelId,
-      modelName: model?.modelName,
-      modelModule: model?.modelModule,
-    });
-
     if (!containerRef.current || !model || !esm) {
       // Don't set error - just wait for _esm to arrive via comm_msg
-      console.log("[anywidget] Waiting for dependencies...");
       return;
     }
 
     // Prevent double-mount
-    if (hasMountedRef.current) {
-      console.log("[anywidget] Already mounted, skipping");
-      return;
-    }
+    if (hasMountedRef.current) return;
 
     // Clear any previous error when we have _esm
     setError(null);
@@ -443,13 +406,6 @@ export function AnyWidgetView({ modelId, className }: AnyWidgetViewProps) {
     let isCancelled = false;
     hasMountedRef.current = true;
 
-    console.log(
-      "[anywidget] Starting mount for:",
-      modelId,
-      "esm length:",
-      esmCode.length,
-    );
-
     async function mount() {
       try {
         // Clear any existing content
@@ -459,29 +415,16 @@ export function AnyWidgetView({ modelId, className }: AnyWidgetViewProps) {
 
         // Inject CSS if provided
         if (css) {
-          console.log("[anywidget] Injecting CSS, length:", css.length);
           cleanupRef.current.css = injectCSS(modelId, css);
         }
 
         // Load the ESM module
-        console.log("[anywidget] Loading ESM module...");
         const module = await loadESM(esmCode);
-        console.log("[anywidget] ESM loaded:", {
-          hasDefault: !!module.default,
-          defaultType: typeof module.default,
-          hasRender: !!module.render,
-          hasInitialize: !!module.initialize,
-          keys: Object.keys(module),
-        });
 
         // Check if cancelled after async load
-        if (isCancelled) {
-          console.log("[anywidget] Mount cancelled after ESM load");
-          return;
-        }
+        if (isCancelled) return;
 
         // Create the AFM model proxy
-        console.log("[anywidget] Creating AFM model proxy...");
         const modelProxy = createAFMModelProxy(
           model!,
           store,
@@ -496,15 +439,9 @@ export function AnyWidgetView({ modelId, className }: AnyWidgetViewProps) {
 
         if (typeof module.default === "function") {
           // Factory pattern - call function to get widget definition
-          console.log("[anywidget] Calling factory function...");
           widgetDef = await (module.default as WidgetFactory)();
-          console.log("[anywidget] Factory returned:", {
-            hasRender: !!widgetDef?.render,
-            hasInitialize: !!widgetDef?.initialize,
-          });
         } else if (module.default) {
           // Standard object pattern
-          console.log("[anywidget] Using standard object pattern");
           widgetDef = module.default as WidgetLifecycle;
         }
 
@@ -512,69 +449,19 @@ export function AnyWidgetView({ modelId, className }: AnyWidgetViewProps) {
         const render = widgetDef?.render ?? module.render;
         const initialize = widgetDef?.initialize ?? module.initialize;
 
-        console.log("[anywidget] Lifecycle methods:", {
-          hasRender: !!render,
-          hasInitialize: !!initialize,
-        });
-
         if (!render) {
           throw new Error("ESM module has no render function");
         }
 
         // Call initialize if available
         if (initialize) {
-          console.log("[anywidget] Calling initialize...");
           await initialize({ model: modelProxy });
-          console.log("[anywidget] Initialize complete");
         }
 
-        // Call render with timeout to detect hangs
-        console.log("[anywidget] Calling render...", {
-          container: containerRef.current,
-          containerSize: containerRef.current
-            ? {
-                width: containerRef.current.offsetWidth,
-                height: containerRef.current.offsetHeight,
-              }
-            : null,
-        });
-
-        // Wrap render in a promise with timeout detection
-        const renderPromise = (async () => {
-          try {
-            const result = await render({
-              model: modelProxy,
-              el: containerRef.current!,
-            });
-            return result;
-          } catch (renderError) {
-            console.error("[anywidget] Error inside render():", renderError);
-            throw renderError;
-          }
-        })();
-
-        // Add a timeout warning (not a hard timeout, just logging)
-        const timeoutId = setTimeout(() => {
-          console.warn(
-            "[anywidget] render() has been running for 5+ seconds - may be waiting for data or stuck",
-          );
-        }, 5000);
-
-        let result;
-        try {
-          result = await renderPromise;
-        } finally {
-          clearTimeout(timeoutId);
-        }
-
-        console.log(
-          "[anywidget] Render complete, cleanup returned:",
-          typeof result === "function",
-        );
-        console.log("[anywidget] Container after render:", {
-          innerHTML: containerRef.current?.innerHTML?.slice(0, 200),
-          childCount: containerRef.current?.childElementCount,
-          height: containerRef.current?.offsetHeight,
+        // Call render
+        const result = await render({
+          model: modelProxy,
+          el: containerRef.current!,
         });
 
         // Store cleanup if returned
@@ -582,7 +469,6 @@ export function AnyWidgetView({ modelId, className }: AnyWidgetViewProps) {
           cleanupRef.current.widget = result;
         }
       } catch (err) {
-        console.error("[anywidget] Mount error:", err);
         if (!isCancelled) {
           setError(err instanceof Error ? err : new Error(String(err)));
         }
@@ -604,7 +490,16 @@ export function AnyWidgetView({ modelId, className }: AnyWidgetViewProps) {
       hasMountedRef.current = false;
     };
     // Dependencies include esm so we re-run when _esm arrives via comm_msg update
-  }, [modelId, model?.id, esm, css, store, sendMessage, getCurrentState]);
+  }, [
+    modelId,
+    model?.id,
+    esm,
+    css,
+    store,
+    sendMessage,
+    getCurrentState,
+    model,
+  ]);
 
   // Model not ready yet
   const modelExists = model !== undefined;

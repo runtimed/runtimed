@@ -1,13 +1,7 @@
-/**
- * Buffer type that can be either ArrayBuffer or DataView.
- * JupyterLab services returns DataView[], but we also support ArrayBuffer[].
- */
-export type BufferType = ArrayBuffer | DataView;
-
 export function applyBufferPaths(
   data: Record<string, unknown>,
   bufferPaths: string[][] | undefined,
-  buffers: BufferType[] | undefined,
+  buffers: ArrayBuffer[] | undefined,
 ): Record<string, unknown> {
   if (!bufferPaths || !buffers || bufferPaths.length === 0) {
     return data;
@@ -15,9 +9,7 @@ export function applyBufferPaths(
 
   for (let i = 0; i < bufferPaths.length && i < buffers.length; i++) {
     const path = bufferPaths[i];
-    // Normalize to ArrayBuffer for storage in state
-    const rawBuffer = buffers[i];
-    const buffer = rawBuffer instanceof DataView ? rawBuffer.buffer : rawBuffer;
+    const buffer = buffers[i];
 
     if (path.length === 0) continue;
 
