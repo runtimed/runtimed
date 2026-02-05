@@ -27,7 +27,7 @@ export function AnsiOutput({
       className={cn(
         "not-prose font-mono text-sm whitespace-pre-wrap leading-relaxed",
         isError && "text-red-600",
-        className
+        className,
       )}
     >
       <Ansi useClasses={false}>{children}</Ansi>

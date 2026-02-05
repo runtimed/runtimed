@@ -8,6 +8,9 @@ import { CheckboxWidget } from "./checkbox-widget";
 import { ColorPicker } from "./color-picker";
 import { ColorsInputWidget } from "./colors-input-widget";
 import { ComboboxWidget } from "./combobox-widget";
+import { ControllerAxisWidget } from "./controller-axis-widget";
+import { ControllerButtonWidget } from "./controller-button-widget";
+import { ControllerWidget } from "./controller-widget";
 import { DatePickerWidget } from "./date-picker-widget";
 // Selection widgets
 import { DropdownWidget } from "./dropdown-widget";
@@ -96,6 +99,11 @@ registerWidget("GridBoxModel", GridBoxWidget);
 registerWidget("AccordionModel", AccordionWidget);
 registerWidget("TabModel", TabWidget);
 
+// Controller widgets (Gamepad API)
+registerWidget("ControllerModel", ControllerWidget);
+registerWidget("ControllerButtonModel", ControllerButtonWidget);
+registerWidget("ControllerAxisModel", ControllerAxisWidget);
+
 export { AccordionWidget } from "./accordion-widget";
 export { BoundedFloatTextWidget } from "./bounded-float-text-widget";
 export { BoundedIntTextWidget } from "./bounded-int-text-widget";
@@ -105,6 +113,9 @@ export { CheckboxWidget } from "./checkbox-widget";
 export { ColorPicker } from "./color-picker";
 export { ColorsInputWidget } from "./colors-input-widget";
 export { ComboboxWidget } from "./combobox-widget";
+export { ControllerAxisWidget } from "./controller-axis-widget";
+export { ControllerButtonWidget } from "./controller-button-widget";
+export { ControllerWidget } from "./controller-widget";
 export { DatePickerWidget } from "./date-picker-widget";
 // Selection widgets
 export { DropdownWidget } from "./dropdown-widget";

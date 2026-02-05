@@ -1,18 +1,18 @@
 "use client";
 
+import { ChevronRightIcon } from "lucide-react";
+import {
+  createContext,
+  type HTMLAttributes,
+  useContext,
+  useState,
+} from "react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { ChevronRightIcon } from "lucide-react";
-import {
-  createContext,
-  useContext,
-  useState,
-  type HTMLAttributes,
-} from "react";
 
 interface JsonViewerContextType {
   expandedPaths: Set<string>;

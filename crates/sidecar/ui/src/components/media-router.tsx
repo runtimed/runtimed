@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, type ReactNode } from "react";
+import { lazy, type ReactNode, Suspense } from "react";
 
 // Lazy load built-in output components for better bundle splitting
 const AnsiOutput = lazy(() =>
@@ -230,7 +230,7 @@ export function MediaRouter({
 
   if (!mimeType) {
     return fallback ? (
-      <>{fallback}</>
+      fallback
     ) : (
       <div className="py-2 text-sm text-gray-500">No displayable output</div>
     );

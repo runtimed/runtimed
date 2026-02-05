@@ -1,14 +1,14 @@
 "use client";
 
+import { Check, Copy } from "lucide-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
-import rehypeRaw from "rehype-raw";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { Check, Copy } from "lucide-react";
+import rehypeKatex from "rehype-katex";
+import rehypeRaw from "rehype-raw";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import { cn } from "@/lib/utils";
 
 import "katex/dist/katex.min.css";
@@ -133,7 +133,10 @@ export function MarkdownOutput({
   const rehypePlugins = unsafe ? [rehypeKatex, rehypeRaw] : [rehypeKatex];
 
   return (
-    <div data-slot="markdown-output" className={cn("not-prose py-2", className)}>
+    <div
+      data-slot="markdown-output"
+      className={cn("not-prose py-2", className)}
+    >
       <ReactMarkdown
         remarkPlugins={remarkPlugins}
         rehypePlugins={rehypePlugins}
