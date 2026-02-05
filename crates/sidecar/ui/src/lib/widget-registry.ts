@@ -1,9 +1,3 @@
-/**
- * Registry mapping widget model names to React components.
- *
- * This maps _model_name from ipywidgets to our shadcn-backed implementations.
- */
-
 import type { ComponentType } from "react";
 
 export interface WidgetComponentProps {
@@ -27,7 +21,7 @@ export const WIDGET_REGISTRY: Record<
  */
 export function registerWidget(
   modelName: string,
-  component: ComponentType<WidgetComponentProps>
+  component: ComponentType<WidgetComponentProps>,
 ): void {
   WIDGET_REGISTRY[modelName] = component;
 }
@@ -36,7 +30,7 @@ export function registerWidget(
  * Get the component for a model name, if registered.
  */
 export function getWidgetComponent(
-  modelName: string
+  modelName: string,
 ): ComponentType<WidgetComponentProps> | undefined {
   return WIDGET_REGISTRY[modelName];
 }
@@ -47,4 +41,3 @@ export function getWidgetComponent(
 export function hasWidgetComponent(modelName: string): boolean {
   return modelName in WIDGET_REGISTRY;
 }
-

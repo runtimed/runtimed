@@ -216,6 +216,18 @@ export function useResolvedModelValue<T = unknown>(
   return resolved as T | WidgetModel | undefined;
 }
 
+/**
+ * Check if a widget model was explicitly closed (e.g., tqdm with leave=False).
+ * Returns true if the model was closed, false if it never existed or is active.
+ *
+ * Note: This hook is not reactive on its own. It relies on being used alongside
+ * useWidgetModel, which subscribes to store changes and triggers re-renders.
+ */
+export function useWasWidgetClosed(modelId: string): boolean {
+  const { store } = useWidgetStoreRequired();
+  return store.wasModelClosed(modelId);
+}
+
 export type {
   JupyterCommMessage,
   JupyterMessageHeader,

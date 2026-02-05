@@ -17,5 +17,10 @@
     "ui": "@/components/ui",
     "lib": "@/lib",
     "hooks": "@/hooks"
+  },
+  "registries": {
+    "@nteract": {
+      "url": "https://nteract-elements.vercel.app/r/{name}.json"
+    }
   }
 }

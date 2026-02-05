@@ -45,7 +45,7 @@ export function IntProgress({ modelId, className }: WidgetComponentProps) {
     <div
       className={cn(
         "flex gap-3",
-        isVertical ? "flex-col items-center" : "items-center",
+        isVertical ? "flex-col items-center" : "flex-1 items-center",
         className,
       )}
       data-widget-id={modelId}
@@ -59,9 +59,6 @@ export function IntProgress({ modelId, className }: WidgetComponentProps) {
           barStyle && barStyleClasses[barStyle],
         )}
       />
-      <span className="w-12 text-right tabular-nums text-sm text-muted-foreground">
-        {value}
-      </span>
     </div>
   );
 }

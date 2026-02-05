@@ -3,6 +3,7 @@ import { MediaRouter } from "@/components/media-router";
 // Register built-in ipywidgets (IntSlider, etc.)
 import "@/lib";
 import { AnsiStreamOutput, AnsiErrorOutput } from "@/components/ansi-output";
+import { WidgetDebugger } from "@/components/widget-debugger";
 import {
   WidgetStoreProvider,
   useWidgetStoreRequired,
@@ -252,7 +253,7 @@ function AppContent() {
       </header>
 
       {/* Output Area */}
-      <main ref={outputAreaRef} className="max-w-4xl mx-auto py-4 space-y-2">
+      <main ref={outputAreaRef} className="max-w-4xl mx-auto py-4">
         {outputs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
             <p className="text-sm">Waiting for outputs...</p>
@@ -262,15 +263,13 @@ function AppContent() {
           </div>
         ) : (
           outputs.map((output, index) => (
-            <div
-              key={index}
-              className="rounded-lg border bg-card py-3 shadow-sm"
-            >
-              <OutputCell output={output} index={index} />
-            </div>
+            <OutputCell key={index} output={output} index={index} />
           ))
         )}
       </main>
+
+      {/* Widget Debugger Panel */}
+      <WidgetDebugger />
     </div>
   );
 }

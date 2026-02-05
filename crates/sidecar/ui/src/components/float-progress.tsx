@@ -39,18 +39,13 @@ export function FloatProgress({ modelId, className }: WidgetComponentProps) {
     danger: "[&>[data-slot=progress-indicator]]:bg-red-500",
   };
 
-  // Format value for display
-  const formatValue = (v: number): string => {
-    return v.toFixed(2);
-  };
-
   const isVertical = orientation === "vertical";
 
   return (
     <div
       className={cn(
         "flex gap-3",
-        isVertical ? "flex-col items-center" : "items-center",
+        isVertical ? "flex-col items-center" : "flex-1 items-center",
         className,
       )}
       data-widget-id={modelId}
@@ -64,9 +59,6 @@ export function FloatProgress({ modelId, className }: WidgetComponentProps) {
           barStyle && barStyleClasses[barStyle],
         )}
       />
-      <span className="w-16 text-right tabular-nums text-sm text-muted-foreground">
-        {formatValue(value)}
-      </span>
     </div>
   );
 }

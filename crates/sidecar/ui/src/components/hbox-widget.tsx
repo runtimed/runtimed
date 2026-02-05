@@ -35,7 +35,7 @@ export function HBoxWidget({ modelId, className }: WidgetComponentProps) {
   return (
     <div
       className={cn(
-        "flex flex-row flex-wrap items-start gap-2",
+        "flex flex-row flex-wrap items-baseline gap-1",
         styleClass,
         className,
       )}

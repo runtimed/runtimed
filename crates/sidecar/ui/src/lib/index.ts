@@ -1,4 +1,4 @@
-import { registerWidget } from "@/lib/widget-registry";
+import { registerWidget } from "./widget-registry";
 import { AccordionWidget } from "@/components/accordion-widget";
 import { BoxWidget } from "@/components/box-widget";
 import { ButtonWidget } from "@/components/button-widget";

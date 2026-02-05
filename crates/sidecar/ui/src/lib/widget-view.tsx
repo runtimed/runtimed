@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { AnyWidgetView, isAnyWidget } from "./anywidget-view";
 import { getWidgetComponent } from "./widget-registry";
 import type { WidgetModel } from "./widget-store";
-import { useWidgetModel } from "./widget-store-context";
+import { useWasWidgetClosed, useWidgetModel } from "./widget-store-context";
 
 // === Props ===
 
@@ -76,8 +76,14 @@ function UnsupportedWidget({ model, className }: UnsupportedWidgetProps) {
  */
 export function WidgetView({ modelId, className }: WidgetViewProps) {
   const model = useWidgetModel(modelId);
+  const wasClosed = useWasWidgetClosed(modelId);
 
-  // Model not loaded yet
+  // Model was explicitly closed (e.g., tqdm with leave=False) - render nothing
+  if (wasClosed) {
+    return null;
+  }
+
+  // Model not loaded yet - show loading state
   if (!model) {
     return <LoadingWidget modelId={modelId} className={className} />;
   }
