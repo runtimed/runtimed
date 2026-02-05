@@ -13,9 +13,9 @@ import {
   SkipForwardIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import type { WidgetComponentProps } from "../widget-registry";
 import {
   useWidgetModelValue,

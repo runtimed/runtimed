@@ -6,13 +6,8 @@
  * Maps to ipywidgets TabModel. Displays children as tabbed panels.
  */
 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
 import type { WidgetComponentProps } from "../widget-registry";
 import {
   parseModelRef,

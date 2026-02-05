@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useWidgetModels } from "@/components/widgets/widget-store-context";
-import { JsonOutput } from "@/components/json-output";
+import { JsonOutput } from "@/components/outputs/json-output";
 import {
   Sheet,
   SheetContent,

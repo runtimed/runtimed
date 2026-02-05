@@ -1,17 +1,13 @@
 "use client";
 
 import type * as React from "react";
-import { cn } from "@/lib/utils";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { cn } from "@/lib/utils";
 
 export interface User {
   id: string;

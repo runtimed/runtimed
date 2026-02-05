@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 import {
   AnsiErrorOutput,
   AnsiStreamOutput,
-} from "@/components/ansi-output";
-import { MediaRouter } from "@/components/media-router";
+} from "@/components/outputs/ansi-output";
+import { MediaRouter } from "@/components/outputs/media-router";
 
 /**
  * Jupyter output types based on the nbformat spec.

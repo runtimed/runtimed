@@ -6,8 +6,8 @@
  * Maps to ipywidgets ToggleButtonModel.
  */
 
-import { cn } from "@/lib/utils";
 import { Toggle } from "@/components/ui/toggle";
+import { cn } from "@/lib/utils";
 import type { WidgetComponentProps } from "../widget-registry";
 import {
   useWidgetModelValue,

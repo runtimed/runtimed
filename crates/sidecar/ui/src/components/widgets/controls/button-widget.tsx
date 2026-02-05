@@ -6,8 +6,8 @@
  * Maps to ipywidgets ButtonModel.
  */
 
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { WidgetComponentProps } from "../widget-registry";
 import {
   useWidgetModelValue,

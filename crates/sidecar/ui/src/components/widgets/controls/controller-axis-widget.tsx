@@ -6,8 +6,8 @@
  * Maps to ipywidgets ControllerAxisModel.
  */
 
-import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 import type { WidgetComponentProps } from "../widget-registry";
 import { useWidgetModelValue } from "../widget-store-context";
 

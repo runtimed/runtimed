@@ -6,13 +6,13 @@
  * Maps to ipywidgets AccordionModel. Displays children as collapsible panels.
  */
 
-import { cn } from "@/lib/utils";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { cn } from "@/lib/utils";
 import type { WidgetComponentProps } from "../widget-registry";
 import {
   parseModelRef,

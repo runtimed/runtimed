@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { MediaRouter } from "@/components/media-router";
+import { MediaRouter } from "@/components/outputs/media-router";
 // Register built-in ipywidgets (IntSlider, etc.)
 import "@/components/widgets/controls";
-import { AnsiStreamOutput, AnsiErrorOutput } from "@/components/ansi-output";
+import {
+  AnsiStreamOutput,
+  AnsiErrorOutput,
+} from "@/components/outputs/ansi-output";
 import { WidgetDebugger } from "@/components/widget-debugger";
 import {
   WidgetStoreProvider,

@@ -1,8 +1,6 @@
 "use client";
 
 import { Bot, ChevronDown, Code, Database, FileText } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { type CellType, cellTypeStyles } from "@/components/CellTypeButton";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,6 +8,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+import { type CellType, cellTypeStyles } from "@/components/cell/CellTypeButton";
 
 const allCellTypes: CellType[] = ["code", "markdown", "sql", "ai"];
 

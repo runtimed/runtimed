@@ -8,7 +8,6 @@
 
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -24,6 +23,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import type { WidgetComponentProps } from "../widget-registry";
 import {
   useWidgetModelValue,
