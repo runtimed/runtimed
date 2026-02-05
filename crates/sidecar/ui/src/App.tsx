@@ -232,7 +232,7 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
         <div className="flex h-10 items-center justify-between px-4">
           <h1 className="text-sm font-medium">Kernel Sidecar</h1>
           <div className="flex items-center gap-2">
