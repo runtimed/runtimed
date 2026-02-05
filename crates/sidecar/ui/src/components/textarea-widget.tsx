@@ -6,15 +6,15 @@
  * Maps to ipywidgets TextareaModel.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import type { WidgetComponentProps } from "@/lib/widget-registry";
 import {
   useWidgetModelValue,
   useWidgetStoreRequired,
 } from "@/lib/widget-store-context";
-import type { WidgetComponentProps } from "../widget-registry";
 
 export function TextareaWidget({ modelId, className }: WidgetComponentProps) {
   const { sendUpdate } = useWidgetStoreRequired();
@@ -22,8 +22,7 @@ export function TextareaWidget({ modelId, className }: WidgetComponentProps) {
   // Subscribe to individual state keys
   const value = useWidgetModelValue<string>(modelId, "value") ?? "";
   const description = useWidgetModelValue<string>(modelId, "description");
-  const placeholder =
-    useWidgetModelValue<string>(modelId, "placeholder") ?? "";
+  const placeholder = useWidgetModelValue<string>(modelId, "placeholder") ?? "";
   const disabled = useWidgetModelValue<boolean>(modelId, "disabled") ?? false;
   const rows = useWidgetModelValue<number>(modelId, "rows") ?? 4;
   const continuousUpdate =

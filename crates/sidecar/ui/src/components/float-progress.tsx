@@ -1,18 +1,18 @@
 "use client";
 
 /**
- * IntProgress widget - renders an integer progress bar.
+ * FloatProgress widget - renders a floating point progress bar.
  *
- * Maps to ipywidgets IntProgressModel.
+ * Maps to ipywidgets FloatProgressModel.
  */
 
 import { cn } from "@/lib/utils";
-import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import type { WidgetComponentProps } from "@/lib/widget-registry";
 import { useWidgetModelValue } from "@/lib/widget-store-context";
-import type { WidgetComponentProps } from "../widget-registry";
 
-export function IntProgress({ modelId, className }: WidgetComponentProps) {
+export function FloatProgress({ modelId, className }: WidgetComponentProps) {
   // Subscribe to individual state keys
   const value = useWidgetModelValue<number>(modelId, "value") ?? 0;
   const min = useWidgetModelValue<number>(modelId, "min") ?? 0;
@@ -39,6 +39,11 @@ export function IntProgress({ modelId, className }: WidgetComponentProps) {
     danger: "[&>[data-slot=progress-indicator]]:bg-red-500",
   };
 
+  // Format value for display
+  const formatValue = (v: number): string => {
+    return v.toFixed(2);
+  };
+
   const isVertical = orientation === "vertical";
 
   return (
@@ -49,11 +54,9 @@ export function IntProgress({ modelId, className }: WidgetComponentProps) {
         className,
       )}
       data-widget-id={modelId}
-      data-widget-type="IntProgress"
+      data-widget-type="FloatProgress"
     >
-      {description && (
-        <Label className="shrink-0 text-sm">{description}</Label>
-      )}
+      {description && <Label className="shrink-0 text-sm">{description}</Label>}
       <Progress
         value={percentage}
         className={cn(
@@ -61,11 +64,11 @@ export function IntProgress({ modelId, className }: WidgetComponentProps) {
           barStyle && barStyleClasses[barStyle],
         )}
       />
-      <span className="w-12 text-right tabular-nums text-sm text-muted-foreground">
-        {value}
+      <span className="w-16 text-right tabular-nums text-sm text-muted-foreground">
+        {formatValue(value)}
       </span>
     </div>
   );
 }
 
-export default IntProgress;
+export default FloatProgress;

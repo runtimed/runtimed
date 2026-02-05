@@ -7,16 +7,16 @@
  */
 
 import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
 import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@/components/ui/toggle-group";
-import { Label } from "@/components/ui/label";
+import type { WidgetComponentProps } from "@/lib/widget-registry";
 import {
   useWidgetModelValue,
   useWidgetStoreRequired,
 } from "@/lib/widget-store-context";
-import type { WidgetComponentProps } from "../widget-registry";
 
 export function ToggleButtonsWidget({
   modelId,
@@ -45,7 +45,7 @@ export function ToggleButtonsWidget({
       return;
     }
     const newIndex = parseInt(newValue, 10);
-    if (!isNaN(newIndex)) {
+    if (!Number.isNaN(newIndex)) {
       sendUpdate(modelId, { index: newIndex });
     }
   };
@@ -56,9 +56,7 @@ export function ToggleButtonsWidget({
       data-widget-id={modelId}
       data-widget-type="ToggleButtons"
     >
-      {description && (
-        <Label className="shrink-0 text-sm">{description}</Label>
-      )}
+      {description && <Label className="shrink-0 text-sm">{description}</Label>}
       <ToggleGroup
         type="single"
         value={value}

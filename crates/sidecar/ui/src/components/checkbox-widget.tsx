@@ -9,11 +9,11 @@
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import type { WidgetComponentProps } from "@/lib/widget-registry";
 import {
   useWidgetModelValue,
   useWidgetStoreRequired,
 } from "@/lib/widget-store-context";
-import type { WidgetComponentProps } from "../widget-registry";
 
 export function CheckboxWidget({ modelId, className }: WidgetComponentProps) {
   const { sendUpdate } = useWidgetStoreRequired();
@@ -45,10 +45,7 @@ export function CheckboxWidget({ modelId, className }: WidgetComponentProps) {
       {description && (
         <Label
           htmlFor={`checkbox-${modelId}`}
-          className={cn(
-            "text-sm",
-            disabled && "opacity-50 cursor-not-allowed",
-          )}
+          className={cn("text-sm", disabled && "opacity-50 cursor-not-allowed")}
         >
           {description}
         </Label>

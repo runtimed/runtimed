@@ -8,11 +8,11 @@
 
 import { cn } from "@/lib/utils";
 import { Toggle } from "@/components/ui/toggle";
+import type { WidgetComponentProps } from "@/lib/widget-registry";
 import {
   useWidgetModelValue,
   useWidgetStoreRequired,
 } from "@/lib/widget-store-context";
-import type { WidgetComponentProps } from "../widget-registry";
 
 export function ToggleButtonWidget({
   modelId,
@@ -22,8 +22,7 @@ export function ToggleButtonWidget({
 
   // Subscribe to individual state keys
   const value = useWidgetModelValue<boolean>(modelId, "value") ?? false;
-  const description =
-    useWidgetModelValue<string>(modelId, "description") ?? "";
+  const description = useWidgetModelValue<string>(modelId, "description") ?? "";
   const disabled = useWidgetModelValue<boolean>(modelId, "disabled") ?? false;
   const icon = useWidgetModelValue<string>(modelId, "icon");
   const buttonStyle =

@@ -6,15 +6,15 @@
  * Maps to ipywidgets TextModel.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { WidgetComponentProps } from "@/lib/widget-registry";
 import {
   useWidgetModelValue,
   useWidgetStoreRequired,
 } from "@/lib/widget-store-context";
-import type { WidgetComponentProps } from "../widget-registry";
 
 export function TextWidget({ modelId, className }: WidgetComponentProps) {
   const { sendUpdate, sendCustom } = useWidgetStoreRequired();
@@ -22,8 +22,7 @@ export function TextWidget({ modelId, className }: WidgetComponentProps) {
   // Subscribe to individual state keys
   const value = useWidgetModelValue<string>(modelId, "value") ?? "";
   const description = useWidgetModelValue<string>(modelId, "description");
-  const placeholder =
-    useWidgetModelValue<string>(modelId, "placeholder") ?? "";
+  const placeholder = useWidgetModelValue<string>(modelId, "placeholder") ?? "";
   const disabled = useWidgetModelValue<boolean>(modelId, "disabled") ?? false;
   const continuousUpdate =
     useWidgetModelValue<boolean>(modelId, "continuous_update") ?? true;
@@ -74,9 +73,7 @@ export function TextWidget({ modelId, className }: WidgetComponentProps) {
       data-widget-id={modelId}
       data-widget-type="Text"
     >
-      {description && (
-        <Label className="shrink-0 text-sm">{description}</Label>
-      )}
+      {description && <Label className="shrink-0 text-sm">{description}</Label>}
       <Input
         type="text"
         value={localValue}

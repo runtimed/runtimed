@@ -7,13 +7,13 @@
  */
 
 import { cn } from "@/lib/utils";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import type { WidgetComponentProps } from "@/lib/widget-registry";
 import {
   useWidgetModelValue,
   useWidgetStoreRequired,
 } from "@/lib/widget-store-context";
-import type { WidgetComponentProps } from "../widget-registry";
 
 export function RadioButtonsWidget({
   modelId,
@@ -36,7 +36,7 @@ export function RadioButtonsWidget({
 
   const handleValueChange = (newValue: string) => {
     const newIndex = parseInt(newValue, 10);
-    if (!isNaN(newIndex)) {
+    if (!Number.isNaN(newIndex)) {
       sendUpdate(modelId, { index: newIndex });
     }
   };

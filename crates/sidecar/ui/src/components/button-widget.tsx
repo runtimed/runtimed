@@ -8,11 +8,11 @@
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import type { WidgetComponentProps } from "@/lib/widget-registry";
 import {
   useWidgetModelValue,
   useWidgetStoreRequired,
 } from "@/lib/widget-store-context";
-import type { WidgetComponentProps } from "../widget-registry";
 
 // Map ipywidgets button_style to shadcn variants
 const STYLE_MAP: Record<
@@ -31,8 +31,7 @@ export function ButtonWidget({ modelId, className }: WidgetComponentProps) {
   const { sendCustom } = useWidgetStoreRequired();
 
   // Subscribe to individual state keys
-  const description =
-    useWidgetModelValue<string>(modelId, "description") ?? "";
+  const description = useWidgetModelValue<string>(modelId, "description") ?? "";
   const disabled = useWidgetModelValue<boolean>(modelId, "disabled") ?? false;
   const buttonStyle =
     useWidgetModelValue<string>(modelId, "button_style") ?? "";

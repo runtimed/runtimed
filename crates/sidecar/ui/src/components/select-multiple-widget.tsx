@@ -6,14 +6,14 @@
  * Maps to ipywidgets SelectMultipleModel.
  */
 
+import { CheckIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
-import { CheckIcon } from "lucide-react";
+import type { WidgetComponentProps } from "@/lib/widget-registry";
 import {
   useWidgetModelValue,
   useWidgetStoreRequired,
 } from "@/lib/widget-store-context";
-import type { WidgetComponentProps } from "../widget-registry";
 
 export function SelectMultipleWidget({
   modelId,
@@ -24,8 +24,7 @@ export function SelectMultipleWidget({
   // Subscribe to individual state keys
   const options =
     useWidgetModelValue<string[]>(modelId, "_options_labels") ?? [];
-  const selectedIndices =
-    useWidgetModelValue<number[]>(modelId, "index") ?? [];
+  const selectedIndices = useWidgetModelValue<number[]>(modelId, "index") ?? [];
   const description = useWidgetModelValue<string>(modelId, "description");
   const disabled = useWidgetModelValue<boolean>(modelId, "disabled") ?? false;
   const rows = useWidgetModelValue<number>(modelId, "rows") ?? 5;

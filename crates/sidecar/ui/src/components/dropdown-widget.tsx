@@ -7,6 +7,7 @@
  */
 
 import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -14,12 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
+import type { WidgetComponentProps } from "@/lib/widget-registry";
 import {
   useWidgetModelValue,
   useWidgetStoreRequired,
 } from "@/lib/widget-store-context";
-import type { WidgetComponentProps } from "../widget-registry";
 
 export function DropdownWidget({ modelId, className }: WidgetComponentProps) {
   const { sendUpdate } = useWidgetStoreRequired();
@@ -39,7 +39,7 @@ export function DropdownWidget({ modelId, className }: WidgetComponentProps) {
 
   const handleValueChange = (newValue: string) => {
     const newIndex = parseInt(newValue, 10);
-    if (!isNaN(newIndex)) {
+    if (!Number.isNaN(newIndex)) {
       sendUpdate(modelId, { index: newIndex });
     }
   };
@@ -50,9 +50,7 @@ export function DropdownWidget({ modelId, className }: WidgetComponentProps) {
       data-widget-id={modelId}
       data-widget-type="Dropdown"
     >
-      {description && (
-        <Label className="shrink-0 text-sm">{description}</Label>
-      )}
+      {description && <Label className="shrink-0 text-sm">{description}</Label>}
       <Select
         value={value}
         onValueChange={handleValueChange}

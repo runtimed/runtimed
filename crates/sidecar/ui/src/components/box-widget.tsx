@@ -1,16 +1,16 @@
 "use client";
 
 /**
- * GridBox widget - CSS grid container.
+ * Box widget - generic flex container.
  *
- * Maps to ipywidgets GridBoxModel. Arranges children in a CSS grid layout.
- * Default is a responsive 2-column grid.
+ * Maps to ipywidgets BoxModel. Base container for layout widgets.
+ * Defaults to vertical stacking (like VBox).
  */
 
 import { cn } from "@/lib/utils";
-import { useWidgetModelValue, parseModelRef } from "@/lib/widget-store-context";
-import { WidgetView } from "../widget-view";
-import type { WidgetComponentProps } from "../widget-registry";
+import type { WidgetComponentProps } from "@/lib/widget-registry";
+import { parseModelRef, useWidgetModelValue } from "@/lib/widget-store-context";
+import { WidgetView } from "@/lib/widget-view";
 
 // Map ipywidgets box_style to Tailwind classes
 const BOX_STYLE_MAP: Record<string, string> = {
@@ -26,7 +26,7 @@ const BOX_STYLE_MAP: Record<string, string> = {
     "border border-red-500 bg-red-50/50 dark:bg-red-950/50 rounded-md p-2",
 };
 
-export function GridBoxWidget({ modelId, className }: WidgetComponentProps) {
+export function BoxWidget({ modelId, className }: WidgetComponentProps) {
   // Subscribe to individual state keys
   const children = useWidgetModelValue<string[]>(modelId, "children");
   const boxStyle = useWidgetModelValue<string>(modelId, "box_style") ?? "";
@@ -35,13 +35,9 @@ export function GridBoxWidget({ modelId, className }: WidgetComponentProps) {
 
   return (
     <div
-      className={cn(
-        "grid grid-cols-1 sm:grid-cols-2 gap-2",
-        styleClass,
-        className,
-      )}
+      className={cn("flex flex-col gap-2", styleClass, className)}
       data-widget-id={modelId}
-      data-widget-type="GridBox"
+      data-widget-type="Box"
     >
       {children?.map((childRef) => {
         const childId = parseModelRef(childRef);
@@ -51,4 +47,4 @@ export function GridBoxWidget({ modelId, className }: WidgetComponentProps) {
   );
 }
 
-export default GridBoxWidget;
+export default BoxWidget;

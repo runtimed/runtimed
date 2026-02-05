@@ -8,18 +8,18 @@
 
 import { cn } from "@/lib/utils";
 import {
-  useWidgetModelValue,
-  useWidgetStoreRequired,
-  parseModelRef,
-} from "@/lib/widget-store-context";
-import { WidgetView } from "../widget-view";
-import type { WidgetComponentProps } from "../widget-registry";
-import {
   Accordion,
+  AccordionContent,
   AccordionItem,
   AccordionTrigger,
-  AccordionContent,
 } from "@/components/ui/accordion";
+import type { WidgetComponentProps } from "@/lib/widget-registry";
+import {
+  parseModelRef,
+  useWidgetModelValue,
+  useWidgetStoreRequired,
+} from "@/lib/widget-store-context";
+import { WidgetView } from "@/lib/widget-view";
 
 export function AccordionWidget({ modelId, className }: WidgetComponentProps) {
   const { sendUpdate } = useWidgetStoreRequired();
