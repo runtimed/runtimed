@@ -6,7 +6,7 @@ import { AnsiStreamOutput, AnsiErrorOutput } from "@/components/ansi-output";
 import {
   WidgetStoreProvider,
   useWidgetStoreRequired,
-} from "@/components/widgets/widget-store-context";
+} from "@/lib/widget-store-context";
 import { WidgetView } from "@/components/widgets/widget-view";
 import type {
   JupyterMessage,
@@ -160,6 +160,17 @@ function AppContent() {
         msgType === "comm_msg" ||
         msgType === "comm_close"
       ) {
+        // Detailed logging for comm_msg to debug anywidget responses
+        if (msgType === "comm_msg") {
+          const data = (message.content as { data?: { method?: string } }).data;
+          console.log("[sidecar] comm_msg details:", {
+            comm_id: (message.content as { comm_id?: string }).comm_id,
+            method: data?.method,
+            hasBuffers: message.buffers && message.buffers.length > 0,
+            bufferCount: message.buffers?.length ?? 0,
+            dataKeys: data ? Object.keys(data) : [],
+          });
+        }
         handleWidgetMessage(
           message as Parameters<typeof handleWidgetMessage>[0],
         );

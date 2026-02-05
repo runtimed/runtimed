@@ -191,10 +191,21 @@ async fn run(
                     Ok(wry_message) => {
                         let message: JupyterMessage = wry_message.into();
 
+                        info!(
+                            "Sending message to shell: type={}, comm_id={:?}",
+                            message.header.msg_type,
+                            match &message.content {
+                                JupyterMessageContent::CommMsg(c) => Some(c.comm_id.clone()),
+                                _ => None,
+                            }
+                        );
+
                         let mut tx = tx.clone();
 
                         if let Err(e) = tx.try_send(message) {
                             error!("Failed to send message to shell channel: {}", e);
+                        } else {
+                            info!("Message sent to shell channel successfully");
                         }
                         responder.respond(Response::builder().status(200).body(&[]).unwrap());
                         return;
@@ -235,7 +246,17 @@ async fn run(
 
     smol::spawn(async move {
         while let Ok(message) = iopub.read().await {
-            debug!("Received message from iopub: {:?}", message);
+            // Log ALL messages from iopub for debugging
+            info!(
+                "iopub message: type={}, comm_id={:?}",
+                message.header.msg_type,
+                match &message.content {
+                    JupyterMessageContent::CommOpen(c) => Some(c.comm_id.clone()),
+                    JupyterMessageContent::CommMsg(c) => Some(c.comm_id.clone()),
+                    JupyterMessageContent::CommClose(c) => Some(c.comm_id.clone()),
+                    _ => None,
+                }
+            );
 
             // Dump message to file if enabled
             if let Some(ref file) = dump_file {

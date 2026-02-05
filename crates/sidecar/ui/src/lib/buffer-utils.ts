@@ -1,29 +1,3 @@
-/**
- * Buffer path utilities for Jupyter widget protocol.
- *
- * Handles the buffer_paths field in comm messages which specifies
- * where binary buffers should be inserted into the JSON message data.
- *
- * @see https://jupyter-widgets.readthedocs.io/en/latest/examples/Widget%20Low%20Level.html
- */
-
-/**
- * Apply buffers to message data at specified paths.
- *
- * The Jupyter widget protocol sends binary data separately from JSON.
- * The buffer_paths field specifies where each buffer should be inserted.
- *
- * @example
- * // buffer_paths: [["state", "data"], ["content", "blob"]]
- * // buffers: [ArrayBuffer1, ArrayBuffer2]
- * // data: { state: {}, content: {} }
- * // Result: { state: { data: ArrayBuffer1 }, content: { blob: ArrayBuffer2 } }
- *
- * @param data - The message data object to modify (mutated in place)
- * @param bufferPaths - Array of paths, each path is an array of keys
- * @param buffers - Array of buffers to insert at the corresponding paths
- * @returns The modified data object (same reference as input)
- */
 export function applyBufferPaths(
   data: Record<string, unknown>,
   bufferPaths: string[][] | undefined,

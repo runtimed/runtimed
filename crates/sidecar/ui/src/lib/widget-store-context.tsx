@@ -44,13 +44,13 @@ interface WidgetStoreContextValue {
   sendUpdate: (
     commId: string,
     state: Record<string, unknown>,
-    buffers?: ArrayBuffer[],
+    buffers?: ArrayBuffer[]
   ) => void;
   /** Send a custom message to the kernel */
   sendCustom: (
     commId: string,
     content: Record<string, unknown>,
-    buffers?: ArrayBuffer[],
+    buffers?: ArrayBuffer[]
   ) => void;
   /** Close a comm channel */
   closeComm: (commId: string) => void;
@@ -92,15 +92,8 @@ export function WidgetStoreProvider({
   });
 
   const value = useMemo(
-    () => ({
-      store,
-      handleMessage,
-      sendMessage,
-      sendUpdate,
-      sendCustom,
-      closeComm,
-    }),
-    [store, handleMessage, sendMessage, sendUpdate, sendCustom, closeComm],
+    () => ({ store, handleMessage, sendMessage, sendUpdate, sendCustom, closeComm }),
+    [store, handleMessage, sendMessage, sendUpdate, sendCustom, closeComm]
   );
 
   return (
@@ -128,7 +121,7 @@ export function useWidgetStoreRequired(): WidgetStoreContextValue {
   const ctx = useContext(WidgetStoreContext);
   if (!ctx) {
     throw new Error(
-      "useWidgetStoreRequired must be used within WidgetStoreProvider",
+      "useWidgetStoreRequired must be used within WidgetStoreProvider"
     );
   }
   return ctx;
@@ -144,7 +137,7 @@ export function useWidgetModels(): Map<string, WidgetModel> {
   return useSyncExternalStore(
     store.subscribe,
     store.getSnapshot,
-    store.getSnapshot, // SSR snapshot (same as client)
+    store.getSnapshot // SSR snapshot (same as client)
   );
 }
 
@@ -157,12 +150,12 @@ export function useWidgetModel(modelId: string): WidgetModel | undefined {
 
   const subscribe = useCallback(
     (callback: () => void) => store.subscribe(callback),
-    [store],
+    [store]
   );
 
   const getSnapshot = useCallback(
     () => store.getModel(modelId),
-    [store, modelId],
+    [store, modelId]
   );
 
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
@@ -178,18 +171,18 @@ export function useWidgetModel(modelId: string): WidgetModel | undefined {
  */
 export function useWidgetModelValue<T = unknown>(
   modelId: string,
-  key: string,
+  key: string
 ): T | undefined {
   const { store } = useWidgetStoreRequired();
 
   const subscribe = useCallback(
     (callback: () => void) => store.subscribeToKey(modelId, key, callback),
-    [store, modelId, key],
+    [store, modelId, key]
   );
 
   const getSnapshot = useCallback(
     () => store.getModel(modelId)?.state[key] as T | undefined,
-    [store, modelId, key],
+    [store, modelId, key]
   );
 
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
@@ -205,7 +198,7 @@ export function useWidgetModelValue<T = unknown>(
  */
 export function useResolvedModelValue<T = unknown>(
   modelId: string,
-  key: string,
+  key: string
 ): T | WidgetModel | undefined {
   const { store } = useWidgetStoreRequired();
   const value = useWidgetModelValue(modelId, key);

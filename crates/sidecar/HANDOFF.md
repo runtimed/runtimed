@@ -2,7 +2,7 @@
 
 ## Current State
 
-We've successfully integrated [nteract elements](https://nteract-elements.vercel.app/) into sidecar for rendering Jupyter outputs and widgets. The UI is built with Vite + React + Tailwind and embedded into the Rust binary via `rust-embed`.
+We've integrated [nteract elements](https://nteract-elements.vercel.app/) into sidecar for rendering Jupyter outputs and widgets. The UI is built with Vite + React + Tailwind and embedded into the Rust binary via `rust-embed`.
 
 ### What's Working
 
@@ -19,17 +19,51 @@ We've successfully integrated [nteract elements](https://nteract-elements.vercel
    - `comm_msg` updates widget state
    - `comm_close` removes widgets
 
-3. **Widget Rendering** - Widgets display correctly:
-   - **anywidgets** (like `quak`) render via `AnyWidgetView` 
-   - **IntSlider** renders with shadcn's Slider component
-   - `WidgetView` routes to the appropriate renderer based on model type
+3. **Built-in ipywidgets** ✅ - Two-way binding works:
+   - IntSlider, FloatSlider
+   - IntProgress, FloatProgress
+   - Button, Checkbox
+   - Text, Textarea
+   - Dropdown, RadioButtons, etc.
+   - All 19 widget controls from nteract elements
 
-4. **Two-Way Binding** ✅ - Widget state syncs back to the kernel:
-   - Dragging the IntSlider updates the kernel's widget state
-   - `slider.observe()` callbacks fire correctly
-   - Messages flow: Frontend → Rust → Shell channel → Kernel
+4. **anywidget Loading** ✅ - ESM modules load and execute:
+   - Factory pattern (`export default () => ({ render })`) supported
+   - CSS injection works
+   - Initialize lifecycle runs
+   - Render is called
 
-### Architecture
+### What's NOT Working
+
+**anywidget Custom Messages (quak)** ❌
+
+quak (and similar data widgets) use `model.send()` to request data from the kernel. The flow breaks:
+
+1. quak's `render()` calls `model.send({ type: "arrow", sql: "...", uuid: "..." })`
+2. Our code sends `comm_msg` to kernel with this content
+3. Kernel receives it (status busy→idle shows it processed)
+4. **Kernel sends NO `comm_msg` response back** ← THE ISSUE
+5. quak waits forever for data via `on("msg:custom")` callback
+
+**The Protocol Problem:**
+
+ipywidgets expects ALL `comm_msg.data` to have a `method` field:
+```python
+# ipywidgets/widgets/widget.py:766
+method = data['method']  # KeyError if missing!
+```
+
+But anywidget's `model.send()` is supposed to pass content directly without wrapping.
+
+When we include `method: "custom"`:
+- ipywidgets receives it but quak's kernel-side handler doesn't respond
+
+When we omit `method`:
+- ipywidgets throws `KeyError: 'method'`
+
+**The main branch works** because it uses `@jupyter-widgets/html-manager` which has the full Backbone.js model system and Comm class that handles this correctly.
+
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -53,76 +87,60 @@ We've successfully integrated [nteract elements](https://nteract-elements.vercel
 
 | File | Purpose |
 |------|---------|
-| `ui/src/components/widgets/use-comm-router.ts` | Constructs outgoing comm messages |
-| `ui/src/components/widgets/widget-store.ts` | Widget model state management |
-| `ui/src/components/widgets/widget-store-context.tsx` | React context for widget store |
-| `ui/src/components/widgets/controls/int-slider.tsx` | IntSlider widget component |
+| `ui/src/lib/widget-store.ts` | Widget model state management (from nteract elements) |
+| `ui/src/lib/widget-store-context.tsx` | React context and hooks |
+| `ui/src/lib/use-comm-router.ts` | Jupyter comm protocol handling |
+| `ui/src/components/widgets/anywidget-view.tsx` | anywidget ESM loader + AFM interface |
+| `ui/src/components/widgets/widget-view.tsx` | Routes to correct widget renderer |
+| `ui/src/components/widgets/controls/` | All 19 built-in widget components |
 | `ui/src/App.tsx` | Main app, provides `sendMessage` to provider |
-| `src/main.rs` | Rust: handles `/message` POST, sends to kernel |
+| `src/main.rs` | Rust: IOPub listener, Shell sender, Webview |
 
-## Message Format Reference
+## Debugging anywidgets
 
-A `comm_msg` for updating widget state:
+We added extensive logging. Key log prefixes:
+- `[sidecar]` - Message routing in App.tsx
+- `[anywidget]` - ESM loading and lifecycle
+- `[AFM]` - AnyWidget Frontend Module proxy (get/set/send/on)
 
-```json
-{
-  "header": {
-    "msg_id": "<uuid>",
-    "msg_type": "comm_msg",
-    "username": "sidecar",
-    "session": "<session-id>",
-    "date": "<iso-timestamp>",
-    "version": "5.3"
-  },
-  "parent_header": null,
-  "metadata": {},
-  "content": {
-    "comm_id": "<widget-model-id>",
-    "data": {
-      "method": "update",
-      "state": {
-        "value": 42
-      },
-      "buffer_paths": []
-    }
-  },
-  "buffers": [],
-  "channel": "shell"
-}
+Example debug flow for quak:
+```
+[anywidget] Effect running: hasModel=true, hasEsm=true
+[anywidget] Loading ESM module...
+[anywidget] ESM loaded: defaultType=function, hasRender=false (factory pattern)
+[anywidget] Calling factory function...
+[anywidget] Factory returned: hasRender=true, hasInitialize=true
+[anywidget] Calling initialize...
+[AFM] on: msg:custom
+[anywidget] Calling render...
+[AFM] get: _table_name = "df"
+[AFM] get: _columns = Array(12)
+[AFM] send - full content: {"type":"arrow","sql":"SELECT...","uuid":"..."}
+[AFM] send - to comm_id: 53ddf155922248f480756b06ee03fb6c
+[sidecar] Received message: status (busy)
+[sidecar] Received message: status (idle)
+[WARNING] render() has been running for 5+ seconds - waiting for data
 ```
 
-**Important**: `parent_header` must be `null` (not `{}`), otherwise Rust's serde will try to deserialize an empty object as a `Header` struct and fail.
+## Next Steps - Investigate html-manager
 
-## Next Steps
+The main branch uses `@jupyter-widgets/html-manager` which works with quak. Need to understand:
 
-### Near-term
+1. **How does html-manager's Comm class send custom messages?**
+   - Check `main:crates/sidecar/src/static/main.js` - the `Comm.send()` method
+   - Does it wrap with `method` or not?
 
-1. **More Widget Controls** - Add support for more ipywidgets:
-   - FloatSlider, IntText, FloatText
-   - Checkbox, ToggleButton
-   - Dropdown, Select, RadioButtons
-   - Text, Textarea
-   - Button (with click events)
+2. **How does anywidget's kernel-side handle messages?**
+   - Look at anywidget Python package source
+   - What format does it expect for custom messages?
 
-2. **Widget Layout** - Support Layout and Style models for proper widget sizing/styling
+3. **Is there a different comm protocol for anywidget vs ipywidgets?**
+   - anywidget might use a raw comm without the ipywidgets method convention
 
-3. **Linked Widgets** - Handle `IPY_MODEL_` references for widgets that reference other widgets
-
-### Medium-term
-
-1. **Binary Buffers** - Full support for `buffer_paths` and binary data transfer (needed for array-heavy widgets)
-
-2. **Custom Messages** - Handle `method: "custom"` for widgets with custom comm protocols
-
-3. **Error Handling** - Graceful degradation when widgets fail to render
-
-### Long-term
-
-1. **Full ipywidgets Support** - Cover the complete ipywidgets control library
-
-2. **Third-party Widgets** - Support for popular widget libraries (bqplot, ipyvolume, etc.)
-
-3. **Performance** - Optimize for high-frequency updates (e.g., continuous_update on sliders)
+4. **Consider hybrid approach:**
+   - Use nteract elements for UI components
+   - Use `@jupyter-widgets/html-manager` just for comm handling
+   - Or extract just the Comm class logic
 
 ## Build Commands
 
@@ -132,17 +150,17 @@ cd crates/sidecar/ui
 npm install
 npm run build
 
-# Build Rust
+# Build Rust (debug)
 cargo build -p sidecar
 
-# Run with debug logging
-RUST_LOG=debug ./target/debug/sidecar /path/to/connection.json
+# Run with info logging
+RUST_LOG=info ./target/debug/sidecar /path/to/connection.json
 
 # Run with message dump
 ./target/debug/sidecar --dump messages.jsonl /path/to/connection.json
 ```
 
-## Testing Setup
+## Testing
 
 **Terminal 1** - Start a kernel:
 ```bash
@@ -151,27 +169,39 @@ python -m ipykernel_launcher -f /tmp/kernel.json
 
 **Terminal 2** - Run sidecar:
 ```bash
-./target/debug/sidecar /tmp/kernel.json
+RUST_LOG=info ./target/debug/sidecar /tmp/kernel.json
 ```
 
-**Terminal 3** - Connect a console:
+**Terminal 3** - Connect Jupyter console:
 ```bash
 jupyter console --existing /tmp/kernel.json
 ```
 
-Then test:
+Test ipywidgets (works):
 ```python
 import ipywidgets as widgets
 slider = widgets.IntSlider(value=50, min=0, max=100, description='Test:')
-slider.observe(lambda change: print(f"Value changed: {change['new']}"), names='value')
+slider.observe(lambda change: print(f"Value: {change['new']}"), names='value')
 display(slider)
-
-# After dragging in sidecar UI:
-slider.value  # Should reflect the new value!
 ```
 
-## Related Issues Filed
+Test quak (broken - hangs waiting for data):
+```python
+import polars as pl
+import quak
+df = pl.read_parquet("https://github.com/uwdata/mosaic/raw/main/data/athletes.parquet")
+quak.Widget(df)
+```
+
+## Issues to Report to nteract/elements
+
+1. **`--overwrite` flag doesn't work** - `npx shadcn add ... --overwrite` says "Skipped"
+2. **Unused import** - `widget-store-context.tsx` imports `JupyterMessageHeader` but doesn't use it (TypeScript error)
+3. **Relative import paths** - `anywidget-view.tsx` uses `./widget-store-context` but shadcn installs to different location
+
+## Related Issues
 
 - https://github.com/nteract/elements/issues/62 - Registry dependencies don't resolve
 - https://github.com/nteract/elements/issues/63 - Widget support RFC
 - https://github.com/nteract/elements/issues/79 - components.json with registries breaks CLI
+- https://github.com/nteract/elements/pull/84 - Fixes from our feedback (merged)

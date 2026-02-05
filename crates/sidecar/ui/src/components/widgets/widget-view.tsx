@@ -10,10 +10,10 @@
  */
 
 import { cn } from "@/lib/utils";
-import { useWidgetModel } from "./widget-store-context";
+import { useWidgetModel } from "@/lib/widget-store-context";
+import type { WidgetModel } from "@/lib/widget-store";
 import { AnyWidgetView, isAnyWidget } from "./anywidget-view";
 import { getWidgetComponent } from "./widget-registry";
-import type { WidgetModel } from "./widget-store";
 
 // === Props ===
 
