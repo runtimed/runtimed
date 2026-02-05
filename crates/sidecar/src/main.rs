@@ -67,11 +67,14 @@ impl<'de> Deserialize<'de> for WryJupyterMessage {
         #[derive(Deserialize)]
         struct WryJupyterMessageHelper {
             header: Header,
+            #[serde(default)]
             parent_header: Option<Header>,
+            #[serde(default)]
             metadata: Value,
             content: Value,
-            #[serde(deserialize_with = "deserialize_base64")]
+            #[serde(default, deserialize_with = "deserialize_base64_opt")]
             buffers: Vec<Bytes>,
+            #[serde(default)]
             channel: Option<Channel>,
         }
 
@@ -130,20 +133,23 @@ where
         .serialize(serializer)
 }
 
-fn deserialize_base64<'de, D>(deserializer: D) -> Result<Vec<Bytes>, D::Error>
+fn deserialize_base64_opt<'de, D>(deserializer: D) -> Result<Vec<Bytes>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let encoded: Vec<String> = Vec::deserialize(deserializer)?;
-    encoded
-        .iter()
-        .map(|s| {
-            BASE64_STANDARD
-                .decode(s)
-                .map(Bytes::from)
-                .map_err(serde::de::Error::custom)
-        })
-        .collect()
+    let encoded: Option<Vec<String>> = Option::deserialize(deserializer)?;
+    match encoded {
+        Some(vec) => vec
+            .iter()
+            .map(|s| {
+                BASE64_STANDARD
+                    .decode(s)
+                    .map(Bytes::from)
+                    .map_err(serde::de::Error::custom)
+            })
+            .collect(),
+        None => Ok(Vec::new()),
+    }
 }
 
 async fn run(
@@ -188,7 +194,7 @@ async fn run(
                         let mut tx = tx.clone();
 
                         if let Err(e) = tx.try_send(message) {
-                            error!("Failed to send message: {}", e);
+                            error!("Failed to send message to shell channel: {}", e);
                         }
                         responder.respond(Response::builder().status(200).body(&[]).unwrap());
                         return;

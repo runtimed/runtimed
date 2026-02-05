@@ -26,7 +26,7 @@ export interface JupyterMessageHeader {
 
 export interface JupyterCommMessage {
   header: JupyterMessageHeader;
-  parent_header?: JupyterMessageHeader;
+  parent_header?: JupyterMessageHeader | null;
   metadata?: Record<string, unknown>;
   content: {
     comm_id?: string;
@@ -64,13 +64,13 @@ export interface UseCommRouterReturn {
   sendUpdate: (
     commId: string,
     state: Record<string, unknown>,
-    buffers?: ArrayBuffer[]
+    buffers?: ArrayBuffer[],
   ) => void;
   /** Send a custom message to the kernel */
   sendCustom: (
     commId: string,
     content: Record<string, unknown>,
-    buffers?: ArrayBuffer[]
+    buffers?: ArrayBuffer[],
   ) => void;
   /** Close a comm channel */
   closeComm: (commId: string) => void;
@@ -78,27 +78,45 @@ export interface UseCommRouterReturn {
 
 // === Message Construction Helpers ===
 
+// Session ID for this sidecar instance (stable across messages)
+const SESSION_ID = crypto.randomUUID();
+
+/**
+ * Create a complete Jupyter message header.
+ */
+function createHeader(msgType: string): JupyterMessageHeader {
+  return {
+    msg_id: crypto.randomUUID(),
+    msg_type: msgType,
+    username: "sidecar",
+    session: SESSION_ID,
+    date: new Date().toISOString(),
+    version: "5.3",
+  };
+}
+
 /**
  * Create a comm_msg for state updates.
  */
 function createUpdateMessage(
   commId: string,
   state: Record<string, unknown>,
-  buffers?: ArrayBuffer[]
+  buffers?: ArrayBuffer[],
 ): JupyterCommMessage {
   return {
-    header: {
-      msg_id: crypto.randomUUID(),
-      msg_type: "comm_msg",
-    },
+    header: createHeader("comm_msg"),
+    parent_header: null,
+    metadata: {},
     content: {
       comm_id: commId,
       data: {
         method: "update",
         state,
+        buffer_paths: [],
       },
     },
-    buffers,
+    buffers: buffers ?? [],
+    channel: "shell",
   };
 }
 
@@ -108,13 +126,12 @@ function createUpdateMessage(
 function createCustomMessage(
   commId: string,
   content: Record<string, unknown>,
-  buffers?: ArrayBuffer[]
+  buffers?: ArrayBuffer[],
 ): JupyterCommMessage {
   return {
-    header: {
-      msg_id: crypto.randomUUID(),
-      msg_type: "comm_msg",
-    },
+    header: createHeader("comm_msg"),
+    parent_header: null,
+    metadata: {},
     content: {
       comm_id: commId,
       data: {
@@ -122,7 +139,8 @@ function createCustomMessage(
         content,
       },
     },
-    buffers,
+    buffers: buffers ?? [],
+    channel: "shell",
   };
 }
 
@@ -131,13 +149,14 @@ function createCustomMessage(
  */
 function createCloseMessage(commId: string): JupyterCommMessage {
   return {
-    header: {
-      msg_id: crypto.randomUUID(),
-      msg_type: "comm_close",
-    },
+    header: createHeader("comm_close"),
+    parent_header: null,
+    metadata: {},
     content: {
       comm_id: commId,
     },
+    buffers: [],
+    channel: "shell",
   };
 }
 
@@ -221,7 +240,7 @@ export function useCommRouter({
         }
       }
     },
-    [store]
+    [store],
   );
 
   /**
@@ -232,14 +251,14 @@ export function useCommRouter({
     (
       commId: string,
       state: Record<string, unknown>,
-      buffers?: ArrayBuffer[]
+      buffers?: ArrayBuffer[],
     ) => {
       // Optimistic update: apply locally first for responsive UI
       store.updateModel(commId, state, buffers);
       // Then send to kernel
       sendMessage(createUpdateMessage(commId, state, buffers));
     },
-    [sendMessage, store]
+    [sendMessage, store],
   );
 
   /**
@@ -249,11 +268,11 @@ export function useCommRouter({
     (
       commId: string,
       content: Record<string, unknown>,
-      buffers?: ArrayBuffer[]
+      buffers?: ArrayBuffer[],
     ) => {
       sendMessage(createCustomMessage(commId, content, buffers));
     },
-    [sendMessage]
+    [sendMessage],
   );
 
   /**
@@ -265,7 +284,7 @@ export function useCommRouter({
       sendMessage(createCloseMessage(commId));
       store.deleteModel(commId);
     },
-    [sendMessage, store]
+    [sendMessage, store],
   );
 
   return {

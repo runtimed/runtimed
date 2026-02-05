@@ -282,6 +282,9 @@ export default function App() {
     ) => {
       fetch("/message", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(msg),
       }).catch((err) => {
         console.error("[sidecar] Failed to send message:", err);
