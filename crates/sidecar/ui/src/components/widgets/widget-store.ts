@@ -1,12 +1,3 @@
-/**
- * Pure React widget model store for Jupyter widgets.
- *
- * This replaces the Backbone.js-based model system from @jupyter-widgets/html-manager
- * with a pure JavaScript store that integrates with React via useSyncExternalStore.
- */
-
-// === Types ===
-
 export interface WidgetModel {
   /** comm_id from the Jupyter protocol */
   id: string;
@@ -288,7 +279,9 @@ export function createWidgetStore(): WidgetStore {
         b instanceof DataView ? b : new DataView(b),
       );
 
-      // Always buffer the message for future subscribers
+      // Always buffer so future subscribers get the history (e.g. a second
+      // CanvasWidget subscribing to the same CanvasManagerModel after the
+      // first canvas is already mounted and receiving messages).
       if (!customMessageBuffer.has(commId)) {
         customMessageBuffer.set(commId, []);
       }
@@ -299,7 +292,7 @@ export function createWidgetStore(): WidgetStore {
         buffer.splice(0, buffer.length - MAX_BUFFERED_MESSAGES);
       }
 
-      // Also deliver to any existing subscribers immediately
+      // Also deliver to existing subscribers
       const callbacks = customListeners.get(commId);
       if (callbacks && callbacks.size > 0) {
         callbacks.forEach((cb) => cb(content, dataViewBuffers));
@@ -316,8 +309,10 @@ export function createWidgetStore(): WidgetStore {
       }
       customListeners.get(commId)?.add(callback);
 
-      // Flush any buffered messages to this new subscriber
-      // Don't delete the buffer - other subscribers may join later
+      // Flush any buffered messages to this new subscriber.
+      // Keep the buffer (don't delete) so other subscribers to the same
+      // comm_id also receive these messages — e.g. multiple CanvasWidgets
+      // subscribing to one CanvasManagerModel.
       const buffered = customMessageBuffer.get(commId);
       if (buffered && buffered.length > 0) {
         for (const msg of buffered) {
