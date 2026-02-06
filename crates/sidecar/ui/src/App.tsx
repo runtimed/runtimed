@@ -3,6 +3,7 @@ import { MediaRouter } from "@/components/outputs/media-router";
 import { MediaProvider } from "@/components/outputs/media-provider";
 // Register built-in ipywidgets (IntSlider, etc.)
 import "@/components/widgets/controls";
+import "@/components/widgets/ipycanvas";
 import {
   AnsiStreamOutput,
   AnsiErrorOutput,
