@@ -7,17 +7,25 @@ The sidecar has full Jupyter output rendering and ipywidgets support via the `@n
 ### What's Working
 
 1. **Output components from @nteract registry** - ANSI, HTML, Markdown, JSON, Image, SVG outputs
-2. **Media router** - MIME-type based output dispatch with priority ordering
-3. **Widget system from @nteract registry** - 47+ widget files in `src/components/widgets/`
-4. **tqdm progress bars** - Render correctly with proper layout (HBox + HTMLWidget + FloatProgress)
-5. **Closed widget tracking** - `leave=False` progress bars disappear cleanly
-6. **Widget debugger panel** - Sheet-based inspector at `src/components/widget-debugger.tsx`
-7. **All ipywidget controls** - Sliders, buttons, text inputs, dropdowns, gamepad controller, etc.
+2. **MediaRouter + MediaProvider** - MIME-type dispatch with shared context for renderers
+3. **Widget system from @nteract registry** - 50+ widget files in `src/components/widgets/`
+4. **OutputWidget** - Captures outputs inside widget trees (`@jupyter-widgets/output`)
+5. **tqdm progress bars** - Render correctly with proper layout (HBox + HTMLWidget + FloatProgress)
+6. **Closed widget tracking** - `leave=False` progress bars disappear cleanly
+7. **Widget debugger panel** - Sheet-based inspector at `src/components/widget-debugger.tsx`
+8. **All ipywidget controls** - Sliders, buttons, text inputs, dropdowns, audio/video, gamepad controller
 
 ### Branch & PR
 
 - **Branch:** `sidecar-with-elements`
 - **PR:** #221 on runtimed/runtimed
+
+## Documentation
+
+**Full component documentation (LLM-friendly):**
+- https://nteract-elements.vercel.app/llms-full.txt
+
+This contains detailed API docs, props, examples for all components.
 
 ## Registry Setup
 
@@ -31,12 +39,10 @@ The `@nteract` registry is configured in `components.json`:
 }
 ```
 
-Registry index available at:
+Registry index:
 - https://nteract-elements.vercel.app/r/registry.json
 
-## Bootstrapping a New Project
-
-The simplest way to get everything:
+## Fresh Install
 
 ```bash
 # 1. Init shadcn in your project
@@ -47,35 +53,27 @@ npx shadcn@latest init
 
 # 3. Install ALL components with one command
 npx shadcn@latest add @nteract/all -yo
+
+# 4. Build
+npm run build
 ```
 
-This installs:
-- All output renderers (ANSI, HTML, Markdown, JSON, Image, SVG)
-- Media router for MIME-type dispatch
-- Cell UI components (container, header, controls, execution count/status)
-- All ipywidgets (47+ controls including gamepad)
-- CodeMirror 6 editor with Python, Markdown, SQL support
-- Collaboration components (avatars, presence bookmarks)
+### Post-Install Fixes
 
-### À la carte installation
+If build fails with missing files, manually add from upstream:
+- `button-style-utils.ts` - https://github.com/nteract/elements/blob/main/registry/widgets/controls/button-style-utils.ts
+- `audio-widget.tsx` - https://github.com/nteract/elements/blob/main/registry/widgets/controls/audio-widget.tsx
+- `video-widget.tsx` - https://github.com/nteract/elements/blob/main/registry/widgets/controls/video-widget.tsx
 
-If you only need specific pieces:
-
-```bash
-npx shadcn@latest add @nteract/media-router -yo      # All output renderers
-npx shadcn@latest add @nteract/output-area -yo       # Output wrapper
-npx shadcn@latest add @nteract/widget-controls -yo   # All ipywidgets
-npx shadcn@latest add @nteract/codemirror-editor -yo # Code editing
-npx shadcn@latest add @nteract/cell-container -yo    # Cell UI
-npx shadcn@latest add @nteract/cell-controls -yo     # Cell actions
-```
+See issue [#115](https://github.com/nteract/elements/issues/115).
 
 ## Available from @nteract Registry
 
-### Outputs
+### Outputs (`outputs/`)
 | Item | Description |
 |------|-------------|
-| `@nteract/media-router` | MIME-type dispatcher (pulls in all outputs below) |
+| `@nteract/media-router` | MIME-type dispatcher (pulls in all outputs) |
+| `@nteract/media-provider` | Context for sharing renderers/priority/unsafe |
 | `@nteract/ansi-output` | ANSI escape sequence rendering |
 | `@nteract/html-output` | HTML with iframe sandbox for scripts |
 | `@nteract/markdown-output` | GFM + math (KaTeX) + syntax highlighting |
@@ -83,7 +81,7 @@ npx shadcn@latest add @nteract/cell-controls -yo     # Cell actions
 | `@nteract/svg-output` | Vector graphics |
 | `@nteract/json-output` | Interactive tree view |
 
-### Cell Components
+### Cell Components (`cell/`)
 | Item | Description |
 |------|-------------|
 | `@nteract/output-area` | Output wrapper with collapse/scroll |
@@ -98,15 +96,15 @@ npx shadcn@latest add @nteract/cell-controls -yo     # Cell actions
 | `@nteract/collaborator-avatars` | Collaboration avatars |
 | `@nteract/presence-bookmarks` | User presence indicators |
 
-### Widgets
+### Widgets (`widgets/`)
 | Item | Description |
 |------|-------------|
-| `@nteract/widget-controls` | All ipywidget components |
+| `@nteract/widget-controls` | All 50+ ipywidget components |
 | `@nteract/widget-view` | Universal widget router |
 | `@nteract/widget-store` | React state management for widget models |
 | `@nteract/anywidget-view` | ESM loader for anywidget |
 
-### Editor
+### Editor (`editor/`)
 | Item | Description |
 |------|-------------|
 | `@nteract/codemirror-editor` | CodeMirror 6 with Python, Markdown, SQL, etc. |
@@ -116,33 +114,44 @@ npx shadcn@latest add @nteract/cell-controls -yo     # Cell actions
 |------|-------------|
 | `@nteract/all` | Everything above in one install |
 
-## Known Issues Filed Upstream
-
-| Issue | Description | Status |
-|-------|-------------|--------|
-| [nteract/elements#100](https://github.com/nteract/elements/issues/100) | Missing widget files in registry | Fixed |
-| [nteract/elements#101](https://github.com/nteract/elements/issues/101) | Wrong import paths for shadcn primitives in widgets | Fixed |
-| [nteract/elements#106](https://github.com/nteract/elements/issues/106) | json-output imports collapsible from wrong path | Fixed |
-
 ## File Structure
 
 ```
 src/
 ├── components/
-│   ├── ui/                    # shadcn primitives
-│   ├── widgets/               # @nteract widget system
-│   │   ├── controls/          # ipywidget components
-│   │   ├── widget-store.ts    # Model state management
-│   │   ├── widget-view.tsx    # Universal widget renderer
+│   ├── cell/                  # @nteract cell components
+│   │   ├── CellContainer.tsx
+│   │   ├── CellControls.tsx
+│   │   ├── CellHeader.tsx
+│   │   ├── OutputArea.tsx
+│   │   ├── PlayButton.tsx
 │   │   └── ...
-│   ├── widget-debugger.tsx    # Local: debug panel
-│   ├── media-router.tsx       # @nteract: MIME type routing
-│   ├── ansi-output.tsx        # @nteract: ANSI rendering
-│   ├── html-output.tsx        # @nteract: HTML rendering
-│   ├── image-output.tsx       # @nteract: Image rendering
-│   ├── json-output.tsx        # @nteract: JSON tree view
-│   ├── markdown-output.tsx    # @nteract: Markdown rendering
-│   └── svg-output.tsx         # @nteract: SVG rendering
+│   ├── editor/                # @nteract CodeMirror editor
+│   │   ├── codemirror-editor.tsx
+│   │   ├── extensions.ts
+│   │   ├── languages.ts
+│   │   └── themes.ts
+│   ├── outputs/               # @nteract output renderers
+│   │   ├── media-router.tsx
+│   │   ├── media-provider.tsx
+│   │   ├── ansi-output.tsx
+│   │   ├── html-output.tsx
+│   │   ├── json-output.tsx
+│   │   ├── markdown-output.tsx
+│   │   └── ...
+│   ├── widgets/               # @nteract widget system
+│   │   ├── controls/          # 50+ ipywidget components
+│   │   │   ├── index.ts
+│   │   │   ├── int-slider.tsx
+│   │   │   ├── output-widget.tsx
+│   │   │   └── ...
+│   │   ├── widget-store.ts
+│   │   ├── widget-store-context.tsx
+│   │   ├── widget-view.tsx
+│   │   ├── widget-registry.ts
+│   │   └── anywidget-view.tsx
+│   ├── ui/                    # @shadcn primitives (upstream)
+│   └── widget-debugger.tsx    # Local: debug panel
 ├── App.tsx                    # Main app
 └── types.ts                   # Jupyter message types
 ```
@@ -154,10 +163,30 @@ src/
 import "@/components/widgets/controls";  // Registers all widgets
 import { WidgetStoreProvider, useWidgetStoreRequired } from "@/components/widgets/widget-store-context";
 import { WidgetView } from "@/components/widgets/widget-view";
-import { MediaRouter } from "@/components/media-router";
+import { MediaRouter } from "@/components/outputs/media-router";
+import { MediaProvider } from "@/components/outputs/media-provider";
+import { AnsiStreamOutput, AnsiErrorOutput } from "@/components/outputs/ansi-output";
 ```
 
-### Output rendering:
+### Output rendering with MediaProvider:
+```typescript
+// Wrap app with providers
+<WidgetStoreProvider sendMessage={sendToKernel}>
+  <MediaProvider
+    renderers={{
+      "application/vnd.jupyter.widget-view+json": ({ data }) => {
+        const { model_id } = data as { model_id: string };
+        return <WidgetView modelId={model_id} />;
+      },
+    }}
+  >
+    {/* All nested MediaRouters inherit the widget renderer */}
+    <OutputArea outputs={cell.outputs} />
+  </MediaProvider>
+</WidgetStoreProvider>
+```
+
+### Direct output rendering:
 ```typescript
 // Widget outputs
 const widgetData = output.data["application/vnd.jupyter.widget-view+json"];
@@ -168,6 +197,15 @@ if (widgetData?.model_id) {
 // Standard outputs via MediaRouter
 return <MediaRouter data={output.data} metadata={output.metadata} />;
 ```
+
+## Known Issues Filed Upstream
+
+| Issue | Description | Status |
+|-------|-------------|--------|
+| [#100](https://github.com/nteract/elements/issues/100) | Missing widget files in registry | Fixed |
+| [#101](https://github.com/nteract/elements/issues/101) | Wrong import paths for shadcn primitives | Fixed |
+| [#106](https://github.com/nteract/elements/issues/106) | json-output imports collapsible from wrong path | Fixed |
+| [#115](https://github.com/nteract/elements/issues/115) | Missing files: audio-widget, video-widget, button-style-utils | Open - manually added |
 
 ## tqdm Fix Summary
 
@@ -188,9 +226,18 @@ import time
 for filename in tqdm(["a.txt", "b.txt", "c.txt"]):
     for _ in tqdm(range(100), leave=False):
         time.sleep(0.01)
-```
 
-Expected: Inner bars disappear when complete, outer bar shows progress correctly.
+# Output widget test
+import ipywidgets as widgets
+out = widgets.Output()
+with out:
+    print("Captured output!")
+display(out)
+
+# Audio/Video test
+from IPython.display import Audio, Video
+Audio(url="https://example.com/audio.mp3")
+```
 
 ## Build
 
@@ -199,4 +246,11 @@ cd crates/sidecar/ui
 npm run build
 ```
 
-Current build size: ~740KB index.js (includes KaTeX for HTMLMath widget)
+Current build size: ~747KB index.js (includes KaTeX for HTMLMath widget)
+
+## Next Steps
+
+1. **Integrate MediaProvider** - Consider wrapping the app with MediaProvider to share widget renderers
+2. **Test OutputWidget** - Verify `widgets.Output()` captures work correctly
+3. **Test Audio/Video widgets** - Verify media playback works
+4. **Monitor #115** - Once fixed upstream, remove manually added files
