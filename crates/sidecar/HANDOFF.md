@@ -15,14 +15,23 @@ The sidecar has full Jupyter output rendering and ipywidgets support via the `@n
 7. **Widget debugger panel** - Sheet-based inspector at `src/components/widget-debugger.tsx`
 8. **TimePicker** - Fixed upstream (#119)
 9. **Audio/Video from_url()** - Fixed upstream (#120), binary data handled correctly
-10. **jslink/jsdlink** - Working via local LinkWidget + HeadlessWidgets component
+10. **jslink/jsdlink** - Working via local LinkWidget + HeadlessWidgets component (temporary approach)
 
 ### What's Pending
 
 | Widget | Issue | Status |
 |--------|-------|--------|
 | **DatePicker** | ipywidgets uses `date` not `day` for day-of-month | [#125](https://github.com/nteract/elements/issues/125) open |
-| **jslink/link upstream** | Need LinkModel/DirectionalLinkModel in registry | [#121](https://github.com/nteract/elements/issues/121) / PR #127 pending |
+| **jslink/link upstream** | Store-layer approach in PR #127 | [#121](https://github.com/nteract/elements/issues/121) / PR #127 pending |
+
+### Upcoming: Store-Layer jslink (PR #127)
+
+PR #127 is moving link logic into the comm router / store layer instead of React components. When `createModel` sees a `LinkModel` or `DirectionalLinkModel`, it sets up subscriptions directly in the store. Benefits:
+- No component mounting required
+- Works everywhere including iframes
+- Store handles syncing without React lifecycle
+
+Once merged, the `HeadlessWidgets` component and local `link-widget.tsx` can be removed.
 
 ### Branch & PR
 
@@ -62,29 +71,24 @@ npx shadcn@latest add @nteract/all -yo
 npm run build
 ```
 
-### Post-Install: Add Link Widgets (until PR #127 merges)
+### Post-Install: Link Widgets
 
-1. Copy `link-widget.tsx` from this repo to `src/components/widgets/controls/`
-2. Add to `controls/index.ts`:
-   ```typescript
-   import { DirectionalLinkWidget, LinkWidget } from "./link-widget";
-   registerWidget("LinkModel", LinkWidget);
-   registerWidget("DirectionalLinkModel", DirectionalLinkWidget);
-   ```
+**Current (temporary):** Copy `link-widget.tsx` and add `HeadlessWidgets` component (see below).
+
+**After PR #127 merges:** Just update from registry - link logic will be in the store layer, no component needed.
 
 ## Key Integration Points
 
-### App.tsx Structure
+### App.tsx Structure (Current - with HeadlessWidgets)
 
 ```typescript
 import "@/components/widgets/controls";  // Registers all widgets
 import { WidgetStoreProvider, useWidgetModels } from "@/components/widgets/widget-store-context";
 import { WidgetView } from "@/components/widgets/widget-view";
 import { getWidgetComponent } from "@/components/widgets/widget-registry";
-import { MediaRouter } from "@/components/outputs/media-router";
 import { MediaProvider } from "@/components/outputs/media-provider";
 
-// HeadlessWidgets - REQUIRED for jslink/jsdlink to work
+// HeadlessWidgets - TEMPORARY, needed until PR #127 merges
 // Mounts widgets with _view_name: null so their useEffect hooks run
 function HeadlessWidgets() {
   const models = useWidgetModels();
@@ -116,7 +120,7 @@ export default function App() {
           },
         }}
       >
-        <HeadlessWidgets />  {/* Must be inside providers */}
+        <HeadlessWidgets />  {/* Remove after PR #127 */}
         <AppContent />
       </MediaProvider>
     </WidgetStoreProvider>
@@ -124,7 +128,33 @@ export default function App() {
 }
 ```
 
-**Important:** The `HeadlessWidgets` component is required because `LinkModel` has `_view_name: null` and isn't a child of any container. Without mounting it, the React `useEffect` that sets up property sync never runs.
+### App.tsx Structure (After PR #127 - simpler)
+
+```typescript
+import "@/components/widgets/controls";
+import { WidgetStoreProvider } from "@/components/widgets/widget-store-context";
+import { WidgetView } from "@/components/widgets/widget-view";
+import { MediaProvider } from "@/components/outputs/media-provider";
+
+export default function App() {
+  return (
+    <WidgetStoreProvider sendMessage={sendToKernel}>
+      <MediaProvider
+        renderers={{
+          "application/vnd.jupyter.widget-view+json": ({ data }) => {
+            const { model_id } = data as { model_id: string };
+            return <WidgetView modelId={model_id} />;
+          },
+        }}
+      >
+        <AppContent />
+      </MediaProvider>
+    </WidgetStoreProvider>
+  );
+}
+```
+
+No HeadlessWidgets needed - link subscriptions are set up in the store when models are created.
 
 ## File Structure
 
@@ -223,6 +253,6 @@ npm run build
 
 ## Next Steps
 
-1. **Monitor #125** - DatePicker `date` vs `day` fix
-2. **Monitor PR #127** - Once merged, update from registry and remove local link-widget.tsx
-3. **Document HeadlessWidgets pattern** - Ensure PR #127 docs mention this requirement
+1. **Test PR #127** - When ready, pull updated widget-store and test jslink without HeadlessWidgets
+2. **Monitor #125** - DatePicker `date` vs `day` fix
+3. **Clean up after PR #127** - Remove HeadlessWidgets component and local link-widget.tsx
