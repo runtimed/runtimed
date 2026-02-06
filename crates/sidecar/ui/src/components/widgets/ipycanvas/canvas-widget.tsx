@@ -4,8 +4,9 @@
  * ipycanvas Canvas widget.
  *
  * Renders an HTML <canvas> element and processes drawing commands sent from
- * Python via the ipycanvas binary protocol. Commands arrive as custom messages
- * on the CanvasManagerModel and are executed on the canvas 2D context.
+ * Python via the ipycanvas binary protocol. The CanvasManagerWidget receives
+ * all commands, parses switchCanvas routing, and re-emits to each target
+ * canvas's comm_id. Each CanvasWidget subscribes only to its own messages.
  *
  * @see https://ipycanvas.readthedocs.io/
  */
@@ -13,12 +14,11 @@
 import { useCallback, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import type { WidgetComponentProps } from "../widget-registry";
-import { parseModelRef } from "../widget-store";
 import {
   useWidgetModelValue,
   useWidgetStoreRequired,
 } from "../widget-store-context";
-import { getTypedArray, processCommands } from "./ipycanvas-commands";
+import { COMMANDS, getTypedArray, processCommands } from "./ipycanvas-commands";
 
 // === CanvasWidget ===
 
@@ -29,16 +29,9 @@ export function CanvasWidget({ modelId, className }: WidgetComponentProps) {
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   // Track an async command processing chain so commands execute in order
   const processingRef = useRef<Promise<void>>(Promise.resolve());
-  // Track which canvas the manager last targeted via switchCanvas.
-  // In non-caching mode (the default, without hold_canvas()), each drawing
-  // command is a separate custom message. We need to persist the switchCanvas
-  // target across messages so each canvas only processes its own commands.
-  const activeCanvasRef = useRef<string | null>(null);
 
   const width = useWidgetModelValue<number>(modelId, "width") ?? 200;
   const height = useWidgetModelValue<number>(modelId, "height") ?? 200;
-  const canvasManagerRef =
-    useWidgetModelValue<string>(modelId, "_canvas_manager") ?? null;
   const sendClientReady =
     useWidgetModelValue<boolean>(modelId, "_send_client_ready_event") ?? true;
   const imageData = useWidgetModelValue<Uint8ClampedArray | null>(
@@ -67,18 +60,11 @@ export function CanvasWidget({ modelId, className }: WidgetComponentProps) {
     img.src = url;
   }, [imageData]);
 
-  // Subscribe to custom messages on the CanvasManagerModel, then send client_ready.
-  // These must be in the same effect so the subscription is active before
-  // Python replays drawing commands in response to client_ready.
+  // Subscribe to custom messages routed to this canvas by the CanvasManagerWidget,
+  // then send client_ready. Subscribe first so replayed commands are received.
   useEffect(() => {
-    if (!canvasManagerRef) return;
-
-    const managerModelId = parseModelRef(canvasManagerRef);
-    if (!managerModelId) return;
-
-    // Subscribe FIRST
     const unsubscribe = store.subscribeToCustomMessage(
-      managerModelId,
+      modelId,
       (content, buffers) => {
         const canvas = canvasRef.current;
         const ctx = ctxRef.current;
@@ -96,24 +82,14 @@ export function CanvasWidget({ modelId, className }: WidgetComponentProps) {
             // Remaining buffers are binary data for batch operations
             const dataBuffers = buffers.slice(1);
 
-            // Determine if this canvas is the active target based on the
-            // last switchCanvas we saw. Start inactive — a canvas should not
-            // draw until switchCanvas explicitly targets it.
-            const isActive = activeCanvasRef.current === modelId;
-
-            const result = await processCommands(
+            await processCommands(
               ctx,
               commands,
               dataBuffers,
               canvas,
               modelId,
-              isActive,
+              true,
             );
-
-            // Persist switchCanvas target across messages
-            if (result.switchedTo !== null) {
-              activeCanvasRef.current = result.switchedTo;
-            }
           } catch (err) {
             console.warn("[ipycanvas] Error processing commands:", err);
           }
@@ -121,14 +97,12 @@ export function CanvasWidget({ modelId, className }: WidgetComponentProps) {
       },
     );
 
-    // THEN send client_ready — subscription is now active so
-    // replayed commands from Python will be received
     if (sendClientReady) {
       sendCustom(modelId, { event: "client_ready" });
     }
 
     return unsubscribe;
-  }, [canvasManagerRef, store, modelId, sendClientReady, sendCustom]);
+  }, [store, modelId, sendClientReady, sendCustom]);
 
   // Mouse event helpers
   const getCoordinates = useCallback(
@@ -223,10 +197,82 @@ export function CanvasWidget({ modelId, className }: WidgetComponentProps) {
 // === CanvasManagerWidget ===
 
 /**
- * Headless widget for CanvasManagerModel.
- * The manager coordinates drawing commands but has no visual representation.
- * Command processing is handled via custom message subscriptions from CanvasWidget.
+ * Walk a command structure and collect switchCanvas target IDs.
+ * Updates currentTargetRef as a side effect so subsequent messages
+ * without switchCanvas route to the last known target.
  */
-export function CanvasManagerWidget(_props: WidgetComponentProps) {
+function collectSwitchCanvasTargets(
+  commands: unknown,
+  currentTargetRef: React.MutableRefObject<string | null>,
+  targets: Set<string>,
+): void {
+  if (!Array.isArray(commands) || commands.length === 0) return;
+
+  if (Array.isArray(commands[0])) {
+    // Batch: array of commands
+    for (const sub of commands) {
+      collectSwitchCanvasTargets(sub, currentTargetRef, targets);
+    }
+  } else {
+    // Single command: [cmdIndex, args?, nBuffers?]
+    const cmdIndex = commands[0] as number;
+    if (COMMANDS[cmdIndex] === "switchCanvas") {
+      const args = commands[1] as string[] | undefined;
+      const ref = args?.[0] ?? "";
+      const targetId = ref.startsWith("IPY_MODEL_") ? ref.slice(10) : ref;
+      currentTargetRef.current = targetId;
+      targets.add(targetId);
+    }
+  }
+}
+
+/**
+ * Dispatcher widget for CanvasManagerModel.
+ *
+ * The manager receives ALL drawing commands from Python, parses switchCanvas
+ * to determine the target canvas, and re-emits each message to that canvas's
+ * comm_id. This isolates canvases from each other — no shared routing state.
+ */
+export function CanvasManagerWidget({ modelId }: WidgetComponentProps) {
+  const { store } = useWidgetStoreRequired();
+  const currentTargetRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = store.subscribeToCustomMessage(
+      modelId,
+      (content, buffers) => {
+        if (!buffers || buffers.length === 0) return;
+
+        try {
+          // Parse commands to find switchCanvas targets
+          const metadata = content as { dtype: string };
+          const typedArray = getTypedArray(buffers[0], metadata);
+          const jsonStr = new TextDecoder("utf-8").decode(typedArray);
+          const commands = JSON.parse(jsonStr);
+
+          // Walk commands, update currentTarget on switchCanvas,
+          // collect all unique target IDs in this message
+          const targets = new Set<string>();
+          collectSwitchCanvasTargets(commands, currentTargetRef, targets);
+
+          // If no switchCanvas in this message, route to current target
+          if (targets.size === 0 && currentTargetRef.current) {
+            targets.add(currentTargetRef.current);
+          }
+
+          // Re-emit to each target canvas's comm_id
+          const rawBuffers = buffers.map((dv) => dv.buffer as ArrayBuffer);
+          for (const targetId of targets) {
+            store.emitCustomMessage(targetId, content, rawBuffers);
+          }
+        } catch (err) {
+          console.warn("[ipycanvas] Manager routing error:", err);
+        }
+      },
+    );
+
+    return unsubscribe;
+  }, [store, modelId]);
+
   return null;
 }
