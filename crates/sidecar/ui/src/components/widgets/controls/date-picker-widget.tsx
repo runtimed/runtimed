@@ -16,22 +16,24 @@ import {
   useWidgetStoreRequired,
 } from "../widget-store-context";
 
-// Convert Date object or ISO string to YYYY-MM-DD format for input
-function toDateString(value: Date | string | null): string {
+type IpyDate = { year: number; month: number; day: number } | null;
+
+// Convert ipywidgets date object to YYYY-MM-DD format for input
+function toDateString(value: IpyDate): string {
   if (!value) return "";
-  const date = typeof value === "string" ? new Date(value) : value;
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString().split("T")[0];
+  const year = String(value.year).padStart(4, "0");
+  const month = String(value.month + 1).padStart(2, "0");
+  const day = String(value.day).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export function DatePickerWidget({ modelId, className }: WidgetComponentProps) {
   const { sendUpdate } = useWidgetStoreRequired();
 
   // Subscribe to individual state keys
-  const value =
-    useWidgetModelValue<Date | string | null>(modelId, "value") ?? null;
-  const min = useWidgetModelValue<Date | string | null>(modelId, "min") ?? null;
-  const max = useWidgetModelValue<Date | string | null>(modelId, "max") ?? null;
+  const value = useWidgetModelValue<IpyDate>(modelId, "value") ?? null;
+  const min = useWidgetModelValue<IpyDate>(modelId, "min") ?? null;
+  const max = useWidgetModelValue<IpyDate>(modelId, "max") ?? null;
   const description = useWidgetModelValue<string>(modelId, "description");
   const disabled = useWidgetModelValue<boolean>(modelId, "disabled") ?? false;
 
@@ -39,8 +41,8 @@ export function DatePickerWidget({ modelId, className }: WidgetComponentProps) {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const newValue = e.target.value;
       if (newValue) {
-        // Send as ISO date object compatible format
-        sendUpdate(modelId, { value: new Date(newValue).toISOString() });
+        const [year, month, day] = newValue.split("-").map(Number);
+        sendUpdate(modelId, { value: { year, month: month - 1, day } });
       } else {
         sendUpdate(modelId, { value: null });
       }

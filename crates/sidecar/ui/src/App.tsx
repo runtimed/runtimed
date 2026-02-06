@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { MediaRouter } from "@/components/outputs/media-router";
+import { MediaProvider } from "@/components/outputs/media-provider";
 // Register built-in ipywidgets (IntSlider, etc.)
 import "@/components/widgets/controls";
 import {
@@ -10,8 +11,10 @@ import { WidgetDebugger } from "@/components/widget-debugger";
 import {
   WidgetStoreProvider,
   useWidgetStoreRequired,
+  useWidgetModels,
 } from "@/components/widgets/widget-store-context";
 import { WidgetView } from "@/components/widgets/widget-view";
+import { getWidgetComponent } from "@/components/widgets/widget-registry";
 import type {
   JupyterMessage,
   JupyterOutput,
@@ -26,6 +29,36 @@ import {
   isClearOutput,
 } from "./types";
 import { cn } from "@/lib/utils";
+
+/**
+ * HeadlessWidgets - mounts widgets that have no view (like LinkModel).
+ *
+ * These widgets return null but need to be rendered so their useEffect
+ * hooks run (e.g., to set up property synchronization for jslink).
+ */
+function HeadlessWidgets() {
+  const models = useWidgetModels();
+
+  // Find all headless widgets (those with _view_name: null)
+  const headlessWidgetIds: string[] = [];
+  models.forEach((model, id) => {
+    if (model.state._view_name === null) {
+      // Check if we have a component registered for this widget
+      const Component = getWidgetComponent(model.modelName);
+      if (Component) {
+        headlessWidgetIds.push(id);
+      }
+    }
+  });
+
+  return (
+    <>
+      {headlessWidgetIds.map((modelId) => (
+        <WidgetView key={modelId} modelId={modelId} />
+      ))}
+    </>
+  );
+}
 
 interface OutputCellProps {
   output: JupyterOutput;
@@ -54,20 +87,8 @@ function OutputCell({ output, index }: OutputCellProps) {
     );
   }
 
-  // Check for widget output
-  const widgetData = output.data["application/vnd.jupyter.widget-view+json"] as
-    | { model_id: string }
-    | undefined;
-
-  if (widgetData?.model_id) {
-    return (
-      <div className="output-cell widget-output px-4" data-index={index}>
-        <WidgetView modelId={widgetData.model_id} />
-      </div>
-    );
-  }
-
-  // display_data or execute_result (non-widget)
+  // display_data or execute_result - MediaRouter handles widget detection
+  // via the injected renderer from MediaProvider
   return (
     <div className="output-cell" data-index={index}>
       {output.execution_count != null && (
@@ -297,7 +318,17 @@ export default function App() {
 
   return (
     <WidgetStoreProvider sendMessage={sendMessage}>
-      <AppContent />
+      <MediaProvider
+        renderers={{
+          "application/vnd.jupyter.widget-view+json": ({ data }) => {
+            const { model_id } = data as { model_id: string };
+            return <WidgetView modelId={model_id} />;
+          },
+        }}
+      >
+        <HeadlessWidgets />
+        <AppContent />
+      </MediaProvider>
     </WidgetStoreProvider>
   );
 }

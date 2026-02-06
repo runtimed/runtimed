@@ -1,3 +1,10 @@
+/**
+ * Built-in widget components for @jupyter-widgets/controls.
+ *
+ * This module registers all built-in widget components with the widget registry.
+ * Import this module to enable rendering of standard ipywidgets.
+ */
+
 import { registerWidget } from "../widget-registry";
 import { AccordionWidget } from "./accordion-widget";
 import { AudioWidget } from "./audio-widget";
@@ -13,6 +20,7 @@ import { ControllerAxisWidget } from "./controller-axis-widget";
 import { ControllerButtonWidget } from "./controller-button-widget";
 import { ControllerWidget } from "./controller-widget";
 import { DatePickerWidget } from "./date-picker-widget";
+import { DatetimeWidget } from "./datetime-widget";
 // Selection widgets
 import { DropdownWidget } from "./dropdown-widget";
 import { FileUploadWidget } from "./file-upload-widget";
@@ -21,6 +29,7 @@ import { FloatProgress } from "./float-progress";
 import { FloatRangeSlider } from "./float-range-slider";
 import { FloatSlider } from "./float-slider";
 import { FloatTextWidget } from "./float-text-widget";
+import { FloatsInputWidget } from "./floats-input-widget";
 import { GridBoxWidget } from "./gridbox-widget";
 import { HBoxWidget } from "./hbox-widget";
 import { HTMLMathWidget } from "./html-math-widget";
@@ -31,7 +40,9 @@ import { IntRangeSlider } from "./int-range-slider";
 // Import widget components
 import { IntSlider } from "./int-slider";
 import { IntTextWidget } from "./int-text-widget";
+import { IntsInputWidget } from "./ints-input-widget";
 import { LabelWidget } from "./label-widget";
+import { DirectionalLinkWidget, LinkWidget } from "./link-widget";
 import { OutputWidget } from "./output-widget";
 import { PasswordWidget } from "./password-widget";
 import { PlayWidget } from "./play-widget";
@@ -40,6 +51,7 @@ import { SelectMultipleWidget } from "./select-multiple-widget";
 import { SelectWidget } from "./select-widget";
 import { SelectionRangeSliderWidget } from "./selection-range-slider-widget";
 import { SelectionSliderWidget } from "./selection-slider-widget";
+import { StackWidget } from "./stack-widget";
 import { TabWidget } from "./tab-widget";
 import { TagsInputWidget } from "./tags-input-widget";
 import { TextWidget } from "./text-widget";
@@ -75,7 +87,10 @@ registerWidget("AudioModel", AudioWidget);
 registerWidget("VideoModel", VideoWidget);
 registerWidget("ColorPickerModel", ColorPicker);
 registerWidget("DatePickerModel", DatePickerWidget);
+registerWidget("DatetimeModel", DatetimeWidget);
+registerWidget("NaiveDatetimeModel", DatetimeWidget);
 registerWidget("TimePickerModel", TimePickerWidget);
+registerWidget("TimeModel", TimePickerWidget);
 // Numeric text inputs
 registerWidget("IntTextModel", IntTextWidget);
 registerWidget("FloatTextModel", FloatTextWidget);
@@ -94,7 +109,13 @@ registerWidget("ToggleButtonsModel", ToggleButtonsWidget);
 // Multi-value inputs
 registerWidget("TagsInputModel", TagsInputWidget);
 registerWidget("ColorsInputModel", ColorsInputWidget);
+registerWidget("IntsInputModel", IntsInputWidget);
+registerWidget("FloatsInputModel", FloatsInputWidget);
 registerWidget("FileUploadModel", FileUploadWidget);
+
+// Link widgets (frontend-only property synchronization)
+registerWidget("LinkModel", LinkWidget);
+registerWidget("DirectionalLinkModel", DirectionalLinkWidget);
 
 // Register layout widgets
 registerWidget("VBoxModel", VBoxWidget);
@@ -103,6 +124,7 @@ registerWidget("BoxModel", BoxWidget);
 registerWidget("GridBoxModel", GridBoxWidget);
 registerWidget("AccordionModel", AccordionWidget);
 registerWidget("TabModel", TabWidget);
+registerWidget("StackModel", StackWidget);
 
 // Controller widgets (Gamepad API)
 registerWidget("ControllerModel", ControllerWidget);
@@ -126,6 +148,7 @@ export { ControllerAxisWidget } from "./controller-axis-widget";
 export { ControllerButtonWidget } from "./controller-button-widget";
 export { ControllerWidget } from "./controller-widget";
 export { DatePickerWidget } from "./date-picker-widget";
+export { DatetimeWidget } from "./datetime-widget";
 // Selection widgets
 export { DropdownWidget } from "./dropdown-widget";
 export { FileUploadWidget } from "./file-upload-widget";
@@ -134,6 +157,7 @@ export { FloatProgress } from "./float-progress";
 export { FloatRangeSlider } from "./float-range-slider";
 export { FloatSlider } from "./float-slider";
 export { FloatTextWidget } from "./float-text-widget";
+export { FloatsInputWidget } from "./floats-input-widget";
 export { GridBoxWidget } from "./gridbox-widget";
 export { HBoxWidget } from "./hbox-widget";
 export { HTMLMathWidget } from "./html-math-widget";
@@ -144,7 +168,9 @@ export { IntRangeSlider } from "./int-range-slider";
 // Re-export components for direct use
 export { IntSlider } from "./int-slider";
 export { IntTextWidget } from "./int-text-widget";
+export { IntsInputWidget } from "./ints-input-widget";
 export { LabelWidget } from "./label-widget";
+export { DirectionalLinkWidget, LinkWidget } from "./link-widget";
 export { OutputWidget } from "./output-widget";
 export { PasswordWidget } from "./password-widget";
 export { PlayWidget } from "./play-widget";
@@ -153,6 +179,7 @@ export { SelectMultipleWidget } from "./select-multiple-widget";
 export { SelectWidget } from "./select-widget";
 export { SelectionRangeSliderWidget } from "./selection-range-slider-widget";
 export { SelectionSliderWidget } from "./selection-slider-widget";
+export { StackWidget } from "./stack-widget";
 export { TabWidget } from "./tab-widget";
 export { TagsInputWidget } from "./tags-input-widget";
 export { TextWidget } from "./text-widget";

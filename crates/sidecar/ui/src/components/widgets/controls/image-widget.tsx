@@ -8,29 +8,22 @@
 
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { buildMediaSrc } from "../buffer-utils";
 import type { WidgetComponentProps } from "../widget-registry";
 import { useWidgetModelValue } from "../widget-store-context";
 
 export function ImageWidget({ modelId, className }: WidgetComponentProps) {
-  const value = useWidgetModelValue<string>(modelId, "value") ?? "";
+  const value = useWidgetModelValue<string | ArrayBuffer>(modelId, "value");
   const format = useWidgetModelValue<string>(modelId, "format") ?? "png";
   const width = useWidgetModelValue<string>(modelId, "width") ?? "";
   const height = useWidgetModelValue<string>(modelId, "height") ?? "";
   const description = useWidgetModelValue<string>(modelId, "description");
 
-  if (!value) {
+  const src = buildMediaSrc(value, "image", format);
+
+  if (!src) {
     return null;
   }
-
-  // Construct data URL from base64 value
-  // If already a data URL or regular URL, use as-is
-  const src =
-    value.startsWith("data:") ||
-    value.startsWith("http://") ||
-    value.startsWith("https://") ||
-    value.startsWith("/")
-      ? value
-      : `data:image/${format};base64,${value}`;
 
   // Build style object for width/height
   const style: React.CSSProperties = {};

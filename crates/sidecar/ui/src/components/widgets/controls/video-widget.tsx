@@ -9,11 +9,12 @@
 import { useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { buildMediaSrc } from "../buffer-utils";
 import type { WidgetComponentProps } from "../widget-registry";
 import { useWidgetModelValue } from "../widget-store-context";
 
 export function VideoWidget({ modelId, className }: WidgetComponentProps) {
-  const value = useWidgetModelValue<string>(modelId, "value") ?? "";
+  const value = useWidgetModelValue<string | ArrayBuffer>(modelId, "value");
   const format = useWidgetModelValue<string>(modelId, "format") ?? "mp4";
   const width = useWidgetModelValue<string>(modelId, "width") ?? "";
   const height = useWidgetModelValue<string>(modelId, "height") ?? "";
@@ -22,18 +23,10 @@ export function VideoWidget({ modelId, className }: WidgetComponentProps) {
   const controls = useWidgetModelValue<boolean>(modelId, "controls") ?? true;
   const description = useWidgetModelValue<string>(modelId, "description");
 
-  const src = useMemo(() => {
-    if (!value) return undefined;
-    if (
-      value.startsWith("data:") ||
-      value.startsWith("http://") ||
-      value.startsWith("https://") ||
-      value.startsWith("/")
-    ) {
-      return value;
-    }
-    return `data:video/${format};base64,${value}`;
-  }, [value, format]);
+  const src = useMemo(
+    () => buildMediaSrc(value, "video", format),
+    [value, format],
+  );
 
   if (!value) {
     return null;

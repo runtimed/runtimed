@@ -1,13 +1,3 @@
-/**
- * Shared utility for mapping ipywidgets button_style to shadcn Button
- * variant + Tailwind className overrides.
- *
- * The shadcn Button only has default, destructive, outline, secondary, ghost,
- * link variants — no info/success/warning. We use the "default" variant as a
- * base and apply Tailwind color classes via className. tailwind-merge resolves
- * the conflict in favor of our overrides.
- */
-
 type ButtonStyleVariant = "default" | "destructive" | "outline";
 
 interface ButtonStyleResult {

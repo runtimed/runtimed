@@ -53,7 +53,9 @@ export function TimePickerWidget({ modelId, className }: WidgetComponentProps) {
       const newValue = e.target.value;
       if (newValue) {
         const [hours, minutes] = newValue.split(":").map(Number);
-        sendUpdate(modelId, { value: { hours, minutes, seconds: 0 } });
+        sendUpdate(modelId, {
+          value: { hours, minutes, seconds: 0, milliseconds: 0 },
+        });
       } else {
         sendUpdate(modelId, { value: null });
       }

@@ -9,29 +9,22 @@
 import { useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { buildMediaSrc } from "../buffer-utils";
 import type { WidgetComponentProps } from "../widget-registry";
 import { useWidgetModelValue } from "../widget-store-context";
 
 export function AudioWidget({ modelId, className }: WidgetComponentProps) {
-  const value = useWidgetModelValue<string>(modelId, "value") ?? "";
+  const value = useWidgetModelValue<string | ArrayBuffer>(modelId, "value");
   const format = useWidgetModelValue<string>(modelId, "format") ?? "mp3";
   const autoplay = useWidgetModelValue<boolean>(modelId, "autoplay") ?? true;
   const loop = useWidgetModelValue<boolean>(modelId, "loop") ?? true;
   const controls = useWidgetModelValue<boolean>(modelId, "controls") ?? true;
   const description = useWidgetModelValue<string>(modelId, "description");
 
-  const src = useMemo(() => {
-    if (!value) return undefined;
-    if (
-      value.startsWith("data:") ||
-      value.startsWith("http://") ||
-      value.startsWith("https://") ||
-      value.startsWith("/")
-    ) {
-      return value;
-    }
-    return `data:audio/${format};base64,${value}`;
-  }, [value, format]);
+  const src = useMemo(
+    () => buildMediaSrc(value, "audio", format),
+    [value, format],
+  );
 
   if (!value) {
     return null;
