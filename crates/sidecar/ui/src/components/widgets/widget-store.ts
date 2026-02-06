@@ -1,3 +1,12 @@
+/**
+ * Pure React widget model store for Jupyter widgets.
+ *
+ * This replaces the Backbone.js-based model system from @jupyter-widgets/html-manager
+ * with a pure JavaScript store that integrates with React via useSyncExternalStore.
+ */
+
+// === Types ===
+
 export interface WidgetModel {
   /** comm_id from the Jupyter protocol */
   id: string;
@@ -125,12 +134,12 @@ export function createWidgetStore(): WidgetStore {
   const customListeners = new Map<string, Set<CustomMessageCallback>>();
 
   // Buffered custom messages for comm_ids with no listeners yet
-  // This handles the race condition where messages arrive before widgets subscribe
-  // Structure: commId -> Array<{content, buffers}>
+  // Structure: commId -> Array<{ content, buffers }>
   const customMessageBuffer = new Map<
     string,
     Array<{ content: Record<string, unknown>; buffers?: DataView[] }>
   >();
+  const MAX_BUFFERED_MESSAGES = 1000;
 
   // Notify all global listeners that something changed
   function emitChange() {
@@ -229,9 +238,10 @@ export function createWidgetStore(): WidgetStore {
       models = new Map(models);
       models.delete(commId);
 
-      // Clean up listeners for this model
+      // Clean up listeners and buffered messages for this model
       keyListeners.delete(commId);
       customListeners.delete(commId);
+      customMessageBuffer.delete(commId);
 
       emitChange();
     },
@@ -278,19 +288,21 @@ export function createWidgetStore(): WidgetStore {
         b instanceof DataView ? b : new DataView(b),
       );
 
+      // Always buffer the message for future subscribers
+      if (!customMessageBuffer.has(commId)) {
+        customMessageBuffer.set(commId, []);
+      }
+      const buffer = customMessageBuffer.get(commId)!;
+      buffer.push({ content, buffers: dataViewBuffers });
+      // Evict oldest messages if over limit
+      if (buffer.length > MAX_BUFFERED_MESSAGES) {
+        buffer.splice(0, buffer.length - MAX_BUFFERED_MESSAGES);
+      }
+
+      // Also deliver to any existing subscribers immediately
       const callbacks = customListeners.get(commId);
       if (callbacks && callbacks.size > 0) {
         callbacks.forEach((cb) => cb(content, dataViewBuffers));
-      } else {
-        // No listeners yet - buffer the message for later delivery
-        // This handles widgets like ipycanvas where the manager's comm_open
-        // may have been missed (singleton created before sidecar connected)
-        if (!customMessageBuffer.has(commId)) {
-          customMessageBuffer.set(commId, []);
-        }
-        customMessageBuffer
-          .get(commId)
-          ?.push({ content, buffers: dataViewBuffers });
       }
     },
 
@@ -304,17 +316,13 @@ export function createWidgetStore(): WidgetStore {
       }
       customListeners.get(commId)?.add(callback);
 
-      // Flush any buffered messages to this new listener
+      // Flush any buffered messages to this new subscriber
+      // Don't delete the buffer - other subscribers may join later
       const buffered = customMessageBuffer.get(commId);
       if (buffered && buffered.length > 0) {
-        // Deliver buffered messages asynchronously to avoid blocking
-        setTimeout(() => {
-          buffered.forEach(({ content, buffers }) => {
-            callback(content, buffers);
-          });
-        }, 0);
-        // Clear the buffer after scheduling delivery
-        customMessageBuffer.delete(commId);
+        for (const msg of buffered) {
+          callback(msg.content, msg.buffers);
+        }
       }
 
       // Return unsubscribe function
