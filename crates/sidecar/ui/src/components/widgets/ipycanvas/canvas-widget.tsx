@@ -4,11 +4,8 @@
  * ipycanvas Canvas widget.
  *
  * Renders an HTML <canvas> element and processes drawing commands sent from
- * Python via the ipycanvas binary protocol. Drawing commands are sent to a
- * singleton CanvasManagerModel which never renders (_view_name: null).
- * Store-level routing (ensureManagerRouting) subscribes to the manager's
- * messages, parses switchCanvas targets, and re-emits to each canvas's
- * comm_id — no React component mounting required.
+ * Python via the ipycanvas binary protocol. Drawing commands arrive at each
+ * canvas's comm_id, routed by createCanvasManagerRouter at the store level.
  *
  * @see https://ipycanvas.readthedocs.io/
  */
@@ -17,119 +14,10 @@ import { useCallback, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import type { WidgetComponentProps } from "../widget-registry";
 import {
-  parseModelRef,
   useWidgetModelValue,
   useWidgetStoreRequired,
-  type WidgetStore,
 } from "../widget-store-context";
-import { COMMANDS, getTypedArray, processCommands } from "./ipycanvas-commands";
-
-// === Store-Level Manager Routing ===
-
-// Ref-counted subscriptions for CanvasManagerModel message routing.
-// CanvasManagerModel is a headless widget (_view_name: null) — it never
-// renders, so routing can't live in a React component. Each CanvasWidget
-// that references a manager calls ensureManagerRouting() in its effect.
-const managerRouting = new Map<
-  string,
-  { refCount: number; unsubscribe: () => void }
->();
-
-/**
- * Walk a command structure and collect switchCanvas target IDs.
- * Calls setTarget as a side effect so subsequent messages without
- * switchCanvas route to the last known target.
- */
-function collectSwitchCanvasTargets(
-  commands: unknown,
-  targets: Set<string>,
-  setTarget: (id: string) => void,
-): void {
-  if (!Array.isArray(commands) || commands.length === 0) return;
-
-  if (Array.isArray(commands[0])) {
-    for (const sub of commands) {
-      collectSwitchCanvasTargets(sub, targets, setTarget);
-    }
-  } else {
-    const cmdIndex = commands[0] as number;
-    if (COMMANDS[cmdIndex] === "switchCanvas") {
-      const args = commands[1] as string[] | undefined;
-      const ref = args?.[0] ?? "";
-      const targetId = ref.startsWith("IPY_MODEL_") ? ref.slice(10) : ref;
-      setTarget(targetId);
-      targets.add(targetId);
-    }
-  }
-}
-
-/**
- * Ensure store-level routing is active for a CanvasManagerModel.
- *
- * Subscribes to the manager's custom messages, parses switchCanvas to
- * determine target canvases, and re-emits to each target's comm_id.
- * Ref-counted: first CanvasWidget creates the subscription, last tears it down.
- */
-function ensureManagerRouting(
-  store: WidgetStore,
-  managerId: string,
-): () => void {
-  const existing = managerRouting.get(managerId);
-  if (existing) {
-    existing.refCount++;
-    return () => {
-      existing.refCount--;
-      if (existing.refCount === 0) {
-        existing.unsubscribe();
-        managerRouting.delete(managerId);
-      }
-    };
-  }
-
-  let currentTarget: string | null = null;
-
-  const unsubscribe = store.subscribeToCustomMessage(
-    managerId,
-    (content, buffers) => {
-      if (!buffers || buffers.length === 0) return;
-
-      try {
-        const metadata = content as { dtype: string };
-        const typedArray = getTypedArray(buffers[0], metadata);
-        const jsonStr = new TextDecoder("utf-8").decode(typedArray);
-        const commands = JSON.parse(jsonStr);
-
-        const targets = new Set<string>();
-        collectSwitchCanvasTargets(commands, targets, (id) => {
-          currentTarget = id;
-        });
-
-        if (targets.size === 0 && currentTarget) {
-          targets.add(currentTarget);
-        }
-
-        const rawBuffers = buffers.map((dv) => dv.buffer as ArrayBuffer);
-        for (const targetId of targets) {
-          store.emitCustomMessage(targetId, content, rawBuffers);
-        }
-      } catch (err) {
-        console.warn("[ipycanvas] Manager routing error:", err);
-      }
-    },
-  );
-
-  managerRouting.set(managerId, { refCount: 1, unsubscribe });
-
-  return () => {
-    const state = managerRouting.get(managerId);
-    if (!state) return;
-    state.refCount--;
-    if (state.refCount === 0) {
-      state.unsubscribe();
-      managerRouting.delete(managerId);
-    }
-  };
-}
+import { getTypedArray, processCommands } from "./ipycanvas-commands";
 
 // === CanvasWidget ===
 
@@ -149,8 +37,6 @@ export function CanvasWidget({ modelId, className }: WidgetComponentProps) {
     modelId,
     "image_data",
   );
-  const canvasManagerRef =
-    useWidgetModelValue<string>(modelId, "_canvas_manager") ?? null;
 
   // Initialize 2D context
   useEffect(() => {
@@ -173,20 +59,10 @@ export function CanvasWidget({ modelId, className }: WidgetComponentProps) {
     img.src = url;
   }, [imageData]);
 
-  // Set up manager routing + subscribe to own messages + send client_ready.
-  // Order matters: routing first so manager messages get re-emitted to our
-  // comm_id, then subscribe so we receive them, then client_ready.
+  // Subscribe to messages routed to this canvas's comm_id, then send
+  // client_ready. Routing is handled by createCanvasManagerRouter at the
+  // store level — this widget just processes what it receives.
   useEffect(() => {
-    // Set up manager routing (ref-counted, no-ops if already active)
-    let cleanupRouting: (() => void) | undefined;
-    if (canvasManagerRef) {
-      const managerId = parseModelRef(canvasManagerRef);
-      if (managerId) {
-        cleanupRouting = ensureManagerRouting(store, managerId);
-      }
-    }
-
-    // Subscribe to messages routed to this canvas's comm_id
     const unsubscribe = store.subscribeToCustomMessage(
       modelId,
       (content, buffers) => {
@@ -225,11 +101,8 @@ export function CanvasWidget({ modelId, className }: WidgetComponentProps) {
       sendCustom(modelId, { event: "client_ready" });
     }
 
-    return () => {
-      unsubscribe();
-      cleanupRouting?.();
-    };
-  }, [store, modelId, canvasManagerRef, sendClientReady, sendCustom]);
+    return unsubscribe;
+  }, [store, modelId, sendClientReady, sendCustom]);
 
   // Mouse event helpers
   const getCoordinates = useCallback(
@@ -324,9 +197,9 @@ export function CanvasWidget({ modelId, className }: WidgetComponentProps) {
 // === CanvasManagerWidget ===
 
 /**
- * Stub for CanvasManagerModel. The actual routing happens at the store
- * level via ensureManagerRouting(), set up by each CanvasWidget.
- * CanvasManagerModel has _view_name: null and is never rendered.
+ * Stub for CanvasManagerModel. Routing is handled at the store level
+ * by createCanvasManagerRouter. CanvasManagerModel has _view_name: null
+ * and is never rendered.
  */
 export function CanvasManagerWidget(_props: WidgetComponentProps) {
   return null;

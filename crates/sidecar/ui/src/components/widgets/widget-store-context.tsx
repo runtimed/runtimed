@@ -21,6 +21,7 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
+import { createCanvasManagerRouter } from "./canvas-manager-subscriptions";
 import { createLinkManager } from "./link-subscriptions";
 import {
   type JupyterCommMessage,
@@ -91,6 +92,7 @@ export function WidgetStoreProvider({
   // Headless widgets like LinkModel have _view_name: null and won't be
   // in any container's children, so they need store-level subscriptions.
   useEffect(() => createLinkManager(store), [store]);
+  useEffect(() => createCanvasManagerRouter(store), [store]);
 
   // Use the comm router hook for message handling
   const { handleMessage, sendUpdate, sendCustom, closeComm } = useCommRouter({
@@ -235,7 +237,8 @@ export function useWasWidgetClosed(modelId: string): boolean {
   return store.wasModelClosed(modelId);
 }
 
-// Re-export link manager for non-React integrations (e.g. iframe isolation)
+// Re-export store-level managers for non-React integrations (e.g. iframe isolation)
+export { createCanvasManagerRouter } from "./canvas-manager-subscriptions";
 export { createLinkManager } from "./link-subscriptions";
 export type {
   JupyterCommMessage,
