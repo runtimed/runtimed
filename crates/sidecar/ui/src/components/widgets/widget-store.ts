@@ -124,6 +124,14 @@ export function createWidgetStore(): WidgetStore {
   // Structure: modelId -> Set<callback>
   const customListeners = new Map<string, Set<CustomMessageCallback>>();
 
+  // Buffered custom messages for comm_ids with no listeners yet
+  // This handles the race condition where messages arrive before widgets subscribe
+  // Structure: commId -> Array<{content, buffers}>
+  const customMessageBuffer = new Map<
+    string,
+    Array<{ content: Record<string, unknown>; buffers?: DataView[] }>
+  >();
+
   // Notify all global listeners that something changed
   function emitChange() {
     listeners.forEach((listener) => listener());
@@ -264,14 +272,25 @@ export function createWidgetStore(): WidgetStore {
       content: Record<string, unknown>,
       buffers?: ArrayBuffer[],
     ): void {
+      // Convert ArrayBuffer[] to DataView[] for anywidget compatibility
+      // Anywidgets access the underlying buffer via .buffer property
+      const dataViewBuffers = buffers?.map((b) =>
+        b instanceof DataView ? b : new DataView(b),
+      );
+
       const callbacks = customListeners.get(commId);
-      if (callbacks) {
-        // Convert ArrayBuffer[] to DataView[] for anywidget compatibility
-        // Anywidgets access the underlying buffer via .buffer property
-        const dataViewBuffers = buffers?.map((b) =>
-          b instanceof DataView ? b : new DataView(b),
-        );
+      if (callbacks && callbacks.size > 0) {
         callbacks.forEach((cb) => cb(content, dataViewBuffers));
+      } else {
+        // No listeners yet - buffer the message for later delivery
+        // This handles widgets like ipycanvas where the manager's comm_open
+        // may have been missed (singleton created before sidecar connected)
+        if (!customMessageBuffer.has(commId)) {
+          customMessageBuffer.set(commId, []);
+        }
+        customMessageBuffer
+          .get(commId)
+          ?.push({ content, buffers: dataViewBuffers });
       }
     },
 
@@ -284,6 +303,19 @@ export function createWidgetStore(): WidgetStore {
         customListeners.set(commId, new Set());
       }
       customListeners.get(commId)?.add(callback);
+
+      // Flush any buffered messages to this new listener
+      const buffered = customMessageBuffer.get(commId);
+      if (buffered && buffered.length > 0) {
+        // Deliver buffered messages asynchronously to avoid blocking
+        setTimeout(() => {
+          buffered.forEach(({ content, buffers }) => {
+            callback(content, buffers);
+          });
+        }, 0);
+        // Clear the buffer after scheduling delivery
+        customMessageBuffer.delete(commId);
+      }
 
       // Return unsubscribe function
       return () => {
