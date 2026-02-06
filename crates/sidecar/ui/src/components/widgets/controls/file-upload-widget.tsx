@@ -16,19 +16,7 @@ import {
   useWidgetModelValue,
   useWidgetStoreRequired,
 } from "../widget-store-context";
-
-// Map ipywidgets button_style to shadcn variants
-const STYLE_MAP: Record<
-  string,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  primary: "default",
-  success: "default",
-  info: "secondary",
-  warning: "secondary",
-  danger: "destructive",
-  "": "outline",
-};
+import { getButtonStyle } from "./button-style-utils";
 
 interface FileData {
   name: string;
@@ -53,7 +41,7 @@ export function FileUploadWidget({ modelId, className }: WidgetComponentProps) {
     useWidgetModelValue<string>(modelId, "button_style") ?? "";
   const icon = useWidgetModelValue<string>(modelId, "icon") ?? "upload";
 
-  const variant = STYLE_MAP[buttonStyle] ?? "outline";
+  const { variant, className: styleClassName } = getButtonStyle(buttonStyle);
 
   const handleClick = useCallback(() => {
     inputRef.current?.click();
@@ -124,7 +112,7 @@ export function FileUploadWidget({ modelId, className }: WidgetComponentProps) {
         variant={variant}
         onClick={handleClick}
         disabled={disabled}
-        className="gap-2"
+        className={cn(styleClassName, "gap-2")}
       >
         {icon === "upload" && <UploadIcon className="size-4" />}
         {buttonText}

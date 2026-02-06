@@ -13,19 +13,7 @@ import {
   useWidgetModelValue,
   useWidgetStoreRequired,
 } from "../widget-store-context";
-
-// Map ipywidgets button_style to shadcn variants
-const STYLE_MAP: Record<
-  string,
-  "default" | "destructive" | "secondary" | "outline"
-> = {
-  primary: "default",
-  success: "default", // Could use a custom green variant
-  info: "secondary",
-  warning: "secondary", // Could use a custom yellow variant
-  danger: "destructive",
-  "": "outline",
-};
+import { getButtonStyle } from "./button-style-utils";
 
 export function ButtonWidget({ modelId, className }: WidgetComponentProps) {
   const { sendCustom } = useWidgetStoreRequired();
@@ -43,7 +31,7 @@ export function ButtonWidget({ modelId, className }: WidgetComponentProps) {
     sendCustom(modelId, { event: "click" });
   };
 
-  const variant = STYLE_MAP[buttonStyle] ?? "outline";
+  const { variant, className: styleClassName } = getButtonStyle(buttonStyle);
 
   return (
     <Button
@@ -51,7 +39,7 @@ export function ButtonWidget({ modelId, className }: WidgetComponentProps) {
       disabled={disabled}
       onClick={handleClick}
       title={tooltip}
-      className={cn(className)}
+      className={cn(styleClassName, className)}
       data-widget-id={modelId}
       data-widget-type="Button"
     >

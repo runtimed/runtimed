@@ -1,6 +1,7 @@
 "use client";
 
 import { lazy, type ReactNode, Suspense } from "react";
+import { useMediaContext } from "./media-provider";
 
 // Lazy load built-in output components for better bundle splitting
 const AnsiOutput = lazy(() =>
@@ -219,13 +220,20 @@ function DefaultLoading() {
 export function MediaRouter({
   data,
   metadata = {},
-  priority = DEFAULT_PRIORITY,
-  renderers = {},
-  unsafe = false,
+  priority: priorityProp,
+  renderers: renderersProp,
+  unsafe: unsafeProp,
   fallback,
   loading,
   className = "",
 }: MediaRouterProps) {
+  const ctx = useMediaContext();
+
+  // Props override context, context overrides built-in defaults
+  const priority = priorityProp ?? ctx?.priority ?? DEFAULT_PRIORITY;
+  const renderers = renderersProp ?? ctx?.renderers ?? {};
+  const unsafe = unsafeProp ?? ctx?.unsafe ?? false;
+
   const mimeType = selectMimeType(data, priority);
 
   if (!mimeType) {
