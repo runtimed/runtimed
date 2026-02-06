@@ -20,7 +20,7 @@ type DatetimeValue =
   | {
       year: number;
       month: number;
-      day: number;
+      date: number;
       hour: number;
       minute: number;
       second: number;
@@ -45,10 +45,10 @@ function toDatetimeLocalString(value: DatetimeValue): string {
   // ipywidgets sends month as 0-indexed
   const year = String(value.year).padStart(4, "0");
   const month = String(value.month + 1).padStart(2, "0");
-  const day = String(value.day).padStart(2, "0");
+  const date = String(value.date).padStart(2, "0");
   const hour = String(value.hour).padStart(2, "0");
   const minute = String(value.minute).padStart(2, "0");
-  return `${year}-${month}-${day}T${hour}:${minute}`;
+  return `${year}-${month}-${date}T${hour}:${minute}`;
 }
 
 export function DatetimeWidget({ modelId, className }: WidgetComponentProps) {
@@ -65,15 +65,15 @@ export function DatetimeWidget({ modelId, className }: WidgetComponentProps) {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const newValue = e.target.value;
       if (newValue) {
-        const date = new Date(newValue);
+        const d = new Date(newValue);
         sendUpdate(modelId, {
           value: {
-            year: date.getFullYear(),
-            month: date.getMonth(),
-            day: date.getDate(),
-            hour: date.getHours(),
-            minute: date.getMinutes(),
-            second: date.getSeconds(),
+            year: d.getFullYear(),
+            month: d.getMonth(),
+            date: d.getDate(),
+            hour: d.getHours(),
+            minute: d.getMinutes(),
+            second: d.getSeconds(),
             microsecond: 0,
           },
         });

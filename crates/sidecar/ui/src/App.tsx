@@ -11,10 +11,8 @@ import { WidgetDebugger } from "@/components/widget-debugger";
 import {
   WidgetStoreProvider,
   useWidgetStoreRequired,
-  useWidgetModels,
 } from "@/components/widgets/widget-store-context";
 import { WidgetView } from "@/components/widgets/widget-view";
-import { getWidgetComponent } from "@/components/widgets/widget-registry";
 import type {
   JupyterMessage,
   JupyterOutput,
@@ -29,36 +27,6 @@ import {
   isClearOutput,
 } from "./types";
 import { cn } from "@/lib/utils";
-
-/**
- * HeadlessWidgets - mounts widgets that have no view (like LinkModel).
- *
- * These widgets return null but need to be rendered so their useEffect
- * hooks run (e.g., to set up property synchronization for jslink).
- */
-function HeadlessWidgets() {
-  const models = useWidgetModels();
-
-  // Find all headless widgets (those with _view_name: null)
-  const headlessWidgetIds: string[] = [];
-  models.forEach((model, id) => {
-    if (model.state._view_name === null) {
-      // Check if we have a component registered for this widget
-      const Component = getWidgetComponent(model.modelName);
-      if (Component) {
-        headlessWidgetIds.push(id);
-      }
-    }
-  });
-
-  return (
-    <>
-      {headlessWidgetIds.map((modelId) => (
-        <WidgetView key={modelId} modelId={modelId} />
-      ))}
-    </>
-  );
-}
 
 interface OutputCellProps {
   output: JupyterOutput;
@@ -326,7 +294,6 @@ export default function App() {
           },
         }}
       >
-        <HeadlessWidgets />
         <AppContent />
       </MediaProvider>
     </WidgetStoreProvider>

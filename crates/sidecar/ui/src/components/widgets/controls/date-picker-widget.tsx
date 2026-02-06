@@ -16,15 +16,15 @@ import {
   useWidgetStoreRequired,
 } from "../widget-store-context";
 
-type IpyDate = { year: number; month: number; day: number } | null;
+type IpyDate = { year: number; month: number; date: number } | null;
 
 // Convert ipywidgets date object to YYYY-MM-DD format for input
 function toDateString(value: IpyDate): string {
   if (!value) return "";
   const year = String(value.year).padStart(4, "0");
   const month = String(value.month + 1).padStart(2, "0");
-  const day = String(value.day).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  const date = String(value.date).padStart(2, "0");
+  return `${year}-${month}-${date}`;
 }
 
 export function DatePickerWidget({ modelId, className }: WidgetComponentProps) {
@@ -42,7 +42,7 @@ export function DatePickerWidget({ modelId, className }: WidgetComponentProps) {
       const newValue = e.target.value;
       if (newValue) {
         const [year, month, day] = newValue.split("-").map(Number);
-        sendUpdate(modelId, { value: { year, month: month - 1, day } });
+        sendUpdate(modelId, { value: { year, month: month - 1, date: day } });
       } else {
         sendUpdate(modelId, { value: null });
       }

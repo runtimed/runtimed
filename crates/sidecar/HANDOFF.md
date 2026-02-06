@@ -2,7 +2,7 @@
 
 ## Current State
 
-The sidecar has full Jupyter output rendering and ipywidgets support via the `@nteract` shadcn registry. Build passes and most widgets work correctly.
+The sidecar has full Jupyter output rendering and ipywidgets support via the `@nteract` shadcn registry. Build passes and all widgets work correctly.
 
 ### What's Working
 
@@ -15,23 +15,28 @@ The sidecar has full Jupyter output rendering and ipywidgets support via the `@n
 7. **Widget debugger panel** - Sheet-based inspector at `src/components/widget-debugger.tsx`
 8. **TimePicker** - Fixed upstream (#119)
 9. **Audio/Video from_url()** - Fixed upstream (#120), binary data handled correctly
-10. **jslink/jsdlink** - Working via local LinkWidget + HeadlessWidgets component (temporary approach)
+10. **jslink/jsdlink** - Store-layer implementation via `createLinkManager` (from PR #127 approach)
 
 ### What's Pending
 
 | Widget | Issue | Status |
 |--------|-------|--------|
 | **DatePicker** | ipywidgets uses `date` not `day` for day-of-month | [#125](https://github.com/nteract/elements/issues/125) open |
-| **jslink/link upstream** | Store-layer approach in PR #127 | [#121](https://github.com/nteract/elements/issues/121) / PR #127 pending |
 
-### Upcoming: Store-Layer jslink (PR #127)
+### Store-Layer jslink (PR #127 - Merged)
 
-PR #127 is moving link logic into the comm router / store layer instead of React components. When `createModel` sees a `LinkModel` or `DirectionalLinkModel`, it sets up subscriptions directly in the store. Benefits:
+PR #127 has been merged. The `createLinkManager` function in `link-subscriptions.ts` manages `LinkModel` and `DirectionalLinkModel` at the store level. Now pulled from official registry.
+
+**Benefits:**
 - No component mounting required
 - Works everywhere including iframes
 - Store handles syncing without React lifecycle
+- `HeadlessWidgets` component no longer needed
 
-Once merged, the `HeadlessWidgets` component and local `link-widget.tsx` can be removed.
+**Key files (from @nteract registry):**
+- `src/components/widgets/link-subscriptions.ts` - Core link manager
+- `src/components/widgets/controls/link-widget.tsx` - Headless stub components
+- `src/components/widgets/widget-store-context.tsx` - Integrates `createLinkManager` via `useEffect`
 
 ### Branch & PR
 
@@ -71,64 +76,9 @@ npx shadcn@latest add @nteract/all -yo
 npm run build
 ```
 
-### Post-Install: Link Widgets
-
-**Current (temporary):** Copy `link-widget.tsx` and add `HeadlessWidgets` component (see below).
-
-**After PR #127 merges:** Just update from registry - link logic will be in the store layer, no component needed.
-
 ## Key Integration Points
 
-### App.tsx Structure (Current - with HeadlessWidgets)
-
-```typescript
-import "@/components/widgets/controls";  // Registers all widgets
-import { WidgetStoreProvider, useWidgetModels } from "@/components/widgets/widget-store-context";
-import { WidgetView } from "@/components/widgets/widget-view";
-import { getWidgetComponent } from "@/components/widgets/widget-registry";
-import { MediaProvider } from "@/components/outputs/media-provider";
-
-// HeadlessWidgets - TEMPORARY, needed until PR #127 merges
-// Mounts widgets with _view_name: null so their useEffect hooks run
-function HeadlessWidgets() {
-  const models = useWidgetModels();
-  
-  const headlessIds: string[] = [];
-  models.forEach((model, id) => {
-    if (model.state._view_name === null && getWidgetComponent(model.modelName)) {
-      headlessIds.push(id);
-    }
-  });
-
-  return (
-    <>
-      {headlessIds.map((id) => (
-        <WidgetView key={id} modelId={id} />
-      ))}
-    </>
-  );
-}
-
-export default function App() {
-  return (
-    <WidgetStoreProvider sendMessage={sendToKernel}>
-      <MediaProvider
-        renderers={{
-          "application/vnd.jupyter.widget-view+json": ({ data }) => {
-            const { model_id } = data as { model_id: string };
-            return <WidgetView modelId={model_id} />;
-          },
-        }}
-      >
-        <HeadlessWidgets />  {/* Remove after PR #127 */}
-        <AppContent />
-      </MediaProvider>
-    </WidgetStoreProvider>
-  );
-}
-```
-
-### App.tsx Structure (After PR #127 - simpler)
+### App.tsx Structure
 
 ```typescript
 import "@/components/widgets/controls";
@@ -154,7 +104,7 @@ export default function App() {
 }
 ```
 
-No HeadlessWidgets needed - link subscriptions are set up in the store when models are created.
+Link subscriptions are managed automatically by `WidgetStoreProvider` via `createLinkManager`.
 
 ## File Structure
 
@@ -170,8 +120,9 @@ src/
 │   ├── widgets/               # @nteract widget system
 │   │   ├── controls/          # 50+ ipywidget components
 │   │   │   ├── index.ts
-│   │   │   ├── link-widget.tsx  # LOCAL: jslink/link support
+│   │   │   ├── link-widget.tsx  # Headless stubs for registry
 │   │   │   └── ...
+│   │   ├── link-subscriptions.ts  # Store-layer jslink/jsdlink
 │   │   ├── widget-store.ts
 │   │   ├── widget-store-context.tsx
 │   │   ├── widget-view.tsx
@@ -190,7 +141,7 @@ src/
 | [#118](https://github.com/nteract/elements/issues/118) | DatePicker crash - expects JS Date, gets object | ✅ Fixed |
 | [#119](https://github.com/nteract/elements/issues/119) | TimePicker missing `milliseconds` field | ✅ Fixed |
 | [#120](https://github.com/nteract/elements/issues/120) | Audio/Video crash with `from_url()` binary data | ✅ Fixed |
-| [#121](https://github.com/nteract/elements/issues/121) | Missing LinkModel/DirectionalLinkModel | 🔄 PR #127 |
+| [#121](https://github.com/nteract/elements/issues/121) | Missing LinkModel/DirectionalLinkModel | ✅ Fixed (PR #127 merged) |
 | [#125](https://github.com/nteract/elements/issues/125) | DatePicker uses `date` not `day` for day-of-month | 🔄 Open |
 
 ## Testing
@@ -213,11 +164,17 @@ widgets.TimePicker(value=time(12, 30), description='Time:')
 widgets.Audio.from_url('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3')
 widgets.Video.from_url('https://www.w3schools.com/html/mov_bbb.mp4', width=320)
 
-# jslink (working with HeadlessWidgets)
+# jslink (store-layer implementation)
 source = widgets.IntSlider(description='Source')
 target = widgets.IntProgress(description='Target')
 widgets.jslink((source, 'value'), (target, 'value'))
 widgets.VBox([source, target])
+
+# jsdlink (one-way)
+a = widgets.IntSlider(description='A')
+b = widgets.IntSlider(description='B (follows A)')
+widgets.jsdlink((a, 'value'), (b, 'value'))
+widgets.VBox([a, b])
 
 # DatePicker (pending #125 - changing value crashes kernel)
 from datetime import date
@@ -242,17 +199,16 @@ Current build size: ~753KB index.js (includes KaTeX for HTMLMath widget)
 ## Updating from Registry
 
 ```bash
-# Pull latest fixes
+# Pull latest widget controls (includes link-widget.tsx)
 npx shadcn@latest add @nteract/widget-controls -yo
 
-# Re-add link widgets to index.ts (until #127 merges)
-# The registry update overwrites index.ts
+# Pull latest widget store (includes link-subscriptions.ts)
+npx shadcn@latest add @nteract/widget-store -yo
 
 npm run build
 ```
 
 ## Next Steps
 
-1. **Test PR #127** - When ready, pull updated widget-store and test jslink without HeadlessWidgets
-2. **Monitor #125** - DatePicker `date` vs `day` fix
-3. **Clean up after PR #127** - Remove HeadlessWidgets component and local link-widget.tsx
+1. **Monitor #125** - DatePicker `date` vs `day` fix
+2. **Test edge cases** - Verify links work in complex widget trees (accordions, tabs, etc.)

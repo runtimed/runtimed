@@ -16,10 +16,12 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useSyncExternalStore,
 } from "react";
+import { createLinkManager } from "./link-subscriptions";
 import {
   type JupyterCommMessage,
   type SendMessage,
@@ -84,6 +86,11 @@ export function WidgetStoreProvider({
     storeRef.current = createWidgetStore();
   }
   const store = storeRef.current;
+
+  // Manage link subscriptions (jslink/jsdlink) at the store level.
+  // Headless widgets like LinkModel have _view_name: null and won't be
+  // in any container's children, so they need store-level subscriptions.
+  useEffect(() => createLinkManager(store), [store]);
 
   // Use the comm router hook for message handling
   const { handleMessage, sendUpdate, sendCustom, closeComm } = useCommRouter({
@@ -228,6 +235,8 @@ export function useWasWidgetClosed(modelId: string): boolean {
   return store.wasModelClosed(modelId);
 }
 
+// Re-export link manager for non-React integrations (e.g. iframe isolation)
+export { createLinkManager } from "./link-subscriptions";
 export type {
   JupyterCommMessage,
   JupyterMessageHeader,
