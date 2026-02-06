@@ -2,7 +2,7 @@
 
 ## Current State
 
-The sidecar has full Jupyter output rendering and ipywidgets support via the `@nteract` shadcn registry. Build passes and all widgets work correctly.
+The sidecar has full Jupyter output rendering and ipywidgets support via the `@nteract` shadcn registry. Build passes and all widgets work correctly, including third-party anywidget-based libraries.
 
 ### What's Working
 
@@ -15,28 +15,108 @@ The sidecar has full Jupyter output rendering and ipywidgets support via the `@n
 7. **Widget debugger panel** - Sheet-based inspector at `src/components/widget-debugger.tsx`
 8. **TimePicker** - Fixed upstream (#119)
 9. **Audio/Video from_url()** - Fixed upstream (#120), binary data handled correctly
-10. **jslink/jsdlink** - Store-layer implementation via `createLinkManager` (from PR #127 approach)
+10. **jslink/jsdlink** - Store-layer implementation via `createLinkManager` (PR #127)
+11. **ipycanvas** - Full canvas drawing support with custom message buffering fix
+12. **anywidget ecosystem** - drawdata, quak, and other anywidget-based libraries work
 
 ### What's Pending
 
 | Widget | Issue | Status |
 |--------|-------|--------|
 | **DatePicker** | ipywidgets uses `date` not `day` for day-of-month | [#125](https://github.com/nteract/elements/issues/125) open |
+| **Custom message buffering** | Upstream the widget-store fix | [#129](https://github.com/nteract/elements/issues/129) open |
+
+## Third-Party Widget Compatibility
+
+### ✅ Working (anywidget-based)
+
+These use the anywidget protocol and work out of the box:
+
+| Library | Install | Description |
+|---------|---------|-------------|
+| **ipycanvas** | `pip install ipycanvas` | HTML5 canvas drawing |
+| **drawdata** | `pip install drawdata` | Draw data points for ML demos |
+| **quak** | `pip install quak` | Interactive data tables |
+| **lonboard** | `pip install lonboard geopandas` | Fast geospatial visualization |
+
+```python
+# ipycanvas
+from ipycanvas import Canvas
+canvas = Canvas(width=400, height=300)
+canvas.fill_style = 'red'
+canvas.fill_rect(50, 50, 100, 100)
+canvas
+
+# drawdata
+from drawdata import ScatterWidget
+ScatterWidget()
+
+# quak
+import quak
+import pandas as pd
+quak.Widget(pd.DataFrame({'a': [1,2,3], 'b': [4,5,6]}))
+```
+
+### ❌ Not Compatible (custom frontends)
+
+These have their own JavaScript frontends that need separate bundling:
+
+- **bqplot** - Custom D3-based frontend
+- **ipyvolume** - Custom Three.js frontend
+- **pythreejs** - Custom Three.js frontend
+- **ipyleaflet** - Custom Leaflet frontend
+- **ipycytoscape** - Custom Cytoscape frontend
+
+These would require either:
+1. Bundling their JS into the sidecar build
+2. Waiting for them to migrate to anywidget
+
+## Key Fixes
+
+### Custom Message Buffering (Local Fix)
+
+ipycanvas uses a singleton `CanvasManagerModel` that may be created before the sidecar connects. Drawing commands arrive for a comm_id that has no listeners yet.
+
+**Fix in `widget-store.ts`:** Buffer custom messages for unsubscribed comm_ids, deliver when a listener subscribes.
+
+```typescript
+// Messages for unknown comm_ids are buffered
+emitCustomMessage(commId, content, buffers) {
+  const callbacks = customListeners.get(commId);
+  if (callbacks && callbacks.size > 0) {
+    callbacks.forEach((cb) => cb(content, buffers));
+  } else {
+    // Buffer for later delivery
+    customMessageBuffer.get(commId)?.push({ content, buffers });
+  }
+}
+
+// Flush buffered messages when subscriber appears
+subscribeToCustomMessage(commId, callback) {
+  // ... subscription logic ...
+  const buffered = customMessageBuffer.get(commId);
+  if (buffered) {
+    setTimeout(() => buffered.forEach(msg => callback(msg.content, msg.buffers)), 0);
+    customMessageBuffer.delete(commId);
+  }
+}
+```
+
+Upstream issue: [nteract/elements#129](https://github.com/nteract/elements/issues/129)
 
 ### Store-Layer jslink (PR #127 - Merged)
 
-PR #127 has been merged. The `createLinkManager` function in `link-subscriptions.ts` manages `LinkModel` and `DirectionalLinkModel` at the store level. Now pulled from official registry.
+The `createLinkManager` function manages `LinkModel` and `DirectionalLinkModel` at the store level.
 
 **Benefits:**
 - No component mounting required
 - Works everywhere including iframes
 - Store handles syncing without React lifecycle
-- `HeadlessWidgets` component no longer needed
 
 **Key files (from @nteract registry):**
 - `src/components/widgets/link-subscriptions.ts` - Core link manager
 - `src/components/widgets/controls/link-widget.tsx` - Headless stub components
-- `src/components/widgets/widget-store-context.tsx` - Integrates `createLinkManager` via `useEffect`
+- `src/components/widgets/widget-store-context.tsx` - Integrates via `useEffect`
 
 ### Branch & PR
 
@@ -72,7 +152,10 @@ npx shadcn@latest init
 # 3. Install ALL components with one command
 npx shadcn@latest add @nteract/all -yo
 
-# 4. Build
+# 4. Optional: Add ipycanvas support
+npx shadcn@latest add @nteract/ipycanvas -yo
+
+# 5. Build
 npm run build
 ```
 
@@ -82,6 +165,7 @@ npm run build
 
 ```typescript
 import "@/components/widgets/controls";
+import "@/components/widgets/ipycanvas";  // Optional: ipycanvas support
 import { WidgetStoreProvider } from "@/components/widgets/widget-store-context";
 import { WidgetView } from "@/components/widgets/widget-view";
 import { MediaProvider } from "@/components/outputs/media-provider";
@@ -104,7 +188,7 @@ export default function App() {
 }
 ```
 
-Link subscriptions are managed automatically by `WidgetStoreProvider` via `createLinkManager`.
+Link subscriptions and custom message buffering are managed automatically by `WidgetStoreProvider`.
 
 ## File Structure
 
@@ -120,9 +204,13 @@ src/
 │   ├── widgets/               # @nteract widget system
 │   │   ├── controls/          # 50+ ipywidget components
 │   │   │   ├── index.ts
-│   │   │   ├── link-widget.tsx  # Headless stubs for registry
+│   │   │   ├── link-widget.tsx
 │   │   │   └── ...
-│   │   ├── link-subscriptions.ts  # Store-layer jslink/jsdlink
+│   │   ├── ipycanvas/         # ipycanvas support
+│   │   │   ├── index.ts
+│   │   │   ├── canvas-widget.tsx
+│   │   │   └── ipycanvas-commands.ts
+│   │   ├── link-subscriptions.ts
 │   │   ├── widget-store.ts
 │   │   ├── widget-store-context.tsx
 │   │   ├── widget-view.tsx
@@ -141,8 +229,9 @@ src/
 | [#118](https://github.com/nteract/elements/issues/118) | DatePicker crash - expects JS Date, gets object | ✅ Fixed |
 | [#119](https://github.com/nteract/elements/issues/119) | TimePicker missing `milliseconds` field | ✅ Fixed |
 | [#120](https://github.com/nteract/elements/issues/120) | Audio/Video crash with `from_url()` binary data | ✅ Fixed |
-| [#121](https://github.com/nteract/elements/issues/121) | Missing LinkModel/DirectionalLinkModel | ✅ Fixed (PR #127 merged) |
+| [#121](https://github.com/nteract/elements/issues/121) | Missing LinkModel/DirectionalLinkModel | ✅ Fixed (PR #127) |
 | [#125](https://github.com/nteract/elements/issues/125) | DatePicker uses `date` not `day` for day-of-month | 🔄 Open |
+| [#129](https://github.com/nteract/elements/issues/129) | Buffer custom messages for unsubscribed comm_ids | 🔄 Open |
 
 ## Testing
 
@@ -155,16 +244,8 @@ for filename in tqdm(["a.txt", "b.txt", "c.txt"]):
     for _ in tqdm(range(100), leave=False):
         time.sleep(0.01)
 
-# TimePicker (fixed)
+# jslink (bidirectional)
 import ipywidgets as widgets
-from datetime import time
-widgets.TimePicker(value=time(12, 30), description='Time:')
-
-# Audio/Video from URL (fixed)
-widgets.Audio.from_url('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3')
-widgets.Video.from_url('https://www.w3schools.com/html/mov_bbb.mp4', width=320)
-
-# jslink (store-layer implementation)
 source = widgets.IntSlider(description='Source')
 target = widgets.IntProgress(description='Target')
 widgets.jslink((source, 'value'), (target, 'value'))
@@ -176,9 +257,21 @@ b = widgets.IntSlider(description='B (follows A)')
 widgets.jsdlink((a, 'value'), (b, 'value'))
 widgets.VBox([a, b])
 
-# DatePicker (pending #125 - changing value crashes kernel)
-from datetime import date
-widgets.DatePicker(value=date.today(), description='Date:')
+# ipycanvas
+from ipycanvas import Canvas
+canvas = Canvas(width=400, height=300)
+canvas.fill_style = 'red'
+canvas.fill_rect(50, 50, 100, 100)
+canvas
+
+# anywidget - drawdata
+from drawdata import ScatterWidget
+ScatterWidget()
+
+# anywidget - quak
+import quak
+import pandas as pd
+quak.Widget(pd.DataFrame({'x': [1,2,3], 'y': [4,5,6]}))
 
 # Output widget
 out = widgets.Output()
@@ -194,21 +287,26 @@ cd crates/sidecar/ui
 npm run build
 ```
 
-Current build size: ~753KB index.js (includes KaTeX for HTMLMath widget)
+Current build size: ~765KB index.js (includes KaTeX + ipycanvas)
 
 ## Updating from Registry
 
 ```bash
-# Pull latest widget controls (includes link-widget.tsx)
+# Pull latest widget controls
 npx shadcn@latest add @nteract/widget-controls -yo
 
-# Pull latest widget store (includes link-subscriptions.ts)
+# Pull latest widget store
 npx shadcn@latest add @nteract/widget-store -yo
+
+# Pull latest ipycanvas
+npx shadcn@latest add @nteract/ipycanvas -yo
 
 npm run build
 ```
 
 ## Next Steps
 
-1. **Monitor #125** - DatePicker `date` vs `day` fix
-2. **Test edge cases** - Verify links work in complex widget trees (accordions, tabs, etc.)
+1. **Upstream #129** - Get custom message buffering into nteract/elements
+2. **Monitor #125** - DatePicker `date` vs `day` fix
+3. **Test more anywidgets** - Validate other anywidget-based libraries
+4. **Consider bundling popular widgets** - bqplot, ipyleaflet if demand exists
