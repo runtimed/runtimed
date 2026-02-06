@@ -16,7 +16,7 @@ The sidecar has full Jupyter output rendering and ipywidgets support via the `@n
 8. **TimePicker** - Fixed upstream (#119)
 9. **Audio/Video from_url()** - Fixed upstream (#120), binary data handled correctly
 10. **jslink/jsdlink** - Store-layer implementation via `createLinkManager` (PR #127)
-11. **ipycanvas** - Full canvas drawing support with custom message buffering fix
+11. **ipycanvas** - Full multi-canvas support with message buffering and switchCanvas tracking
 12. **anywidget ecosystem** - drawdata, quak, and other anywidget-based libraries work
 
 ### What's Pending
@@ -24,7 +24,7 @@ The sidecar has full Jupyter output rendering and ipywidgets support via the `@n
 | Widget | Issue | Status |
 |--------|-------|--------|
 | **DatePicker** | ipywidgets uses `date` not `day` for day-of-month | [#125](https://github.com/nteract/elements/issues/125) open |
-| **Custom message buffering** | Upstream the widget-store fix | [#129](https://github.com/nteract/elements/issues/129) open |
+| **ipycanvas multi-canvas** | Upstream buffering + isActive fixes | [#131](https://github.com/nteract/elements/issues/131) open |
 
 ## Third-Party Widget Compatibility
 
@@ -73,36 +73,40 @@ These would require either:
 
 ## Key Fixes
 
-### Custom Message Buffering (Local Fix)
+### ipycanvas Multi-Canvas Fix (Local)
 
-ipycanvas uses a singleton `CanvasManagerModel` that may be created before the sidecar connects. Drawing commands arrive for a comm_id that has no listeners yet.
+ipycanvas uses a singleton `CanvasManagerModel` - all canvases share one manager that routes commands via `switchCanvas`. Two fixes were needed:
 
-**Fix in `widget-store.ts`:** Buffer custom messages for unsubscribed comm_ids, deliver when a listener subscribes.
+**1. widget-store.ts:** Always buffer messages AND deliver to existing subscribers. New subscribers get the full buffer.
 
 ```typescript
-// Messages for unknown comm_ids are buffered
 emitCustomMessage(commId, content, buffers) {
-  const callbacks = customListeners.get(commId);
-  if (callbacks && callbacks.size > 0) {
-    callbacks.forEach((cb) => cb(content, buffers));
-  } else {
-    // Buffer for later delivery
-    customMessageBuffer.get(commId)?.push({ content, buffers });
-  }
+  // Always buffer for future subscribers
+  buffer.push({ content, buffers });
+  
+  // Also deliver to existing subscribers immediately
+  callbacks.forEach((cb) => cb(content, buffers));
 }
 
-// Flush buffered messages when subscriber appears
 subscribeToCustomMessage(commId, callback) {
-  // ... subscription logic ...
-  const buffered = customMessageBuffer.get(commId);
-  if (buffered) {
-    setTimeout(() => buffered.forEach(msg => callback(msg.content, msg.buffers)), 0);
-    customMessageBuffer.delete(commId);
-  }
+  // Flush buffer to new subscriber (don't delete - others may join)
+  buffered.forEach(msg => callback(msg.content, msg.buffers));
 }
 ```
 
-Upstream issue: [nteract/elements#129](https://github.com/nteract/elements/issues/129)
+**2. canvas-widget.tsx:** Track `isActive` state across message batches using a ref, not per-call.
+
+```typescript
+const isActiveRef = useRef<boolean>(false);  // Start inactive
+
+// In message handler:
+const result = await processCommands(ctx, commands, buffers, canvas, modelId, isActiveRef.current);
+if (result.switchedTo !== null) {
+  isActiveRef.current = result.switchedTo === modelId;
+}
+```
+
+Upstream issue: [nteract/elements#131](https://github.com/nteract/elements/issues/131)
 
 ### Store-Layer jslink (PR #127 - Merged)
 
@@ -231,7 +235,8 @@ src/
 | [#120](https://github.com/nteract/elements/issues/120) | Audio/Video crash with `from_url()` binary data | ✅ Fixed |
 | [#121](https://github.com/nteract/elements/issues/121) | Missing LinkModel/DirectionalLinkModel | ✅ Fixed (PR #127) |
 | [#125](https://github.com/nteract/elements/issues/125) | DatePicker uses `date` not `day` for day-of-month | 🔄 Open |
-| [#129](https://github.com/nteract/elements/issues/129) | Buffer custom messages for unsubscribed comm_ids | 🔄 Open |
+| [#129](https://github.com/nteract/elements/issues/129) | Buffer custom messages for unsubscribed comm_ids | ✅ Fixed (PR #130) |
+| [#131](https://github.com/nteract/elements/issues/131) | ipycanvas multi-canvas buffering + isActive | 🔄 Open |
 
 ## Testing
 
@@ -306,7 +311,7 @@ npm run build
 
 ## Next Steps
 
-1. **Upstream #129** - Get custom message buffering into nteract/elements
+1. **Upstream #131** - Get multi-canvas ipycanvas fixes into nteract/elements
 2. **Monitor #125** - DatePicker `date` vs `day` fix
 3. **Test more anywidgets** - Validate other anywidget-based libraries
 4. **Consider bundling popular widgets** - bqplot, ipyleaflet if demand exists
