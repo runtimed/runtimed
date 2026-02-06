@@ -16,7 +16,7 @@ The sidecar has full Jupyter output rendering and ipywidgets support via the `@n
 8. **TimePicker** - Fixed upstream (#119)
 9. **Audio/Video from_url()** - Fixed upstream (#120), binary data handled correctly
 10. **jslink/jsdlink** - Store-layer implementation via `createLinkManager` (PR #127)
-11. **ipycanvas** - Multi-canvas support via manager-as-dispatcher architecture (PR #134)
+11. **ipycanvas** - Multi-canvas support via store-level routing (PR #134 merged)
 12. **anywidget ecosystem** - drawdata, quak, and other anywidget-based libraries work
 
 ### What's Pending
@@ -24,7 +24,6 @@ The sidecar has full Jupyter output rendering and ipywidgets support via the `@n
 | Widget | Issue | Status |
 |--------|-------|--------|
 | **DatePicker** | ipywidgets uses `date` not `day` for day-of-month | [#125](https://github.com/nteract/elements/issues/125) open |
-| **ipycanvas TS6133** | Unused `ctx` params in helper functions cause build errors with strict TS | Local fix applied, needs upstream |
 
 ## Third-Party Widget Compatibility
 
@@ -73,66 +72,40 @@ These would require either:
 
 ## Key Fixes
 
-### ipycanvas Manager-as-Dispatcher (PR #134)
+### ipycanvas Store-Level Routing (PR #134)
 
 ipycanvas uses a singleton `CanvasManagerModel` that receives ALL drawing commands. The old approach had each `CanvasWidget` subscribe to the manager and filter commands via `activeCanvasRef` — but this caused interference when multiple canvases existed (e.g., animated canvas + canvases in tabs).
 
-**New architecture (PR #134):**
+**Problem:** The manager is a headless widget (`_view_name: null`) — it never renders, so routing can't live in a React component.
 
-1. **CanvasManagerWidget** subscribes to its own comm_id, parses `switchCanvas` commands, and re-emits messages to specific canvas comm_ids
-2. **Each CanvasWidget** subscribes only to its own comm_id — completely isolated from other canvases
+**Solution (PR #134):** Store-level routing via `ensureManagerRouting()`:
 
 ```typescript
-// CanvasManagerWidget - dispatcher
-useEffect(() => {
-  const unsubscribe = store.subscribeToCustomMessage(modelId, (content, buffers) => {
-    // Parse commands, find switchCanvas targets
-    const targets = new Set<string>();
-    collectSwitchCanvasTargets(commands, currentTargetRef, targets);
-    
-    // Route to current target if no switchCanvas in this message
-    if (targets.size === 0 && currentTargetRef.current) {
-      targets.add(currentTargetRef.current);
-    }
-    
-    // Re-emit to each target canvas's comm_id
-    for (const targetId of targets) {
-      store.emitCustomMessage(targetId, content, rawBuffers);
-    }
-  });
-  return unsubscribe;
-}, [store, modelId]);
+// Store-level routing with ref counting
+const managerRouting = new Map<string, { refCount: number; unsubscribe: () => void }>();
 
-// CanvasWidget - isolated subscriber
+function ensureManagerRouting(store: WidgetStore, managerId: string): () => void {
+  // First canvas referencing this manager creates the subscription
+  // Subscribes to manager's comm_id, parses switchCanvas targets,
+  // re-emits to each target canvas's comm_id
+  // Last canvas tears down when unmounting
+}
+
+// Each CanvasWidget calls this in its effect:
 useEffect(() => {
-  const unsubscribe = store.subscribeToCustomMessage(modelId, (content, buffers) => {
-    // Process commands - always active since manager only sends to us
-    await processCommands(ctx, commands, dataBuffers, canvas, modelId, true);
-  });
-  return unsubscribe;
-}, [store, modelId]);
+  const cleanupRouting = ensureManagerRouting(store, managerModelId);
+  const unsubscribe = store.subscribeToCustomMessage(modelId, handler);
+  return () => { unsubscribe(); cleanupRouting(); };
+}, [...]);
 ```
 
 **Benefits:**
-- No shared routing state between canvases
-- Animation on one canvas doesn't break others
-- Tabs/accordions with canvases work correctly
+- No React component mounting required for headless manager
+- Ref-counted: first canvas creates subscription, last tears down
+- Each canvas isolated — only receives messages routed to its comm_id
+- Tabs + Matrix animation stress test passes
 
-Upstream: [PR #134](https://github.com/nteract/elements/pull/134)
-
-### Local Fix: TS6133 Unused Parameters
-
-The `ipycanvas-commands.ts` file has three helper functions (`drawRects`, `drawCircles`, `drawArcs`) with unused `ctx` parameters. These cause TS6133 errors with strict TypeScript configs.
-
-**Local fix applied:**
-```typescript
-// Change from:
-function drawRects(ctx: CanvasRenderingContext2D, ...)
-// To:
-function drawRects(_ctx: CanvasRenderingContext2D, ...)
-```
-
-This needs to be fixed upstream in nteract/elements.
+Upstream: [PR #134](https://github.com/nteract/elements/pull/134) ✅ Merged
 
 ### Store-Layer jslink (PR #127 - Merged)
 
@@ -185,11 +158,9 @@ npx shadcn@latest add @nteract/all -yo
 # 4. Optional: Add ipycanvas support
 npx shadcn@latest add @nteract/ipycanvas -yo
 
-# 5. Build (may need TS6133 fix - see below)
+# 5. Build
 npm run build
 ```
-
-**Note:** After installing ipycanvas, you may need to fix TS6133 errors in `ipycanvas-commands.ts` by prefixing unused `ctx` params with underscore in `drawRects`, `drawCircles`, and `drawArcs` functions.
 
 ## Key Integration Points
 
@@ -266,7 +237,6 @@ src/
 | [#129](https://github.com/nteract/elements/issues/129) | Buffer custom messages for unsubscribed comm_ids | ✅ Fixed (PR #130) |
 | [#131](https://github.com/nteract/elements/issues/131) | ipycanvas multi-canvas buffering + isActive | ✅ Fixed (PR #132) |
 | [#133](https://github.com/nteract/elements/issues/133) | Multiple canvases interfere via shared activeCanvasRef | ✅ Fixed (PR #134) |
-| — | TS6133: unused `ctx` params in ipycanvas-commands.ts | 🔄 Needs upstream fix |
 
 ## Testing
 
@@ -355,7 +325,7 @@ npx shadcn@latest add @nteract/widget-controls -yo
 # Pull latest widget store
 npx shadcn@latest add @nteract/widget-store -yo
 
-# Pull latest ipycanvas (then apply TS6133 fix if needed)
+# Pull latest ipycanvas
 npx shadcn@latest add @nteract/ipycanvas -yo
 
 npm run build
@@ -363,7 +333,6 @@ npm run build
 
 ## Next Steps
 
-1. **Upstream TS6133 fix** - Get unused `ctx` param fix into nteract/elements ipycanvas-commands.ts
-2. **Monitor #125** - DatePicker `date` vs `day` fix
-3. **Test more anywidgets** - Validate other anywidget-based libraries
-4. **Consider bundling popular widgets** - bqplot, ipyleaflet if demand exists
+1. **Monitor #125** - DatePicker `date` vs `day` fix
+2. **Test more anywidgets** - Validate other anywidget-based libraries
+3. **Consider bundling popular widgets** - bqplot, ipyleaflet if demand exists
