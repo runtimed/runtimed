@@ -315,10 +315,13 @@ async fn run(
                             && key_event.logical_key == Key::Character("I".into())
                     };
 
+                    #[cfg(debug_assertions)]
                     if is_devtools_shortcut {
                         info!("Opening devtools");
                         webview.open_devtools();
                     }
+                    #[cfg(not(debug_assertions))]
+                    let _ = is_devtools_shortcut; // Silence unused variable warning
                 }
             }
             Event::WindowEvent {
