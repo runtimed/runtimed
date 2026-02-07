@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { MediaRouter } from "@runtimed/ui/components/outputs/media-router";
 import { MediaProvider } from "@runtimed/ui/components/outputs/media-provider";
 // Register built-in ipywidgets (IntSlider, etc.)
@@ -78,8 +78,20 @@ function OutputCell({ output, index }: OutputCellProps) {
 function AppContent() {
   const [outputs, setOutputs] = useState<JupyterOutput[]>([]);
   const [kernelStatus, setKernelStatus] = useState<string>("unknown");
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [unseenCount, setUnseenCount] = useState(0);
   const outputAreaRef = useRef<HTMLDivElement>(null);
+  const lastSeenCountRef = useRef(0);
+  const outputsLengthRef = useRef(0);
   const { handleMessage: handleWidgetMessage } = useWidgetStoreRequired();
+  const kernelLabel = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("kernel") ?? "unknown";
+  }, []);
+  const showWidgetDebugger = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.has("debug-widgets");
+  }, []);
 
   // Convert message to output format
   const messageToOutput = useCallback(
@@ -215,19 +227,60 @@ function AppContent() {
     };
   }, [handleMessage]);
 
-  // Auto-scroll to bottom on new outputs
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
+    const scrollEl = document.scrollingElement ?? document.documentElement;
+    scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior });
+  }, []);
+
+  // Track scrolling state to determine whether to auto-scroll
   useEffect(() => {
-    if (outputAreaRef.current) {
-      outputAreaRef.current.scrollTop = outputAreaRef.current.scrollHeight;
+    const handleScroll = () => {
+      const scrollEl = document.scrollingElement ?? document.documentElement;
+      const distanceFromBottom =
+        scrollEl.scrollHeight - (scrollEl.scrollTop + scrollEl.clientHeight);
+      const atBottom = distanceFromBottom < 120;
+      if (atBottom) {
+        setAutoScroll(true);
+        setUnseenCount(0);
+        lastSeenCountRef.current = outputsLengthRef.current;
+      } else {
+        setAutoScroll(false);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
+  // Auto-scroll to bottom on new outputs unless user scrolled up
+  useEffect(() => {
+    outputsLengthRef.current = outputs.length;
+    if (autoScroll) {
+      scrollToBottom();
+      lastSeenCountRef.current = outputs.length;
+      setUnseenCount(0);
+      return;
     }
-  }, [outputs]);
+
+    if (outputs.length > lastSeenCountRef.current) {
+      setUnseenCount(outputs.length - lastSeenCountRef.current);
+    }
+  }, [outputs, autoScroll, scrollToBottom]);
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
         <div className="flex h-10 items-center justify-between px-4">
-          <h1 className="text-sm font-medium">Kernel Sidecar</h1>
+          <h1 className="text-sm font-medium">
+            Kernel:{" "}
+            <span className="font-mono text-muted-foreground">
+              {kernelLabel}
+            </span>
+          </h1>
           <div className="flex items-center gap-2">
             <div
               className={cn(
@@ -262,7 +315,23 @@ function AppContent() {
       </main>
 
       {/* Widget Debugger Panel */}
-      <WidgetDebugger />
+      {showWidgetDebugger ? <WidgetDebugger /> : null}
+
+      {/* Outputs below indicator */}
+      {!autoScroll && unseenCount > 0 ? (
+        <button
+          type="button"
+          className="fixed bottom-4 left-1/2 z-20 -translate-x-1/2 rounded-full border bg-background/95 px-4 py-2 text-xs font-medium shadow-sm backdrop-blur supports-backdrop-filter:bg-background/60"
+          onClick={() => {
+            scrollToBottom("smooth");
+            setAutoScroll(true);
+            setUnseenCount(0);
+            lastSeenCountRef.current = outputs.length;
+          }}
+        >
+          {unseenCount} output{unseenCount === 1 ? "" : "s"} below
+        </button>
+      ) : null}
     </div>
   );
 }

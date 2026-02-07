@@ -238,8 +238,17 @@ async fn run(
                     )
                 }
             }
-        })
-        .with_url("sidecar://localhost")
+        });
+
+    let kernel_label = connection_file_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("kernel");
+    let kernel_query = querystring::stringify(vec![("kernel", kernel_label)]);
+    let ui_url = format!("sidecar://localhost/?{}", kernel_query);
+
+    let webview = webview
+        .with_url(&ui_url)
         .build(&window)?;
 
     let event_loop_proxy = event_loop.create_proxy();
