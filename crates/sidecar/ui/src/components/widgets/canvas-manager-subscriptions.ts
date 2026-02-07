@@ -1,24 +1,103 @@
-/**
- * Store-level routing for ipycanvas CanvasManagerModel.
- *
- * CanvasManagerModel is a headless widget (_view_name: null) that receives
- * ALL drawing commands from Python. This module subscribes to each manager's
- * custom messages, parses switchCanvas targets, and re-emits to each target
- * canvas's comm_id — isolating canvases from each other.
- *
- * Same pattern as link-subscriptions.ts for LinkModel/DirectionalLinkModel.
- *
- * Usage:
- *   const cleanup = createCanvasManagerRouter(store);
- *   // ... later, to tear down all routing:
- *   cleanup();
- *
- * WidgetStoreProvider calls this automatically. For non-React integrations
- * (e.g. iframe isolation), call createCanvasManagerRouter directly.
- */
-
-import { COMMANDS, getTypedArray } from "./ipycanvas/ipycanvas-commands";
 import type { WidgetStore } from "./widget-store";
+
+// ipycanvas drawing command names indexed by protocol number.
+// Duplicated from ipycanvas-commands.ts to keep the router self-contained
+// within the widget-store package. Must match the Python-side enum in ipycanvas.
+const COMMANDS = [
+  "fillRect",
+  "strokeRect",
+  "fillRects",
+  "strokeRects",
+  "clearRect",
+  "fillArc",
+  "fillCircle",
+  "strokeArc",
+  "strokeCircle",
+  "fillArcs",
+  "strokeArcs",
+  "fillCircles",
+  "strokeCircles",
+  "strokeLine",
+  "beginPath",
+  "closePath",
+  "stroke",
+  "strokePath",
+  "fillPath",
+  "fill",
+  "moveTo",
+  "lineTo",
+  "rect",
+  "arc",
+  "ellipse",
+  "arcTo",
+  "quadraticCurveTo",
+  "bezierCurveTo",
+  "fillText",
+  "strokeText",
+  "setLineDash",
+  "drawImage",
+  "putImageData",
+  "clip",
+  "save",
+  "restore",
+  "translate",
+  "rotate",
+  "scale",
+  "transform",
+  "setTransform",
+  "resetTransform",
+  "set",
+  "clear",
+  "sleep",
+  "fillPolygon",
+  "strokePolygon",
+  "strokeLines",
+  "fillPolygons",
+  "strokePolygons",
+  "strokeLineSegments",
+  "fillStyledRects",
+  "strokeStyledRects",
+  "fillStyledCircles",
+  "strokeStyledCircles",
+  "fillStyledArcs",
+  "strokeStyledArcs",
+  "fillStyledPolygons",
+  "strokeStyledPolygons",
+  "strokeStyledLineSegments",
+  "switchCanvas",
+] as const;
+
+/**
+ * Convert a DataView to a TypedArray based on dtype metadata.
+ * Inlined here to avoid depending on ipycanvas-commands.ts,
+ * keeping the router self-contained within the widget-store package.
+ */
+function getTypedArray(
+  dataview: DataView,
+  metadata: { dtype: string },
+): ArrayBufferView {
+  const buffer = dataview.buffer;
+  switch (metadata.dtype) {
+    case "int8":
+      return new Int8Array(buffer);
+    case "uint8":
+      return new Uint8Array(buffer);
+    case "int16":
+      return new Int16Array(buffer);
+    case "uint16":
+      return new Uint16Array(buffer);
+    case "int32":
+      return new Int32Array(buffer);
+    case "uint32":
+      return new Uint32Array(buffer);
+    case "float32":
+      return new Float32Array(buffer);
+    case "float64":
+      return new Float64Array(buffer);
+    default:
+      return new Uint8Array(buffer);
+  }
+}
 
 /**
  * Walk a command structure and collect switchCanvas target IDs.
@@ -105,18 +184,43 @@ export function createCanvasManagerRouter(store: WidgetStore): () => void {
     if (models.size === lastSize) return;
     lastSize = models.size;
 
-    models.forEach((model, id) => {
-      if (activeRoutes.has(id)) return;
+    // Find CanvasModel widgets and extract their _canvas_manager reference.
+    // CanvasManagerModel is a headless singleton that isn't added to the store,
+    // but its ID is referenced by each CanvasModel via _canvas_manager.
+    models.forEach((model, _id) => {
+      if (model.modelName !== "CanvasModel") return;
 
-      if (model.modelName === "CanvasManagerModel") {
-        activeRoutes.set(id, setupManagerRouting(store, id));
+      const managerRef = model.state?._canvas_manager as string | undefined;
+      if (!managerRef) return;
+
+      // Extract manager ID from "IPY_MODEL_xxx" reference
+      const managerId = managerRef.startsWith("IPY_MODEL_")
+        ? managerRef.slice(10)
+        : managerRef;
+
+      if (activeRoutes.has(managerId)) return;
+
+      activeRoutes.set(managerId, setupManagerRouting(store, managerId));
+    });
+
+    // Clean up routes for managers no longer referenced by any canvas.
+    const referencedManagers = new Set<string>();
+    models.forEach((model) => {
+      if (model.modelName === "CanvasModel") {
+        const managerRef = model.state?._canvas_manager as string | undefined;
+        if (managerRef) {
+          const managerId = managerRef.startsWith("IPY_MODEL_")
+            ? managerRef.slice(10)
+            : managerRef;
+          referencedManagers.add(managerId);
+        }
       }
     });
 
-    for (const [id, cleanup] of activeRoutes) {
-      if (!models.has(id)) {
+    for (const [managerId, cleanup] of activeRoutes) {
+      if (!referencedManagers.has(managerId)) {
         cleanup();
-        activeRoutes.delete(id);
+        activeRoutes.delete(managerId);
       }
     }
   }

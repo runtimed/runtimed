@@ -2,7 +2,7 @@
 
 ## Current State
 
-The sidecar has full Jupyter output rendering and ipywidgets support via the `@nteract` shadcn registry. Build passes and all widgets work correctly, including third-party anywidget-based libraries.
+The sidecar has full Jupyter output rendering and ipywidgets support via the `@nteract` shadcn registry. **Fresh install from registry builds clean with no local fixes required.**
 
 ### What's Working
 
@@ -16,7 +16,7 @@ The sidecar has full Jupyter output rendering and ipywidgets support via the `@n
 8. **TimePicker** - Fixed upstream (#119)
 9. **Audio/Video from_url()** - Fixed upstream (#120), binary data handled correctly
 10. **jslink/jsdlink** - Store-layer implementation via `createLinkManager` (PR #127)
-11. **ipycanvas** - Multi-canvas support via store-level routing (PR #134 merged)
+11. **ipycanvas** - Multi-canvas support via `createCanvasManagerRouter` (PR #134)
 12. **anywidget ecosystem** - drawdata, quak, and other anywidget-based libraries work
 
 ### What's Pending
@@ -70,76 +70,47 @@ These would require either:
 1. Bundling their JS into the sidecar build
 2. Waiting for them to migrate to anywidget
 
-## Key Fixes
+## Key Architecture
 
-### ipycanvas Store-Level Routing (PR #134)
+### Store-Level Routing for Headless Widgets
 
-ipycanvas uses a singleton `CanvasManagerModel` that receives ALL drawing commands. The old approach had each `CanvasWidget` subscribe to the manager and filter commands via `activeCanvasRef` — but this caused interference when multiple canvases existed (e.g., animated canvas + canvases in tabs).
-
-**Problem:** The manager is a headless widget (`_view_name: null`) — it never renders, so routing can't live in a React component.
-
-**Solution (PR #134):** Store-level routing via `ensureManagerRouting()`:
+Both `LinkModel` and `CanvasManagerModel` are headless widgets (`_view_name: null`) that never render. Their logic runs at the store level via `WidgetStoreProvider`:
 
 ```typescript
-// Store-level routing with ref counting
-const managerRouting = new Map<string, { refCount: number; unsubscribe: () => void }>();
+// widget-store-context.tsx
+useEffect(() => createLinkManager(store), [store]);
+useEffect(() => createCanvasManagerRouter(store), [store]);
+```
 
-function ensureManagerRouting(store: WidgetStore, managerId: string): () => void {
-  // First canvas referencing this manager creates the subscription
-  // Subscribes to manager's comm_id, parses switchCanvas targets,
-  // re-emits to each target canvas's comm_id
-  // Last canvas tears down when unmounting
+### ipycanvas Manager Routing (PR #134)
+
+ipycanvas uses a singleton `CanvasManagerModel` that receives ALL drawing commands. `createCanvasManagerRouter` monitors the store for manager models and routes messages to target canvases:
+
+```typescript
+// canvas-manager-subscriptions.ts
+export function createCanvasManagerRouter(store: WidgetStore): () => void {
+  // Watches for CanvasManagerModel widgets
+  // Subscribes to each manager's custom messages
+  // Parses switchCanvas to find target canvas IDs
+  // Re-emits messages to each target canvas's comm_id
 }
-
-// Each CanvasWidget calls this in its effect:
-useEffect(() => {
-  const cleanupRouting = ensureManagerRouting(store, managerModelId);
-  const unsubscribe = store.subscribeToCustomMessage(modelId, handler);
-  return () => { unsubscribe(); cleanupRouting(); };
-}, [...]);
 ```
 
 **Benefits:**
-- No React component mounting required for headless manager
-- Ref-counted: first canvas creates subscription, last tears down
+- No React component mounting required
 - Each canvas isolated — only receives messages routed to its comm_id
-- Tabs + Matrix animation stress test passes
+- Animations on one canvas don't interfere with others (tabs, accordions work)
 
-Upstream: [PR #134](https://github.com/nteract/elements/pull/134) ✅ Merged
+### jslink/jsdlink (PR #127)
 
-### Store-Layer jslink (PR #127 - Merged)
+`createLinkManager` synchronizes widget properties at the store level:
 
-The `createLinkManager` function manages `LinkModel` and `DirectionalLinkModel` at the store level.
-
-**Benefits:**
-- No component mounting required
-- Works everywhere including iframes
-- Store handles syncing without React lifecycle
-
-**Key files (from @nteract registry):**
-- `src/components/widgets/link-subscriptions.ts` - Core link manager
-- `src/components/widgets/controls/link-widget.tsx` - Headless stub components
-- `src/components/widgets/widget-store-context.tsx` - Integrates via `useEffect`
-
-### Branch & PR
-
-- **Branch:** `sidecar-with-elements`
-- **PR:** #221 on runtimed/runtimed
-
-## Documentation
-
-**Full component documentation (LLM-friendly):**
-- https://nteract-elements.vercel.app/llms-full.txt
-
-## Registry Setup
-
-The `@nteract` registry is configured in `components.json`:
-
-```json
-{
-  "registries": {
-    "@nteract": "https://nteract-elements.vercel.app/r/{name}.json"
-  }
+```typescript
+// link-subscriptions.ts
+export function createLinkManager(store: WidgetStore): () => void {
+  // Watches for LinkModel/DirectionalLinkModel widgets
+  // Sets up bidirectional or one-way property sync
+  // Prevents infinite loops via update guards
 }
 ```
 
@@ -161,6 +132,8 @@ npx shadcn@latest add @nteract/ipycanvas -yo
 # 5. Build
 npm run build
 ```
+
+**No local fixes required** — registry components build clean.
 
 ## Key Integration Points
 
@@ -191,7 +164,7 @@ export default function App() {
 }
 ```
 
-Link subscriptions and custom message buffering are managed automatically by `WidgetStoreProvider`.
+Link subscriptions and canvas manager routing are initialized automatically by `WidgetStoreProvider`.
 
 ## File Structure
 
@@ -206,14 +179,12 @@ src/
 │   │   └── ...
 │   ├── widgets/               # @nteract widget system
 │   │   ├── controls/          # 50+ ipywidget components
-│   │   │   ├── index.ts
-│   │   │   ├── link-widget.tsx
-│   │   │   └── ...
 │   │   ├── ipycanvas/         # ipycanvas support
 │   │   │   ├── index.ts
 │   │   │   ├── canvas-widget.tsx
 │   │   │   └── ipycanvas-commands.ts
-│   │   ├── link-subscriptions.ts
+│   │   ├── canvas-manager-subscriptions.ts  # Store-level routing
+│   │   ├── link-subscriptions.ts            # Store-level linking
 │   │   ├── widget-store.ts
 │   │   ├── widget-store-context.tsx
 │   │   ├── widget-view.tsx
@@ -262,34 +233,55 @@ b = widgets.IntSlider(description='B (follows A)')
 widgets.jsdlink((a, 'value'), (b, 'value'))
 widgets.VBox([a, b])
 
-# ipycanvas - single
+# ipycanvas - basic
 from ipycanvas import Canvas
 canvas = Canvas(width=400, height=300)
 canvas.fill_style = 'red'
 canvas.fill_rect(50, 50, 100, 100)
 canvas
 
-# ipycanvas - multi-canvas isolation test
+# ipycanvas - multi-canvas stress test (Matrix + tabs)
 import ipywidgets as widgets
 import asyncio
+import random
 
-c1 = Canvas(width=200, height=150)
-c2 = Canvas(width=200, height=150)
-c1.fill_style = 'red'
-c1.fill_rect(25, 25, 150, 100)
-c2.fill_style = 'blue'
-c2.fill_rect(25, 25, 150, 100)
-tabs = widgets.Tab(children=[c1, c2], titles=['Red', 'Blue'])
+tabs_canvases = [Canvas(width=200, height=150) for _ in range(3)]
+colors = ['#e74c3c', '#2ecc71', '#9b59b6']
+for c, color in zip(tabs_canvases, colors):
+    c.fill_style = color
+    c.fill_rect(0, 0, 200, 150)
+    c.fill_style = 'white'
+    c.font = '20px sans-serif'
+    c.text_align = 'center'
+    c.fill_text(color, 100, 80)
+
+tabs = widgets.Tab(children=tabs_canvases, titles=['Red', 'Green', 'Purple'])
 display(tabs)
 
-# Animated canvas - should not break tabs above
-anim = Canvas(width=300, height=100)
-display(anim)
-for i in range(60):
-    anim.fill_style = f'hsl({i * 6}, 70%, 50%)'
-    anim.fill_rect(0, 0, 300, 100)
-    await asyncio.sleep(0.05)
-# Tabs should still be clickable!
+matrix = Canvas(width=400, height=200)
+display(matrix)
+
+chars = "アイウエオカキクケコ0123456789"
+cols = 28
+drops = [random.randint(-10, 0) for _ in range(cols)]
+
+matrix.fill_style = 'black'
+matrix.fill_rect(0, 0, 400, 200)
+
+for _ in range(150):
+    matrix.fill_style = 'rgba(0, 0, 0, 0.05)'
+    matrix.fill_rect(0, 0, 400, 200)
+    matrix.font = '14px monospace'
+    
+    for i in range(cols):
+        matrix.fill_style = '#0f0'
+        matrix.fill_text(random.choice(chars), i * 14, drops[i] * 14)
+        drops[i] += 1
+        if drops[i] * 14 > 200 and random.random() > 0.95:
+            drops[i] = 0
+    
+    await asyncio.sleep(0.03)
+# Tabs should still be clickable after animation!
 
 # anywidget - drawdata
 from drawdata import ScatterWidget
@@ -314,7 +306,7 @@ cd crates/sidecar/ui
 npm run build
 ```
 
-Current build size: ~765KB index.js (includes KaTeX + ipycanvas)
+Current build size: ~767KB index.js (includes KaTeX + ipycanvas)
 
 ## Updating from Registry
 
@@ -322,7 +314,7 @@ Current build size: ~765KB index.js (includes KaTeX + ipycanvas)
 # Pull latest widget controls
 npx shadcn@latest add @nteract/widget-controls -yo
 
-# Pull latest widget store
+# Pull latest widget store (includes canvas-manager-subscriptions)
 npx shadcn@latest add @nteract/widget-store -yo
 
 # Pull latest ipycanvas
@@ -330,6 +322,28 @@ npx shadcn@latest add @nteract/ipycanvas -yo
 
 npm run build
 ```
+
+## Documentation
+
+**Full component documentation (LLM-friendly):**
+- https://nteract-elements.vercel.app/llms-full.txt
+
+## Registry Setup
+
+The `@nteract` registry is configured in `components.json`:
+
+```json
+{
+  "registries": {
+    "@nteract": "https://nteract-elements.vercel.app/r/{name}.json"
+  }
+}
+```
+
+## Branch & PR
+
+- **Branch:** `sidecar-with-elements`
+- **PR:** #221 on runtimed/runtimed
 
 ## Next Steps
 

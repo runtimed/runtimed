@@ -1,22 +1,3 @@
-/**
- * ipycanvas binary command protocol.
- *
- * Handles deserialization and execution of drawing commands sent from Python
- * via the ipycanvas widget protocol. Commands arrive as binary buffers where:
- * - Buffer[0] = JSON-encoded command array (dtype specified in message metadata)
- * - Buffer[1..n] = Binary data for batch operations (NumPy arrays)
- *
- * Each command is [commandIndex, args, nBuffers?] where commandIndex maps to COMMANDS.
- *
- * @see https://github.com/jupyter-widgets-contrib/ipycanvas
- */
-
-// === Command Constants ===
-
-/**
- * Drawing command names indexed by their protocol number.
- * This must match the Python side exactly.
- */
 export const COMMANDS = [
   "fillRect",
   "strokeRect",
@@ -213,6 +194,7 @@ function getArg(metadata: unknown, buffers: DataView[]): Arg {
 // === Drawing Helpers ===
 
 function drawRects(
+  _ctx: CanvasRenderingContext2D,
   args: unknown[],
   buffers: DataView[],
   callback: (x: number, y: number, w: number, h: number) => void,
@@ -229,6 +211,7 @@ function drawRects(
 }
 
 function drawCircles(
+  _ctx: CanvasRenderingContext2D,
   args: unknown[],
   buffers: DataView[],
   callback: (x: number, y: number, r: number) => void,
@@ -244,6 +227,7 @@ function drawCircles(
 }
 
 function drawArcs(
+  _ctx: CanvasRenderingContext2D,
   args: unknown[],
   buffers: DataView[],
   callback: (
@@ -698,24 +682,24 @@ export async function processCommands(
 
     // --- Batch drawing ---
     case "fillRects":
-      drawRects(args, buffers, (x, y, w, h) => ctx.fillRect(x, y, w, h));
+      drawRects(ctx, args, buffers, (x, y, w, h) => ctx.fillRect(x, y, w, h));
       break;
     case "strokeRects":
-      drawRects(args, buffers, (x, y, w, h) => ctx.strokeRect(x, y, w, h));
+      drawRects(ctx, args, buffers, (x, y, w, h) => ctx.strokeRect(x, y, w, h));
       break;
     case "fillCircles":
-      drawCircles(args, buffers, (x, y, r) => fillCircle(ctx, x, y, r));
+      drawCircles(ctx, args, buffers, (x, y, r) => fillCircle(ctx, x, y, r));
       break;
     case "strokeCircles":
-      drawCircles(args, buffers, (x, y, r) => strokeCircle(ctx, x, y, r));
+      drawCircles(ctx, args, buffers, (x, y, r) => strokeCircle(ctx, x, y, r));
       break;
     case "fillArcs":
-      drawArcs(args, buffers, (x, y, r, sa, ea, ac) =>
+      drawArcs(ctx, args, buffers, (x, y, r, sa, ea, ac) =>
         fillArc(ctx, x, y, r, sa, ea, ac),
       );
       break;
     case "strokeArcs":
-      drawArcs(args, buffers, (x, y, r, sa, ea, ac) =>
+      drawArcs(ctx, args, buffers, (x, y, r, sa, ea, ac) =>
         strokeArc(ctx, x, y, r, sa, ea, ac),
       );
       break;
