@@ -175,9 +175,11 @@ async fn run(
     let mut shell =
         runtimelib::create_client_shell_connection(&connection_info, &iopub.session_id).await?;
 
-    let (tx, mut rx) = futures::channel::mpsc::channel::<JupyterMessage>(100);
     let event_loop_proxy = event_loop.create_proxy();
 
+    let kernel_info_message = request_kernel_info(&mut shell, Duration::from_secs(2)).await;
+
+    let (tx, mut rx) = futures::channel::mpsc::channel::<JupyterMessage>(100);
     smol::spawn(async move {
         while let Some(message) = rx.next().await {
             if let Err(e) = shell.send(message).await {
@@ -256,7 +258,7 @@ async fn run(
         .with_url(&ui_url)
         .build(&window)?;
 
-    if let Some(message) = request_kernel_info(&mut shell, Duration::from_secs(2)).await {
+    if let Some(message) = kernel_info_message {
         let _ = event_loop_proxy.send_event(message);
     }
 
