@@ -104,6 +104,26 @@ export interface ClearOutputContent {
   wait: boolean;
 }
 
+export interface KernelInfoReplyContent {
+  status: string;
+  protocol_version: string;
+  implementation: string;
+  implementation_version: string;
+  language_info: {
+    name: string;
+    version: string;
+    mimetype?: string;
+    file_extension?: string;
+    pygments_lexer?: string;
+    codemirror_mode?: unknown;
+    nbconvert_exporter?: string;
+  };
+  banner?: string;
+  help_links?: Array<{ text: string; url: string }>;
+  debugger?: boolean;
+  error?: unknown;
+}
+
 // Message types
 export interface DisplayDataMessage {
   header: Header<"display_data">;
@@ -195,6 +215,15 @@ export interface ClearOutputMessage {
   channel?: string;
 }
 
+export interface KernelInfoReplyMessage {
+  header: Header<"kernel_info_reply">;
+  parent_header: Header | null;
+  metadata: Record<string, unknown>;
+  content: KernelInfoReplyContent;
+  buffers: unknown[];
+  channel?: string;
+}
+
 export type JupyterMessage =
   | DisplayDataMessage
   | ExecuteResultMessage
@@ -205,7 +234,8 @@ export type JupyterMessage =
   | CommCloseMessage
   | ExecuteInputMessage
   | StatusMessage
-  | ClearOutputMessage;
+  | ClearOutputMessage
+  | KernelInfoReplyMessage;
 
 // Type guards
 export function isDisplayData(msg: JupyterMessage): msg is DisplayDataMessage {
@@ -250,6 +280,12 @@ export function isStatus(msg: JupyterMessage): msg is StatusMessage {
 
 export function isClearOutput(msg: JupyterMessage): msg is ClearOutputMessage {
   return msg.header.msg_type === "clear_output";
+}
+
+export function isKernelInfoReply(
+  msg: JupyterMessage,
+): msg is KernelInfoReplyMessage {
+  return msg.header.msg_type === "kernel_info_reply";
 }
 
 export function hasDisplayData(

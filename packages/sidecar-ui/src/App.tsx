@@ -19,6 +19,7 @@ import type {
   JupyterOutput,
   MimeBundle,
   MimeMetadata,
+  KernelInfoReplyContent,
 } from "./types";
 import {
   isDisplayData,
@@ -26,6 +27,7 @@ import {
   isStream,
   isError,
   isClearOutput,
+  isKernelInfoReply,
 } from "./types";
 import { cn } from "@runtimed/ui/lib/utils";
 
@@ -78,6 +80,9 @@ function OutputCell({ output, index }: OutputCellProps) {
 function AppContent() {
   const [outputs, setOutputs] = useState<JupyterOutput[]>([]);
   const [kernelStatus, setKernelStatus] = useState<string>("unknown");
+  const [kernelInfo, setKernelInfo] = useState<KernelInfoReplyContent | null>(
+    null,
+  );
   const [autoScroll, setAutoScroll] = useState(true);
   const [unseenCount, setUnseenCount] = useState(0);
   const outputAreaRef = useRef<HTMLDivElement>(null);
@@ -92,6 +97,16 @@ function AppContent() {
     const params = new URLSearchParams(window.location.search);
     return params.has("debug-widgets");
   }, []);
+  const kernelInfoText = useMemo(() => {
+    if (!kernelInfo) {
+      return null;
+    }
+    const implementation = kernelInfo.implementation || "kernel";
+    const implementationVersion = kernelInfo.implementation_version || "";
+    const languageName = kernelInfo.language_info?.name ?? "lang";
+    const languageVersion = kernelInfo.language_info?.version ?? "";
+    return `${implementation} ${implementationVersion} · ${languageName} ${languageVersion}`.trim();
+  }, [kernelInfo]);
 
   // Convert message to output format
   const messageToOutput = useCallback(
@@ -169,6 +184,12 @@ function AppContent() {
         handleWidgetMessage(
           message as Parameters<typeof handleWidgetMessage>[0],
         );
+      }
+
+      // Handle kernel info
+      if (isKernelInfoReply(message)) {
+        setKernelInfo(message.content);
+        return;
       }
 
       // Handle clear_output
@@ -280,6 +301,11 @@ function AppContent() {
             <span className="font-mono text-muted-foreground">
               {kernelLabel}
             </span>
+            {kernelInfoText ? (
+              <span className="ml-2 text-xs text-muted-foreground">
+                {kernelInfoText}
+              </span>
+            ) : null}
           </h1>
           <div className="flex items-center gap-2">
             <div

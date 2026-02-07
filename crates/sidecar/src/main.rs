@@ -3,14 +3,18 @@ use base64::prelude::*;
 use bytes::Bytes;
 use clap::Parser;
 use env_logger;
+use futures::future::{select, Either};
 use futures::StreamExt;
 use log::{debug, error, info};
 use rust_embed::Embed;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
-use jupyter_protocol::{Channel, ConnectionInfo, Header, JupyterMessage, JupyterMessageContent};
+use jupyter_protocol::{
+    Channel, ConnectionInfo, Header, JupyterMessage, JupyterMessageContent, KernelInfoRequest,
+};
 
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Value;
@@ -172,6 +176,7 @@ async fn run(
         runtimelib::create_client_shell_connection(&connection_info, &iopub.session_id).await?;
 
     let (tx, mut rx) = futures::channel::mpsc::channel::<JupyterMessage>(100);
+    let event_loop_proxy = event_loop.create_proxy();
 
     smol::spawn(async move {
         while let Some(message) = rx.next().await {
@@ -251,7 +256,9 @@ async fn run(
         .with_url(&ui_url)
         .build(&window)?;
 
-    let event_loop_proxy = event_loop.create_proxy();
+    if let Some(message) = request_kernel_info(&mut shell, Duration::from_secs(2)).await {
+        let _ = event_loop_proxy.send_event(message);
+    }
 
     smol::spawn(async move {
         while let Ok(message) = iopub.read().await {
@@ -358,6 +365,32 @@ async fn run(
             _ => {}
         }
     });
+}
+
+async fn request_kernel_info(
+    shell: &mut runtimelib::ClientShellConnection,
+    timeout: Duration,
+) -> Option<JupyterMessage> {
+    let request: JupyterMessage = KernelInfoRequest::default().into();
+    if let Err(e) = shell.send(request).await {
+        error!("Failed to send kernel_info_request: {}", e);
+        return None;
+    }
+
+    match select(Box::pin(shell.read()), Box::pin(smol::Timer::after(timeout))).await {
+        Either::Left((Ok(message), _)) => {
+            if message.header.msg_type == "kernel_info_reply" {
+                Some(message)
+            } else {
+                None
+            }
+        }
+        Either::Left((Err(e), _)) => {
+            error!("Failed to read kernel_info_reply: {}", e);
+            None
+        }
+        Either::Right((_timeout, _)) => None,
+    }
 }
 
 fn main() -> Result<()> {
