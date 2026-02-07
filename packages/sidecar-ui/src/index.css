@@ -1,3 +1,7 @@
+@config "../../../tailwind.config.js";
+@source "../ui/src/**/*.{ts,tsx}";
+@source "./**/*.{ts,tsx}";
+
 @import "tailwindcss";
 @import "tw-animate-css";
 
