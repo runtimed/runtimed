@@ -8,6 +8,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@runtimed/ui": path.resolve(__dirname, "../ui/src"),
     },
   },
   build: {

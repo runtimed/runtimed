@@ -174,15 +174,15 @@ These will be added upstream in nteract/elements and can be pulled when availabl
 
 | File | Purpose |
 |------|---------|
-| `ui/src/App.tsx` | Main app, message handling, buffer decoding |
-| `ui/src/lib/widget-store.ts` | Widget model state management |
-| `ui/src/lib/widget-store-context.tsx` | React context and hooks |
-| `ui/src/lib/use-comm-router.ts` | Jupyter comm protocol handling |
-| `ui/src/lib/buffer-utils.ts` | Buffer path handling for binary data |
-| `ui/src/components/widgets/anywidget-view.tsx` | anywidget ESM loader + AFM interface |
-| `ui/src/components/widgets/widget-view.tsx` | Routes to correct widget renderer |
-| `ui/src/components/widgets/widget-registry.ts` | Maps model names to React components |
-| `ui/src/components/widgets/controls/` | Individual widget implementations |
+| `packages/sidecar-ui/src/App.tsx` | Main app, message handling, buffer decoding |
+| `packages/sidecar-ui/src/lib/widget-store.ts` | Widget model state management |
+| `packages/sidecar-ui/src/lib/widget-store-context.tsx` | React context and hooks |
+| `packages/sidecar-ui/src/lib/use-comm-router.ts` | Jupyter comm protocol handling |
+| `packages/sidecar-ui/src/lib/buffer-utils.ts` | Buffer path handling for binary data |
+| `packages/sidecar-ui/src/components/widgets/anywidget-view.tsx` | anywidget ESM loader + AFM interface |
+| `packages/sidecar-ui/src/components/widgets/widget-view.tsx` | Routes to correct widget renderer |
+| `packages/sidecar-ui/src/components/widgets/widget-registry.ts` | Maps model names to React components |
+| `packages/sidecar-ui/src/components/widgets/controls/` | Individual widget implementations |
 | `src/main.rs` | Rust: ZMQ, Webview, message routing |
 
 ## Related Resources

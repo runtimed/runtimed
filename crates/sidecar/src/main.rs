@@ -29,7 +29,7 @@ use wry::{
 };
 
 #[derive(Embed)]
-#[folder = "ui/dist"]
+#[folder = "../../packages/sidecar-ui/dist"]
 struct Asset;
 
 #[derive(Parser)]

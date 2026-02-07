@@ -27,13 +27,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: crates/sidecar/ui/package-lock.json
+      - name: Enable corepack
+        run: corepack enable
+      - name: Install JS dependencies
+        run: pnpm install
       - name: Build sidecar UI
-        run: |
-          cd crates/sidecar/ui
-          npm ci
-          npm run build
+        run: pnpm --dir packages/sidecar-ui build
       - name: Clippy check runtimelib with async-dispatcher-runtime
         run: cargo clippy -p runtimelib --all-targets --no-default-features --features "async-dispatcher-runtime,ring"
       - name: Clippy check runtimelib with tokio-runtime

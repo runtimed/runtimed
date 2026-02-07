@@ -1,19 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { MediaRouter } from "@/components/outputs/media-router";
-import { MediaProvider } from "@/components/outputs/media-provider";
+import { MediaRouter } from "@runtimed/ui/components/outputs/media-router";
+import { MediaProvider } from "@runtimed/ui/components/outputs/media-provider";
 // Register built-in ipywidgets (IntSlider, etc.)
-import "@/components/widgets/controls";
-import "@/components/widgets/ipycanvas";
+import "@runtimed/ui/components/widgets/controls";
+import "@runtimed/ui/components/widgets/ipycanvas";
 import {
   AnsiStreamOutput,
   AnsiErrorOutput,
-} from "@/components/outputs/ansi-output";
+} from "@runtimed/ui/components/outputs/ansi-output";
 import { WidgetDebugger } from "@/components/widget-debugger";
 import {
   WidgetStoreProvider,
   useWidgetStoreRequired,
-} from "@/components/widgets/widget-store-context";
-import { WidgetView } from "@/components/widgets/widget-view";
+} from "@runtimed/ui/components/widgets/widget-store-context";
+import { WidgetView } from "@runtimed/ui/components/widgets/widget-view";
 import type {
   JupyterMessage,
   JupyterOutput,
@@ -27,7 +27,7 @@ import {
   isError,
   isClearOutput,
 } from "./types";
-import { cn } from "@/lib/utils";
+import { cn } from "@runtimed/ui/lib/utils";
 
 interface OutputCellProps {
   output: JupyterOutput;

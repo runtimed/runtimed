@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useWidgetModels } from "@/components/widgets/widget-store-context";
-import { JsonOutput } from "@/components/outputs/json-output";
+import { useWidgetModels } from "@runtimed/ui/components/widgets/widget-store-context";
+import { JsonOutput } from "@runtimed/ui/components/outputs/json-output";
 import {
   Sheet,
   SheetContent,
@@ -10,13 +10,13 @@ import {
   SheetTitle,
   SheetDescription,
   SheetTrigger,
-} from "@/components/ui/sheet";
+} from "@runtimed/ui/components/ui/sheet";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { cn } from "@/lib/utils";
+} from "@runtimed/ui/components/ui/collapsible";
+import { cn } from "@runtimed/ui/lib/utils";
 import { ChevronRightIcon, CopyIcon, CheckIcon, BugIcon } from "lucide-react";
 
 interface CopyButtonProps {

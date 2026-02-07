@@ -189,7 +189,7 @@ src/
 │   │   ├── widget-store-context.tsx
 │   │   ├── widget-view.tsx
 │   │   └── anywidget-view.tsx
-│   ├── ui/                    # @shadcn primitives
+│   ├── packages/sidecar-ui/   # @shadcn primitives + sidecar app
 │   └── widget-debugger.tsx    # LOCAL: debug panel
 ├── App.tsx
 └── types.ts
@@ -302,7 +302,7 @@ display(out)
 ## Build
 
 ```bash
-cd crates/sidecar/ui
+cd packages/sidecar-ui
 npm run build
 ```
 

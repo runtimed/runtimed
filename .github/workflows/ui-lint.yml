@@ -20,8 +20,7 @@ jobs:
       - name: Enable corepack
         run: corepack enable
 
-      - name: Install UI dependencies
-        working-directory: packages/ui
+      - name: Install JS dependencies
         run: pnpm install
 
       - name: Run Biome lint
