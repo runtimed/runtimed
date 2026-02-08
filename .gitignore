@@ -38,3 +38,13 @@ node_modules/
 dist/
 **/dist/
 *.tsbuildinfo
+
+# Python artifacts
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+**/*.egg-info/
+.venv/
+**/.venv/
