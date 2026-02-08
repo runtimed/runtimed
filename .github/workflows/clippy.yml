@@ -23,6 +23,16 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+      - name: Setup Node.js for sidecar UI
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Enable corepack
+        run: corepack enable
+      - name: Install JS dependencies
+        run: pnpm install
+      - name: Build sidecar UI
+        run: pnpm --dir packages/sidecar-ui build
       - name: Clippy check runtimelib with async-dispatcher-runtime
         run: cargo clippy -p runtimelib --all-targets --no-default-features --features "async-dispatcher-runtime,ring"
       - name: Clippy check runtimelib with tokio-runtime

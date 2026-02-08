@@ -42,6 +42,7 @@ thiserror = "2"
 tokio = { version = "1.36.0", features = ["full"] }
 
 [profile.release]
+opt-level = 'z'
 strip = true
 lto = true
 codegen-units = 1
