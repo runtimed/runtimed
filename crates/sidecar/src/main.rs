@@ -9,7 +9,10 @@ use log::{debug, error, info};
 use rust_embed::Embed;
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 use std::time::Duration;
 
 use jupyter_protocol::{
@@ -177,8 +180,6 @@ async fn run(
 
     let event_loop_proxy = event_loop.create_proxy();
 
-    let kernel_info_message = request_kernel_info(&mut shell, Duration::from_secs(2)).await;
-
     let (tx, mut rx) = futures::channel::mpsc::channel::<JupyterMessage>(100);
     smol::spawn(async move {
         while let Some(message) = rx.next().await {
@@ -189,6 +190,13 @@ async fn run(
         }
     })
     .detach();
+
+    let ui_ready = Arc::new(AtomicBool::new(false));
+    let pending_kernel_info: Arc<Mutex<Option<JupyterMessage>>> = Arc::new(Mutex::new(None));
+
+    let ui_ready_handler = ui_ready.clone();
+    let pending_kernel_info_handler = pending_kernel_info.clone();
+    let kernel_info_proxy = event_loop_proxy.clone();
 
     let webview = WebViewBuilder::new()
         .with_devtools(true)
@@ -229,6 +237,18 @@ async fn run(
                     }
                 }
             };
+
+            if let (&Method::POST, "/ready") = (req.method(), req.uri().path()) {
+                ui_ready_handler.store(true, Ordering::SeqCst);
+                if let Ok(mut pending) = pending_kernel_info_handler.lock() {
+                    if let Some(message) = pending.take() {
+                        let _ = kernel_info_proxy.send_event(message);
+                    }
+                }
+                responder
+                    .respond(Response::builder().status(204).body(Vec::new()).unwrap());
+                return;
+            }
             let response = get_response(req).map_err(|e| {
                 error!("{:?}", e);
                 e
@@ -258,9 +278,34 @@ async fn run(
         .with_url(&ui_url)
         .build(&window)?;
 
-    if let Some(message) = kernel_info_message {
-        let _ = event_loop_proxy.send_event(message);
-    }
+    let kernel_info_connection = connection_info.clone();
+    let kernel_info_session_id = iopub.session_id.clone();
+    let kernel_info_proxy = event_loop_proxy.clone();
+    let kernel_info_ready = ui_ready.clone();
+    let kernel_info_pending = pending_kernel_info.clone();
+    smol::spawn(async move {
+        for attempt in 0..3 {
+            if let Some(message) = request_kernel_info(
+                &kernel_info_connection,
+                &kernel_info_session_id,
+                Duration::from_secs(2),
+            )
+            .await
+            {
+                if kernel_info_ready.load(Ordering::SeqCst) {
+                    let _ = kernel_info_proxy.send_event(message);
+                } else if let Ok(mut pending) = kernel_info_pending.lock() {
+                    *pending = Some(message);
+                }
+                return;
+            }
+            if attempt < 2 {
+                smol::Timer::after(Duration::from_millis(500)).await;
+            }
+        }
+        debug!("kernel_info_reply not received after retries");
+    })
+    .detach();
 
     smol::spawn(async move {
         while let Ok(message) = iopub.read().await {
@@ -370,17 +415,37 @@ async fn run(
 }
 
 async fn request_kernel_info(
-    shell: &mut runtimelib::ClientShellConnection,
+    connection_info: &ConnectionInfo,
+    session_id: &str,
     timeout: Duration,
 ) -> Option<JupyterMessage> {
+    dbg!("kernel_info_request start");
+    let mut shell = match runtimelib::create_client_shell_connection(connection_info, session_id)
+        .await
+    {
+        Ok(shell) => shell,
+        Err(e) => {
+            error!("Failed to create kernel info shell connection: {}", e);
+            return None;
+        }
+    };
+
     let request: JupyterMessage = KernelInfoRequest::default().into();
+    dbg!("kernel_info_request send");
     if let Err(e) = shell.send(request).await {
         error!("Failed to send kernel_info_request: {}", e);
         return None;
     }
 
-    match select(Box::pin(shell.read()), Box::pin(smol::Timer::after(timeout))).await {
+    let result = select(
+        Box::pin(shell.read()),
+        Box::pin(smol::Timer::after(timeout)),
+    )
+    .await;
+
+    match result {
         Either::Left((Ok(message), _)) => {
+            dbg!(message.header.msg_type.as_str());
             if message.header.msg_type == "kernel_info_reply" {
                 Some(message)
             } else {

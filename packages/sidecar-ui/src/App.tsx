@@ -77,6 +77,11 @@ function OutputCell({ output, index }: OutputCellProps) {
   );
 }
 
+type SidecarGlobal = typeof globalThis & {
+  onMessage?: (msg: unknown) => void;
+  __sidecarPendingMessages?: unknown[];
+};
+
 function AppContent() {
   const [outputs, setOutputs] = useState<JupyterOutput[]>([]);
   const [kernelStatus, setKernelStatus] = useState<string>("unknown");
@@ -89,10 +94,6 @@ function AppContent() {
   const lastSeenCountRef = useRef(0);
   const outputsLengthRef = useRef(0);
   const { handleMessage: handleWidgetMessage } = useWidgetStoreRequired();
-  const kernelLabel = useMemo(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("kernel") ?? "unknown";
-  }, []);
   const showWidgetDebugger = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     return params.has("debug-widgets");
@@ -189,6 +190,7 @@ function AppContent() {
       // Handle kernel info
       if (isKernelInfoReply(message)) {
         setKernelInfo(message.content);
+        setKernelStatus("idle");
         return;
       }
 
@@ -241,6 +243,17 @@ function AppContent() {
   useEffect(() => {
     // @ts-expect-error - globalThis.onMessage is set by Rust
     globalThis.onMessage = handleMessage;
+    const sidecarGlobal = globalThis as SidecarGlobal;
+    const pending = sidecarGlobal.__sidecarPendingMessages;
+    if (pending && pending.length > 0) {
+      sidecarGlobal.__sidecarPendingMessages = [];
+      pending.forEach((message) => {
+        handleMessage(message as JupyterMessage);
+      });
+    }
+    fetch("/ready", { method: "POST" }).catch((err) => {
+      console.error("[sidecar] Failed to notify ready:", err);
+    });
 
     return () => {
       // @ts-expect-error - cleanup
@@ -297,10 +310,7 @@ function AppContent() {
       <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
         <div className="flex h-10 items-center justify-between px-4">
           <h1 className="text-sm font-medium">
-            Kernel:{" "}
-            <span className="font-mono text-muted-foreground">
-              {kernelLabel}
-            </span>
+            Kernel
             {kernelInfoText ? (
               <span className="ml-2 text-xs text-muted-foreground">
                 {kernelInfoText}
@@ -330,7 +340,7 @@ function AppContent() {
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
             <p className="text-sm">Waiting for outputs...</p>
             <p className="text-xs mt-1">
-              Execute code in your notebook to see results here
+              Execute code in your repl to see results here
             </p>
           </div>
         ) : (
