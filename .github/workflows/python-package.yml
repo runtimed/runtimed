@@ -137,10 +137,10 @@ jobs:
       - name: Publish to PyPI
         run: uv publish --trusted-publishing always --check-url https://pypi.org/simple/runtimed/ 'wheels-macos-*/*'
 
-      - name: Upload Linux wheel to GitHub Release
+      - name: Upload wheels to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: wheels-linux-*/*
+          files: wheels-*/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
