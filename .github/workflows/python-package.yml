@@ -39,8 +39,10 @@ jobs:
         platform:
           - runner: macos-latest
             target: aarch64-apple-darwin
+            binary_name: runt-darwin-arm64
           - runner: macos-latest
             target: x86_64-apple-darwin
+            binary_name: runt-darwin-x64
     steps:
       - uses: actions/checkout@v4
 
@@ -71,6 +73,12 @@ jobs:
         with:
           name: wheels-macos-${{ matrix.platform.target }}
           path: python/runtimed/dist
+
+      - name: Upload runt binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform.binary_name }}
+          path: target/${{ matrix.platform.target }}/release/runt
 
   linux:
     # Build on the host runner (not in a manylinux container) because
@@ -114,6 +122,12 @@ jobs:
           name: wheels-linux-x86_64
           path: python/runtimed/dist
 
+      - name: Upload runt binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: runt-linux-x64
+          path: target/x86_64-unknown-linux-gnu/release/runt
+
   release:
     name: Release
     runs-on: ubuntu-latest
@@ -129,10 +143,32 @@ jobs:
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v2
         with:
-          subject-path: "wheels-*/*"
+          subject-path: |
+            wheels-*/*
+            runt-darwin-arm64/*
+            runt-darwin-x64/*
+            runt-linux-x64/*
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
       - name: Publish to PyPI
-        run: uv publish --trusted-publishing always 'wheels-*/*'
+        run: uv publish --trusted-publishing always --check-url https://pypi.org/simple/runtimed/ 'wheels-macos-*/*'
+
+      - name: Prepare runt binaries
+        run: |
+          mkdir -p binaries
+          cp runt-darwin-arm64/runt binaries/runt-darwin-arm64
+          cp runt-darwin-x64/runt binaries/runt-darwin-x64
+          cp runt-linux-x64/runt binaries/runt-linux-x64
+          chmod +x binaries/*
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            wheels-*/*
+            binaries/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
