@@ -556,7 +556,8 @@ async fn request_python_cwd(
             let JupyterMessageContent::ExecuteReply(reply) = message.content else {
                 return None;
             };
-            let expression = reply.user_expressions?.get("cwd")?;
+            let user_expressions = reply.user_expressions?;
+            let expression = user_expressions.get("cwd")?;
             match expression {
                 ExpressionResult::Ok { data, .. } => data.content.iter().find_map(|media| {
                     if let MediaType::Plain(text) = media {
