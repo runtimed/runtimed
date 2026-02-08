@@ -419,7 +419,6 @@ async fn request_kernel_info(
     session_id: &str,
     timeout: Duration,
 ) -> Option<JupyterMessage> {
-    dbg!("kernel_info_request start");
     let mut shell = match runtimelib::create_client_shell_connection(connection_info, session_id)
         .await
     {
@@ -431,7 +430,6 @@ async fn request_kernel_info(
     };
 
     let request: JupyterMessage = KernelInfoRequest::default().into();
-    dbg!("kernel_info_request send");
     if let Err(e) = shell.send(request).await {
         error!("Failed to send kernel_info_request: {}", e);
         return None;
@@ -445,7 +443,6 @@ async fn request_kernel_info(
 
     match result {
         Either::Left((Ok(message), _)) => {
-            dbg!(message.header.msg_type.as_str());
             if message.header.msg_type == "kernel_info_reply" {
                 Some(message)
             } else {
