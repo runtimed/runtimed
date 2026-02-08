@@ -30,6 +30,7 @@ import {
   isKernelInfoReply,
 } from "./types";
 import { cn } from "@runtimed/ui/lib/utils";
+import { IconBrandDeno, IconBrandPython, IconLetterR } from "@tabler/icons-react";
 
 interface OutputCellProps {
   output: JupyterOutput;
@@ -98,15 +99,42 @@ function AppContent() {
     const params = new URLSearchParams(window.location.search);
     return params.has("debug-widgets");
   }, []);
+  const kernelLanguage = useMemo(() => {
+    return kernelInfo?.language_info?.name?.toLowerCase() ?? null;
+  }, [kernelInfo]);
+  const KernelLogo = useMemo(() => {
+    if (kernelLanguage === "python") {
+      return IconBrandPython;
+    }
+    if (kernelLanguage === "deno") {
+      return IconBrandDeno;
+    }
+    if (kernelLanguage === "r") {
+      return IconLetterR;
+    }
+    return null;
+  }, [kernelLanguage]);
   const kernelInfoText = useMemo(() => {
     if (!kernelInfo) {
       return null;
     }
-    const implementation = kernelInfo.implementation || "kernel";
-    const implementationVersion = kernelInfo.implementation_version || "";
-    const languageName = kernelInfo.language_info?.name ?? "lang";
-    const languageVersion = kernelInfo.language_info?.version ?? "";
-    return `${implementation} ${implementationVersion} · ${languageName} ${languageVersion}`.trim();
+    const implementation = kernelInfo.implementation?.trim() || "kernel";
+    const implementationVersion = kernelInfo.implementation_version?.trim() || "";
+    const languageName = kernelInfo.language_info?.name?.trim() || "lang";
+    const languageVersion = kernelInfo.language_info?.version?.trim() || "";
+    const parts: string[] = [];
+    const languagePart = `${languageName} ${languageVersion}`.trim();
+    const implementationPart = `${implementation} ${implementationVersion}`.trim();
+    if (languagePart) {
+      parts.push(languagePart);
+    }
+    if (
+      implementationPart &&
+      implementationPart.toLowerCase() !== languagePart.toLowerCase()
+    ) {
+      parts.push(implementationPart);
+    }
+    return parts.join(" ");
   }, [kernelInfo]);
 
   // Convert message to output format
@@ -309,13 +337,15 @@ function AppContent() {
       {/* Header */}
       <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
         <div className="flex h-10 items-center justify-between px-4">
-          <h1 className="text-sm font-medium">
-            Kernel
-            {kernelInfoText ? (
-              <span className="ml-2 text-xs text-muted-foreground">
-                {kernelInfoText}
-              </span>
+          <h1 className="flex items-center gap-2 text-sm font-medium">
+            {KernelLogo ? (
+              <KernelLogo className="h-4 w-4 text-muted-foreground" stroke={1.8} />
             ) : null}
+            {kernelInfoText ? (
+              <span className="text-xs text-muted-foreground">{kernelInfoText}</span>
+            ) : (
+              <span className="text-xs text-muted-foreground">kernel</span>
+            )}
           </h1>
           <div className="flex items-center gap-2">
             <div

@@ -13,6 +13,7 @@
     "@jupyter-widgets/html-manager": "^1.0.11",
     "@radix-ui/react-collapsible": "^1.1.11",
     "@radix-ui/react-slot": "^1.2.3",
+    "@tabler/icons-react": "^3.36.1",
     "@uiw/react-json-view": "^2.0.0-alpha.41",
     "ansi-to-react": "^6.2.6",
     "class-variance-authority": "^0.7.1",
