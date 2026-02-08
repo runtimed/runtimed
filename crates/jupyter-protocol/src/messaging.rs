@@ -934,6 +934,29 @@ impl Default for ExecuteRequest {
     }
 }
 
+/// The result of evaluating a single user expression, as returned in an `execute_reply`.
+///
+/// On success, contains the evaluated data as a [`Media`] bundle (same format as `display_data`).
+/// On error, contains the error details.
+///
+/// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#execution-results>
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "status")]
+pub enum ExpressionResult {
+    #[serde(rename = "ok")]
+    Ok {
+        data: Media,
+        #[serde(default)]
+        metadata: serde_json::Map<String, Value>,
+    },
+    #[serde(rename = "error")]
+    Error {
+        ename: String,
+        evalue: String,
+        traceback: Vec<String>,
+    },
+}
+
 /// A reply to an execute request. This is not the output of execution, as this is the reply over
 /// the `shell` socket. Any number of outputs can be emitted as `StreamContent`, `DisplayData`,
 /// `UpdateDisplayData`, `ExecuteResult`, and `ErrorOutput`. This message is used to communicate
@@ -949,7 +972,8 @@ pub struct ExecuteReply {
 
     #[serde(default)]
     pub payload: Vec<Payload>,
-    pub user_expressions: Option<HashMap<String, String>>,
+    #[serde(default)]
+    pub user_expressions: Option<HashMap<String, ExpressionResult>>,
 
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
@@ -2289,6 +2313,72 @@ mod test {
             deserialized_request.user_expressions,
             request.user_expressions
         );
+    }
+
+    #[test]
+    fn test_execute_reply_user_expressions_deserialization() {
+        let reply_json = serde_json::json!({
+            "status": "ok",
+            "execution_count": 1,
+            "payload": [],
+            "user_expressions": {
+                "answer": {
+                    "status": "ok",
+                    "data": {"text/plain": "55"},
+                    "metadata": {}
+                },
+                "bad_expr": {
+                    "status": "error",
+                    "ename": "NameError",
+                    "evalue": "name 'undefined_var' is not defined",
+                    "traceback": ["Traceback ...", "NameError: name 'undefined_var' is not defined"]
+                }
+            }
+        });
+
+        let reply: ExecuteReply = serde_json::from_value(reply_json).unwrap();
+        assert_eq!(reply.execution_count.value(), 1);
+
+        let user_exprs = reply.user_expressions.unwrap();
+        assert_eq!(user_exprs.len(), 2);
+
+        // Check the successful expression
+        match &user_exprs["answer"] {
+            ExpressionResult::Ok { data, metadata: _ } => {
+                let plain = data.content.iter().find_map(|m| match m {
+                    MediaType::Plain(text) => Some(text.as_str()),
+                    _ => None,
+                });
+                assert_eq!(plain, Some("55"));
+            }
+            other => panic!("Expected Ok variant, got {:?}", other),
+        }
+
+        // Check the error expression
+        match &user_exprs["bad_expr"] {
+            ExpressionResult::Error {
+                ename,
+                evalue,
+                traceback,
+            } => {
+                assert_eq!(ename, "NameError");
+                assert_eq!(evalue, "name 'undefined_var' is not defined");
+                assert_eq!(traceback.len(), 2);
+            }
+            other => panic!("Expected Error variant, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_execute_reply_without_user_expressions() {
+        let reply_json = serde_json::json!({
+            "status": "ok",
+            "execution_count": 1,
+            "payload": []
+        });
+
+        let reply: ExecuteReply = serde_json::from_value(reply_json).unwrap();
+        assert!(reply.user_expressions.is_none());
     }
 
     #[test]
