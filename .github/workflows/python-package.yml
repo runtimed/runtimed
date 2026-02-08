@@ -22,6 +22,7 @@ on:
       - "crates/runt/**"
       - "crates/sidecar/**"
       - "packages/sidecar-ui/**"
+      - ".github/workflows/python-package.yml"
   workflow_dispatch:
 
 permissions:
@@ -37,9 +38,9 @@ jobs:
       matrix:
         platform:
           - runner: macos-latest
-            target: aarch64
-          - runner: macos-13
-            target: x86_64
+            target: aarch64-apple-darwin
+          - runner: macos-latest
+            target: x86_64-apple-darwin
     steps:
       - uses: actions/checkout@v4
 
