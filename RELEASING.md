@@ -60,3 +60,27 @@ If changes only touch specific crates, you can release just those (and their dep
 ```
 git log --oneline <last-tag>..HEAD --name-only | grep -E '^crates/' | sort -u
 ```
+
+## Python Package (runtimed)
+
+The Python package bundles the `runt` binary and is released separately from the Rust crates.
+
+### 1. Bump the version
+
+Edit `python/runtimed/pyproject.toml` and update the `version` field.
+
+### 2. Create a PR
+
+Open a PR with the version bump, get it reviewed and merged.
+
+### 3. Tag and push
+
+```
+git tag python-v<version>
+git push origin python-v<version>
+```
+
+The `python-package.yml` workflow triggers on `python-v*` tags and will:
+- Build wheels for macOS (arm64 + x64) and Linux (x64)
+- Publish to PyPI via trusted publishing
+- Create a GitHub release with wheels and `runt` binaries
