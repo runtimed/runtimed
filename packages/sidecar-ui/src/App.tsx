@@ -81,7 +81,10 @@ function OutputCell({ output, index }: OutputCellProps) {
 type SidecarGlobal = typeof globalThis & {
   onMessage?: (msg: unknown) => void;
   __sidecarPendingMessages?: unknown[];
+  onSidecarInfo?: (msg: unknown) => void;
+  __sidecarPendingInfoMessages?: unknown[];
 };
+type SidecarInfoMessage = { type: "kernel_cwd"; cwd: string };
 
 function AppContent() {
   const [outputs, setOutputs] = useState<JupyterOutput[]>([]);
@@ -89,6 +92,7 @@ function AppContent() {
   const [kernelInfo, setKernelInfo] = useState<KernelInfoReplyContent | null>(
     null,
   );
+  const [kernelCwd, setKernelCwd] = useState<string | null>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [unseenCount, setUnseenCount] = useState(0);
   const outputAreaRef = useRef<HTMLDivElement>(null);
@@ -136,6 +140,12 @@ function AppContent() {
     }
     return parts.join(" ");
   }, [kernelInfo]);
+  const kernelCwdText = useMemo(() => {
+    if (!kernelCwd) {
+      return null;
+    }
+    return kernelCwd;
+  }, [kernelCwd]);
 
   // Convert message to output format
   const messageToOutput = useCallback(
@@ -279,6 +289,21 @@ function AppContent() {
         handleMessage(message as JupyterMessage);
       });
     }
+    const handleSidecarInfo = (message: SidecarInfoMessage) => {
+      if (message.type === "kernel_cwd") {
+        setKernelCwd(message.cwd);
+      }
+    };
+    sidecarGlobal.onSidecarInfo = (message: unknown) => {
+      handleSidecarInfo(message as SidecarInfoMessage);
+    };
+    const pendingInfo = sidecarGlobal.__sidecarPendingInfoMessages;
+    if (pendingInfo && pendingInfo.length > 0) {
+      sidecarGlobal.__sidecarPendingInfoMessages = [];
+      pendingInfo.forEach((message) => {
+        handleSidecarInfo(message as SidecarInfoMessage);
+      });
+    }
     fetch("/ready", { method: "POST" }).catch((err) => {
       console.error("[sidecar] Failed to notify ready:", err);
     });
@@ -286,6 +311,7 @@ function AppContent() {
     return () => {
       // @ts-expect-error - cleanup
       delete globalThis.onMessage;
+      delete sidecarGlobal.onSidecarInfo;
     };
   }, [handleMessage]);
 
@@ -346,6 +372,11 @@ function AppContent() {
             ) : (
               <span className="text-xs text-muted-foreground">kernel</span>
             )}
+            {kernelCwdText ? (
+              <span className="ml-2 text-xs text-muted-foreground">
+                cwd {kernelCwdText}
+              </span>
+            ) : null}
           </h1>
           <div className="flex items-center gap-2">
             <div
