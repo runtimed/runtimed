@@ -7,6 +7,7 @@ use futures::future::{select, Either};
 use futures::StreamExt;
 use log::{debug, error, info};
 use rust_embed::Embed;
+use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::sync::{
@@ -16,7 +17,8 @@ use std::sync::{
 use std::time::Duration;
 
 use jupyter_protocol::{
-    Channel, ConnectionInfo, Header, JupyterMessage, JupyterMessageContent, KernelInfoRequest,
+    Channel, ConnectionInfo, ExecuteRequest, Header, JupyterMessage, JupyterMessageContent,
+    KernelInfoRequest,
 };
 
 use serde::{Deserialize, Serialize, Serializer};
@@ -64,6 +66,12 @@ struct WryJupyterMessage {
     #[serde(serialize_with = "serialize_base64")]
     buffers: Vec<Bytes>,
     channel: Option<Channel>,
+}
+
+#[derive(Debug, Clone)]
+enum SidecarEvent {
+    JupyterMessage(JupyterMessage),
+    KernelCwd { cwd: String },
 }
 
 impl<'de> Deserialize<'de> for WryJupyterMessage {
@@ -161,7 +169,7 @@ where
 
 async fn run(
     connection_file_path: &PathBuf,
-    event_loop: EventLoop<JupyterMessage>,
+    event_loop: EventLoop<SidecarEvent>,
     window: Window,
     dump_file: Option<Arc<Mutex<std::fs::File>>>,
 ) -> anyhow::Result<()> {
@@ -193,9 +201,11 @@ async fn run(
 
     let ui_ready = Arc::new(AtomicBool::new(false));
     let pending_kernel_info: Arc<Mutex<Option<JupyterMessage>>> = Arc::new(Mutex::new(None));
+    let pending_kernel_cwd: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
 
     let ui_ready_handler = ui_ready.clone();
     let pending_kernel_info_handler = pending_kernel_info.clone();
+    let pending_kernel_cwd_handler = pending_kernel_cwd.clone();
     let kernel_info_proxy = event_loop_proxy.clone();
 
     let webview = WebViewBuilder::new()
@@ -242,7 +252,12 @@ async fn run(
                 ui_ready_handler.store(true, Ordering::SeqCst);
                 if let Ok(mut pending) = pending_kernel_info_handler.lock() {
                     if let Some(message) = pending.take() {
-                        let _ = kernel_info_proxy.send_event(message);
+                        let _ = kernel_info_proxy.send_event(SidecarEvent::JupyterMessage(message));
+                    }
+                }
+                if let Ok(mut pending) = pending_kernel_cwd_handler.lock() {
+                    if let Some(cwd) = pending.take() {
+                        let _ = kernel_info_proxy.send_event(SidecarEvent::KernelCwd { cwd });
                     }
                 }
                 responder
@@ -283,6 +298,7 @@ async fn run(
     let kernel_info_proxy = event_loop_proxy.clone();
     let kernel_info_ready = ui_ready.clone();
     let kernel_info_pending = pending_kernel_info.clone();
+    let kernel_cwd_pending = pending_kernel_cwd.clone();
     smol::spawn(async move {
         for attempt in 0..3 {
             if let Some(message) = request_kernel_info(
@@ -292,10 +308,33 @@ async fn run(
             )
             .await
             {
+                let kernel_language = match &message.content {
+                    JupyterMessageContent::KernelInfoReply(reply) => {
+                        Some(reply.language_info.name.clone())
+                    }
+                    _ => None,
+                };
                 if kernel_info_ready.load(Ordering::SeqCst) {
-                    let _ = kernel_info_proxy.send_event(message);
+                    let _ =
+                        kernel_info_proxy.send_event(SidecarEvent::JupyterMessage(message.clone()));
                 } else if let Ok(mut pending) = kernel_info_pending.lock() {
-                    *pending = Some(message);
+                    *pending = Some(message.clone());
+                }
+
+                if kernel_language.as_deref() == Some("python") {
+                    if let Some(cwd) = request_python_cwd(
+                        &kernel_info_connection,
+                        &kernel_info_session_id,
+                        Duration::from_secs(2),
+                    )
+                    .await
+                    {
+                        if kernel_info_ready.load(Ordering::SeqCst) {
+                            let _ = kernel_info_proxy.send_event(SidecarEvent::KernelCwd { cwd });
+                        } else if let Ok(mut pending) = kernel_cwd_pending.lock() {
+                            *pending = Some(cwd);
+                        }
+                    }
                 }
                 return;
             }
@@ -332,7 +371,7 @@ async fn run(
                 }
             }
 
-            match event_loop_proxy.send_event(message) {
+            match event_loop_proxy.send_event(SidecarEvent::JupyterMessage(message)) {
                 Ok(_) => {
                     debug!("Sent message to event loop");
                 }
@@ -393,22 +432,37 @@ async fn run(
             } => {
                 *control_flow = ControlFlow::Exit;
             }
-            Event::UserEvent(data) => {
-                debug!("Received UserEvent: {:?}", data);
-                let serialized: WryJupyterMessage = data.into();
-                match serde_json::to_string(&serialized) {
-                    Ok(serialized_message) => {
-                        debug!("Serialized message: {}", serialized_message);
+            Event::UserEvent(data) => match data {
+                SidecarEvent::JupyterMessage(message) => {
+                    debug!("Received UserEvent message: {}", message.header.msg_type);
+                    let serialized: WryJupyterMessage = message.into();
+                    match serde_json::to_string(&serialized) {
+                        Ok(serialized_message) => {
+                            webview
+                                .evaluate_script(&format!(
+                                    r#"globalThis.onMessage({})"#,
+                                    serialized_message
+                                ))
+                                .unwrap_or_else(|e| error!("Failed to evaluate script: {:?}", e));
+                        }
+                        Err(e) => error!("Failed to serialize message: {}", e),
+                    }
+                }
+                SidecarEvent::KernelCwd { cwd } => {
+                    let payload = serde_json::json!({
+                        "type": "kernel_cwd",
+                        "cwd": cwd,
+                    });
+                    if let Ok(serialized_payload) = serde_json::to_string(&payload) {
                         webview
                             .evaluate_script(&format!(
-                                r#"globalThis.onMessage({})"#,
-                                serialized_message
+                                r#"globalThis.onSidecarInfo({})"#,
+                                serialized_payload
                             ))
                             .unwrap_or_else(|e| error!("Failed to evaluate script: {:?}", e));
                     }
-                    Err(e) => error!("Failed to serialize message: {}", e),
                 }
-            }
+            },
             _ => {}
         }
     });
@@ -460,6 +514,62 @@ async fn request_kernel_info(
     }
 }
 
+async fn request_python_cwd(
+    connection_info: &ConnectionInfo,
+    session_id: &str,
+    timeout: Duration,
+) -> Option<String> {
+    let mut shell = match runtimelib::create_client_shell_connection(connection_info, session_id)
+        .await
+    {
+        Ok(shell) => shell,
+        Err(e) => {
+            error!("Failed to create cwd shell connection: {}", e);
+            return None;
+        }
+    };
+
+    let mut user_expressions = HashMap::new();
+    user_expressions.insert("cwd".to_string(), "__import__('os').getcwd()".to_string());
+    let request = ExecuteRequest {
+        code: String::new(),
+        silent: true,
+        store_history: false,
+        user_expressions: Some(user_expressions),
+        allow_stdin: false,
+        stop_on_error: false,
+    };
+
+    if let Err(e) = shell.send(request.into()).await {
+        error!("Failed to send cwd execute_request: {}", e);
+        return None;
+    }
+
+    let result = select(
+        Box::pin(shell.read()),
+        Box::pin(smol::Timer::after(timeout)),
+    )
+    .await;
+
+    match result {
+        Either::Left((Ok(message), _)) => {
+            if message.header.msg_type != "execute_reply" {
+                return None;
+            }
+            let JupyterMessageContent::ExecuteReply(reply) = message.content else {
+                return None;
+            };
+            let cwd = reply.user_expressions?.get("cwd")?.to_string();
+            Some(cwd.trim_matches('"').trim_matches('\'').to_string())
+        }
+        Either::Left((Err(e), _)) => {
+            error!("Failed to read cwd execute_reply: {}", e);
+            None
+        }
+        Either::Right((_timeout, _)) => None,
+    }
+}
+
 fn main() -> Result<()> {
     let args = Cli::parse();
     if !args.quiet {
@@ -473,7 +583,7 @@ fn main() -> Result<()> {
     }
     let connection_file = args.file;
 
-    let event_loop: EventLoop<JupyterMessage> = EventLoopBuilder::with_user_event().build();
+    let event_loop: EventLoop<SidecarEvent> = EventLoopBuilder::with_user_event().build();
 
     let window = WindowBuilder::new()
         .with_title("kernel sidecar")
