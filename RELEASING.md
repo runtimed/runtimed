@@ -38,20 +38,23 @@ Runtimelib requires a feature flag when publishing:
 cargo release -p runtimelib --features tokio-runtime <patch|minor|major>
 ```
 
-### 3. Binaries (last, depend on runtimelib)
+### 3. ollama-kernel
 
 > [!WARNING]
-> Runtimelib _must_ be published before these.
-
-These use different async runtimes and must be released individually:
+> Runtimelib _must_ be published before this.
 
 ```
 cargo release -p ollama-kernel <patch|minor|major>
 ```
 
-```
-cargo release -p sidecar -p runt-cli <patch|minor|major>
-```
+### 4. sidecar and runt-cli (not published to crates.io)
+
+`sidecar` and `runt-cli` are **not published to crates.io** (`publish = false`). Sidecar embeds UI assets from `packages/sidecar-ui/dist` via `rust-embed`, which requires files outside the crate directory — incompatible with `cargo publish`.
+
+These are distributed as:
+
+- **Prebuilt binaries** via GitHub Releases (automated on every push to `main` as preview releases)
+- **Python package** (`runtimed`) on PyPI, which bundles the `runt` binary
 
 ## Targeted Patch Releases
 
