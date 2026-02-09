@@ -12,7 +12,7 @@ use jupyter_protocol::{
     ClearOutput, CodeMirrorMode, CommInfoReply, CompleteReply, CompleteRequest, ConnectionInfo,
     DisplayData, ErrorOutput, ExecuteReply, ExecutionCount, HelpLink, HistoryReply, InspectReply,
     IsCompleteReply, IsCompleteReplyStatus, JupyterMessage, JupyterMessageContent, KernelInfoReply,
-    LanguageInfo, Media, MediaType, ReplyStatus, Status, StreamContent,
+    LanguageInfo, Media, MediaType, ReplyStatus, ShutdownReply, Status, StreamContent,
 };
 
 use runtimelib::{KernelIoPubConnection, RouterRecvConnection, RouterSendConnection};
@@ -85,15 +85,26 @@ impl OllamaKernel {
         let control_handle = tokio::spawn({
             async move {
                 while let Ok(message) = control_connection.read().await {
-                    if let JupyterMessageContent::KernelInfoRequest(_) = message.content {
-                        let sent = control_connection
-                            .send(Self::kernel_info().as_child_of(&message))
-                            .await;
-
-                        match sent {
-                            Ok(_) => {}
-                            Err(err) => eprintln!("Error on control {}", err),
+                    match &message.content {
+                        JupyterMessageContent::KernelInfoRequest(_) => {
+                            let sent = control_connection
+                                .send(Self::kernel_info().as_child_of(&message))
+                                .await;
+                            if let Err(err) = sent {
+                                eprintln!("Error on control {}", err);
+                            }
                         }
+                        JupyterMessageContent::ShutdownRequest(req) => {
+                            let reply: JupyterMessage = ShutdownReply {
+                                restart: req.restart,
+                                status: ReplyStatus::Ok,
+                                error: None,
+                            }
+                            .as_child_of(&message);
+                            let _ = control_connection.send(reply).await;
+                            std::process::exit(0);
+                        }
+                        _ => {}
                     }
                 }
             }
@@ -421,6 +432,11 @@ Please generate a few responses to complete their text for them.
                         .await?;
                 }
             }
+        }
+
+        // Newline after streamed response so the next prompt starts on a fresh line
+        if !in_progress_assistant_response.is_empty() {
+            self.push_stdout("\n", request).await?;
         }
 
         if !in_progress_assistant_response.trim().is_empty() {
