@@ -77,6 +77,68 @@ pub struct ClientHeartbeatConnection {
     pub socket: zeromq::ReqSocket,
 }
 
+// Split half type aliases for DealerSocket connections
+pub type DealerSendConnection = Connection<zeromq::DealerSendHalf>;
+pub type DealerRecvConnection = Connection<zeromq::DealerRecvHalf>;
+
+// Split half type aliases for RouterSocket connections
+pub type RouterSendConnection = Connection<zeromq::RouterSendHalf>;
+pub type RouterRecvConnection = Connection<zeromq::RouterRecvHalf>;
+
+impl Connection<zeromq::DealerSocket> {
+    /// Splits the connection into independent send and receive halves,
+    /// allowing concurrent sending and receiving from separate async tasks.
+    ///
+    /// The underlying socket stays alive until both halves are dropped.
+    pub fn split(
+        self,
+    ) -> (
+        Connection<zeromq::DealerSendHalf>,
+        Connection<zeromq::DealerRecvHalf>,
+    ) {
+        let (send_half, recv_half) = self.socket.split();
+        (
+            Connection {
+                socket: send_half,
+                mac: self.mac.clone(),
+                session_id: self.session_id.clone(),
+            },
+            Connection {
+                socket: recv_half,
+                mac: self.mac,
+                session_id: self.session_id,
+            },
+        )
+    }
+}
+
+impl Connection<zeromq::RouterSocket> {
+    /// Splits the connection into independent send and receive halves,
+    /// allowing concurrent sending and receiving from separate async tasks.
+    ///
+    /// The underlying socket stays alive until both halves are dropped.
+    pub fn split(
+        self,
+    ) -> (
+        Connection<zeromq::RouterSendHalf>,
+        Connection<zeromq::RouterRecvHalf>,
+    ) {
+        let (send_half, recv_half) = self.socket.split();
+        (
+            Connection {
+                socket: send_half,
+                mac: self.mac.clone(),
+                session_id: self.session_id.clone(),
+            },
+            Connection {
+                socket: recv_half,
+                mac: self.mac,
+                session_id: self.session_id,
+            },
+        )
+    }
+}
+
 impl<S: zeromq::Socket> Connection<S> {
     pub fn new(socket: S, key: &str, session_id: &str) -> Self {
         let mac = if key.is_empty() {

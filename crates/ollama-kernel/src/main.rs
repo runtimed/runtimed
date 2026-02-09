@@ -12,10 +12,10 @@ use jupyter_protocol::{
     ClearOutput, CodeMirrorMode, CommInfoReply, CompleteReply, CompleteRequest, ConnectionInfo,
     DisplayData, ErrorOutput, ExecuteReply, ExecutionCount, HelpLink, HistoryReply, InspectReply,
     IsCompleteReply, IsCompleteReplyStatus, JupyterMessage, JupyterMessageContent, KernelInfoReply,
-    LanguageInfo, Media, MediaType, ReplyStatus, Status, StreamContent,
+    LanguageInfo, Media, MediaType, ReplyStatus, ShutdownReply, Status, StreamContent,
 };
 
-use runtimelib::{KernelIoPubConnection, KernelShellConnection};
+use runtimelib::{KernelIoPubConnection, RouterRecvConnection, RouterSendConnection};
 
 use ollama_client::{
     ChatMessage, Format, GenerateResponse, LocalModelListing, OllamaClient, Role, OLLAMA_ENDPOINT,
@@ -41,6 +41,7 @@ struct OllamaKernel {
     model: String,
     execution_count: ExecutionCount,
     iopub: KernelIoPubConnection,
+    shell: RouterSendConnection,
     previous_messages: Vec<ChatMessage>,
     last_context: Vec<usize>,
 }
@@ -60,18 +61,19 @@ impl OllamaKernel {
         let mut heartbeat = runtimelib::create_kernel_heartbeat_connection(connection_info).await?;
         let shell_connection =
             runtimelib::create_kernel_shell_connection(connection_info, &session_id).await?;
+        let (shell_writer, mut shell_reader) = shell_connection.split();
         let mut control_connection =
             runtimelib::create_kernel_control_connection(connection_info, &session_id).await?;
         let _stdin_connection =
             runtimelib::create_kernel_stdin_connection(connection_info, &session_id).await?;
         let iopub_connection =
             runtimelib::create_kernel_iopub_connection(connection_info, &session_id).await?;
-        // let (mut tx, rx) = futures::channel::mpsc::unbounded::<JupyterMessage>();
 
         let mut ollama_kernel = Self {
             model,
             execution_count: Default::default(),
             iopub: iopub_connection,
+            shell: shell_writer,
             previous_messages: Default::default(),
             last_context: Default::default(),
         };
@@ -83,22 +85,33 @@ impl OllamaKernel {
         let control_handle = tokio::spawn({
             async move {
                 while let Ok(message) = control_connection.read().await {
-                    if let JupyterMessageContent::KernelInfoRequest(_) = message.content {
-                        let sent = control_connection
-                            .send(Self::kernel_info().as_child_of(&message))
-                            .await;
-
-                        match sent {
-                            Ok(_) => {}
-                            Err(err) => eprintln!("Error on control {}", err),
+                    match &message.content {
+                        JupyterMessageContent::KernelInfoRequest(_) => {
+                            let sent = control_connection
+                                .send(Self::kernel_info().as_child_of(&message))
+                                .await;
+                            if let Err(err) = sent {
+                                eprintln!("Error on control {}", err);
+                            }
                         }
+                        JupyterMessageContent::ShutdownRequest(req) => {
+                            let reply: JupyterMessage = ShutdownReply {
+                                restart: req.restart,
+                                status: ReplyStatus::Ok,
+                                error: None,
+                            }
+                            .as_child_of(&message);
+                            let _ = control_connection.send(reply).await;
+                            std::process::exit(0);
+                        }
+                        _ => {}
                     }
                 }
             }
         });
 
         let shell_handle = tokio::spawn(async move {
-            if let Err(err) = ollama_kernel.handle_shell(shell_connection).await {
+            if let Err(err) = ollama_kernel.handle_shell(&mut shell_reader).await {
                 eprintln!("Shell error: {}\nBacktrace:\n{}", err, err.backtrace());
             }
         });
@@ -421,6 +434,11 @@ Please generate a few responses to complete their text for them.
             }
         }
 
+        // Newline after streamed response so the next prompt starts on a fresh line
+        if !in_progress_assistant_response.is_empty() {
+            self.push_stdout("\n", request).await?;
+        }
+
         if !in_progress_assistant_response.trim().is_empty() {
             self.clear_output_after_next_output(request).await?;
             self.send_markdown(&in_progress_assistant_response, request)
@@ -435,21 +453,20 @@ Please generate a few responses to complete their text for them.
         anyhow::Ok(())
     }
 
-    pub async fn handle_shell(&mut self, mut connection: KernelShellConnection) -> Result<()> {
+    pub async fn handle_shell(
+        &mut self,
+        reader: &mut RouterRecvConnection,
+    ) -> Result<()> {
         loop {
-            let msg = connection.read().await?;
-            match self.handle_shell_message(&msg, &mut connection).await {
+            let msg = reader.read().await?;
+            match self.handle_shell_message(&msg).await {
                 Ok(_) => {}
                 Err(err) => eprintln!("Error on shell: {}", err),
             }
         }
     }
 
-    pub async fn handle_shell_message(
-        &mut self,
-        parent: &JupyterMessage,
-        shell: &mut KernelShellConnection,
-    ) -> Result<()> {
+    pub async fn handle_shell_message(&mut self, parent: &JupyterMessage) -> Result<()> {
         // Even with messages like `kernel_info_request`, you're required to send a busy and idle message
         self.iopub.send(Status::busy().as_child_of(parent)).await?;
 
@@ -462,11 +479,11 @@ Please generate a few responses to complete their text for them.
                     error: None,
                 }
                 .as_child_of(parent);
-                shell.send(reply).await?;
+                self.shell.send(reply).await?;
             }
             JupyterMessageContent::CompleteRequest(req) => {
                 let reply = self.complete(req).await?;
-                shell.send(reply.as_child_of(parent)).await?;
+                self.shell.send(reply.as_child_of(parent)).await?;
             }
             JupyterMessageContent::ExecuteRequest(_) => {
                 // Respond back with reply immediately
@@ -478,7 +495,7 @@ Please generate a few responses to complete their text for them.
                     error: None,
                 }
                 .as_child_of(parent);
-                shell.send(reply).await?;
+                self.shell.send(reply).await?;
 
                 if let Err(err) = self.execute(parent).await {
                     self.send_error("OllamaFailure", &err.to_string(), parent)
@@ -492,7 +509,7 @@ Please generate a few responses to complete their text for them.
                     error: None,
                 }
                 .as_child_of(parent);
-                shell.send(reply).await?;
+                self.shell.send(reply).await?;
             }
             JupyterMessageContent::InspectRequest(_) => {
                 // Would be really cool to have the model inspect at the word,
@@ -507,7 +524,7 @@ Please generate a few responses to complete their text for them.
                 }
                 .as_child_of(parent);
 
-                shell.send(reply).await?;
+                self.shell.send(reply).await?;
             }
             JupyterMessageContent::IsCompleteRequest(_) => {
                 // true, unconditionally
@@ -517,12 +534,12 @@ Please generate a few responses to complete their text for them.
                 }
                 .as_child_of(parent);
 
-                shell.send(reply).await?;
+                self.shell.send(reply).await?;
             }
             JupyterMessageContent::KernelInfoRequest(_) => {
                 let reply = Self::kernel_info().as_child_of(parent);
 
-                shell.send(reply).await?;
+                self.shell.send(reply).await?;
             }
             // Not implemented for shell includes DebugRequest
             // Not implemented for control (and sometimes shell...) includes InterruptRequest, ShutdownRequest
