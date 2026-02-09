@@ -1,6 +1,7 @@
 pub type Result<T> = std::result::Result<T, RuntimeError>;
 
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum RuntimeError {
     #[error("{0}")]
     DecodeError(#[from] data_encoding::DecodeError),

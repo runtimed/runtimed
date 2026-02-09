@@ -8,7 +8,7 @@ license = "BSD-3-Clause"
 readme = "./README.md"
 
 [dependencies]
-zeromq = { version = "0.5.0-pre.3", default-features = false, features = [
+zeromq = { version = "0.5.0", default-features = false, features = [
     "tcp-transport",
 ] }
 base64 = { workspace = true }
