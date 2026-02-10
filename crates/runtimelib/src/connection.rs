@@ -34,6 +34,8 @@ use zeromq::Socket as _;
 use zeromq::SocketRecv as _;
 use zeromq::SocketSend as _;
 
+pub use zeromq::util::PeerIdentity;
+
 use crate::{Result, RuntimeError};
 
 /// Find a set of open ports. This function creates a listener with the port set to 0.
@@ -407,6 +409,13 @@ pub async fn create_client_iopub_connection(
     Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
+/// Deprecated: Creates a shell connection with a random ZMQ identity, which
+/// breaks stdin support. Use [`create_client_shell_connection_with_identity`]
+/// with a [`PeerIdentity`] from [`peer_identity_for_session`] instead.
+#[deprecated(
+    since = "1.2.0",
+    note = "Use create_client_shell_connection_with_identity with a PeerIdentity from peer_identity_for_session instead"
+)]
 pub async fn create_client_shell_connection(
     connection_info: &ConnectionInfo,
     session_id: &str,
@@ -429,6 +438,14 @@ pub async fn create_client_control_connection(
     Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
+/// Deprecated: Creates a stdin connection with a random ZMQ identity, which
+/// won't receive input_request messages from the kernel. Use
+/// [`create_client_stdin_connection_with_identity`] with the same
+/// [`PeerIdentity`] used for the shell connection instead.
+#[deprecated(
+    since = "1.2.0",
+    note = "Use create_client_stdin_connection_with_identity with the same PeerIdentity as the shell connection"
+)]
 pub async fn create_client_stdin_connection(
     connection_info: &ConnectionInfo,
     session_id: &str,
@@ -436,6 +453,61 @@ pub async fn create_client_stdin_connection(
     let endpoint = connection_info.stdin_url();
 
     let mut socket = zeromq::DealerSocket::new();
+    socket.connect(&endpoint).await?;
+    Ok(Connection::new(socket, &connection_info.key, session_id))
+}
+
+/// Create a [`PeerIdentity`] from a session ID.
+///
+/// The Jupyter protocol requires that shell and stdin DEALER sockets share the
+/// same ZMQ identity. This function derives a stable identity from the session ID,
+/// matching the convention used by the reference `jupyter_client` Python implementation.
+///
+/// # Example
+///
+/// ```ignore
+/// let identity = peer_identity_for_session(&session_id)?;
+/// let shell = create_client_shell_connection_with_identity(&info, &session_id, identity.clone()).await?;
+/// let stdin = create_client_stdin_connection_with_identity(&info, &session_id, identity).await?;
+/// ```
+pub fn peer_identity_for_session(session_id: &str) -> Result<PeerIdentity> {
+    PeerIdentity::try_from(session_id.as_bytes()).map_err(|e| {
+        RuntimeError::ZmqMessageError(format!("failed to create peer identity: {}", e))
+    })
+}
+
+/// Create a client shell connection with a specific ZMQ peer identity.
+///
+/// Use [`peer_identity_for_session`] to create the identity, and pass the same
+/// identity to [`create_client_stdin_connection_with_identity`] so the kernel
+/// can route `input_request` messages to this client.
+pub async fn create_client_shell_connection_with_identity(
+    connection_info: &ConnectionInfo,
+    session_id: &str,
+    peer_identity: PeerIdentity,
+) -> Result<ClientShellConnection> {
+    let endpoint = connection_info.shell_url();
+    let mut options = zeromq::SocketOptions::default();
+    options.peer_identity(peer_identity);
+    let mut socket = zeromq::DealerSocket::with_options(options);
+    socket.connect(&endpoint).await?;
+    Ok(Connection::new(socket, &connection_info.key, session_id))
+}
+
+/// Create a client stdin connection with a specific ZMQ peer identity.
+///
+/// Must use the same [`PeerIdentity`] as the shell connection so the kernel's
+/// stdin RouterSocket can route `input_request` messages to this client.
+/// See [`peer_identity_for_session`].
+pub async fn create_client_stdin_connection_with_identity(
+    connection_info: &ConnectionInfo,
+    session_id: &str,
+    peer_identity: PeerIdentity,
+) -> Result<ClientStdinConnection> {
+    let endpoint = connection_info.stdin_url();
+    let mut options = zeromq::SocketOptions::default();
+    options.peer_identity(peer_identity);
+    let mut socket = zeromq::DealerSocket::with_options(options);
     socket.connect(&endpoint).await?;
     Ok(Connection::new(socket, &connection_info.key, session_id))
 }

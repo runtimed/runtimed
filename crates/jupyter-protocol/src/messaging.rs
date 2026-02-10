@@ -325,6 +325,19 @@ impl JupyterMessage {
         self
     }
 
+    /// Set the channel for this message.
+    ///
+    /// This is primarily used for WebSocket transports where all channels
+    /// are multiplexed over a single connection and the `channel` field tells
+    /// the server which channel to route the message to.
+    ///
+    /// For ZMQ transports, the channel is implicit in which socket the message
+    /// is sent on, so this field is typically `None`.
+    pub fn with_channel(mut self, channel: Channel) -> Self {
+        self.channel = Some(channel);
+        self
+    }
+
     pub fn with_session(mut self, session: &str) -> Self {
         self.header.session = session.to_string();
         self
