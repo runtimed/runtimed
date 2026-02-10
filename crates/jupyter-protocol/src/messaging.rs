@@ -968,6 +968,8 @@ pub enum ExpressionResult {
 pub struct ExecuteReply {
     #[serde(default)]
     pub status: ReplyStatus,
+    // execution_count may be omitted by kernels (e.g. during abort or widget interactions)
+    #[serde(default)]
     pub execution_count: ExecutionCount,
 
     #[serde(default)]
@@ -2379,6 +2381,17 @@ mod test {
 
         let reply: ExecuteReply = serde_json::from_value(reply_json).unwrap();
         assert!(reply.user_expressions.is_none());
+    }
+
+    #[test]
+    fn test_execute_reply_without_execution_count() {
+        let reply_json = serde_json::json!({
+            "status": "aborted",
+            "payload": []
+        });
+        let reply: ExecuteReply = serde_json::from_value(reply_json).unwrap();
+        assert_eq!(reply.execution_count, ExecutionCount::new(0));
+        assert_eq!(reply.status, ReplyStatus::Aborted);
     }
 
     #[test]
