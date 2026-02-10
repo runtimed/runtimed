@@ -178,7 +178,7 @@ where
 /// This function handles the case where the parent header is `None`
 /// or an empty object, and also allows for deserialization from
 /// non-object types.
-fn deserialize_parent_header<'de, D>(deserializer: D) -> Result<Option<Header>, D::Error>
+pub fn deserialize_parent_header<'de, D>(deserializer: D) -> Result<Option<Header>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
