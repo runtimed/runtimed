@@ -26,6 +26,15 @@ runtimelib = { version = "0.27.0", features = ["async-dispatcher-runtime"] }
 - **Messaging Protocol**: Implement Jupyter's wire protocol for communication with kernels over ZeroMQ.
 - **Flexible Async Runtime**: Support for both Tokio and async-dispatcher runtimes.
 
+## Message Types
+
+For Jupyter message types, traits, and media types, use the [`jupyter-protocol`](https://crates.io/crates/jupyter-protocol) crate directly:
+
+```toml
+[dependencies]
+jupyter-protocol = "0.3"
+```
+
 ## Documentation
 
 For more detailed information about the API and its usage, please refer to the [API documentation](https://docs.rs/runtimelib).

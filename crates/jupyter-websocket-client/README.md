@@ -1,5 +1,9 @@
 # `jupyter-websocket-client` crate
 
+A WebSocket client for connecting to Jupyter kernels via a Jupyter Server.
+
+For message types like `KernelInfoRequest` and `JupyterMessageContent`, use the [`jupyter-protocol`](https://crates.io/crates/jupyter-protocol) crate.
+
 Note: This crate does _not_ support tokio at this time.
 
 ## Usage
