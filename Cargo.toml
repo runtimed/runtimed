@@ -37,7 +37,7 @@ futures = "0.3"
 bytes = "1"
 base64 = "0.22"
 runtimelib = { path = "crates/runtimelib", version = "1.1.0", default-features = false }
-jupyter-protocol = { path = "crates/jupyter-protocol", version = "1.1.1" }
+jupyter-protocol = { path = "crates/jupyter-protocol", version = "1.2.0" }
 thiserror = "2"
 tokio = { version = "1.36.0", features = ["full"] }
 
