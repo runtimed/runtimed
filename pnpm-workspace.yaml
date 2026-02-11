@@ -1,6 +1,0 @@
-packages:
-  - packages/*
-
-onlyBuiltDependencies:
-  - '@fortawesome/fontawesome-free'
-  - esbuild

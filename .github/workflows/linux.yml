@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install rust
         uses: dsherret/rust-toolchain-file@v1
@@ -26,29 +26,15 @@ jobs:
       - run: pip install -r .github/requirements.txt
       - run: python -m ipykernel install --user --name=python
       - run: python -m ipykernel install --user --name=python3
-      - name: Set up environment
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - name: Enable corepack
-        run: corepack enable
-      - name: Install JS dependencies
-        run: pnpm install
-      - name: Build sidecar UI
-        run: pnpm --dir packages/sidecar-ui build
+
       - name: Build
         run: cargo build --verbose
+
       - name: Run tests
         run: cargo test --verbose
+
       - name: Run Doc Tests
         run: cargo test --doc --verbose
-
-      - name: Build sidecar
-        run: cargo build -p sidecar
 
       - name: Build Ollama kernel
         run: cargo build -p ollama-kernel
@@ -73,46 +59,3 @@ jobs:
 
       - name: Run Runtimelib Doc Tests with async-dispatcher-runtime
         run: cargo test -p runtimelib --doc --verbose --features async-dispatcher-runtime
-
-  hone-tests:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install rust
-        uses: dsherret/rust-toolchain-file@v1
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-          cache: "pip"
-      - run: pip install -r .github/requirements.txt
-      - run: python -m ipykernel install --user --name=python
-      - run: python -m ipykernel install --user --name=python3
-
-      - name: Set up environment
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - name: Enable corepack
-        run: corepack enable
-      - name: Install JS dependencies
-        run: pnpm install
-      - name: Build sidecar UI
-        run: pnpm --dir packages/sidecar-ui build
-
-      - name: Build runt
-        run: cargo build -p runt-cli --verbose
-
-      - name: Add runt to PATH
-        run: echo "${{ github.workspace }}/target/debug" >> $GITHUB_PATH
-
-      - name: Run hone tests for runt
-        uses: captainsafia/hone/hone-github-action@main
-        with:
-          tests: crates/runt/tests/
