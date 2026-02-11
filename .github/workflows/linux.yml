@@ -26,39 +26,26 @@ jobs:
       - run: pip install -r .github/requirements.txt
       - run: python -m ipykernel install --user --name=python
       - run: python -m ipykernel install --user --name=python3
-            - name: Set up environment
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
-            - name: Set up Node
-              uses: actions/setup-node@v4
-              with:
-                  node-version: "20"
-            - name: Enable corepack
-              run: corepack enable
-            - name: Install JS dependencies
-              run: pnpm install
-            - name: Build sidecar UI
-              run: pnpm --dir packages/sidecar-ui build
-            - name: Build
-              run: cargo build --verbose
+      - name: Set up environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Enable corepack
+        run: corepack enable
+      - name: Install JS dependencies
+        run: pnpm install
+      - name: Build sidecar UI
+        run: pnpm --dir packages/sidecar-ui build
+      - name: Build
+        run: cargo build --verbose
       - name: Run tests
         run: cargo test --verbose
       - name: Run Doc Tests
         run: cargo test --doc --verbose
-
-      - name: Setup Node.js for sidecar UI
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: crates/sidecar/ui/package-lock.json
-
-      - name: Build sidecar UI
-        run: |
-          cd crates/sidecar/ui
-          npm ci
-          npm run build
 
       - name: Build sidecar
         run: cargo build -p sidecar
@@ -103,6 +90,21 @@ jobs:
       - run: pip install -r .github/requirements.txt
       - run: python -m ipykernel install --user --name=python
       - run: python -m ipykernel install --user --name=python3
+
+      - name: Set up environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Enable corepack
+        run: corepack enable
+      - name: Install JS dependencies
+        run: pnpm install
+      - name: Build sidecar UI
+        run: pnpm --dir packages/sidecar-ui build
 
       - name: Build runt
         run: cargo build -p runt-cli --verbose
