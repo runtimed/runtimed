@@ -4,12 +4,10 @@ members = [
     "crates/nbformat",
     "crates/runtimelib",
     "crates/jupyter-serde",
-    "crates/sidecar",
     "crates/jupyter-websocket-client",
     "crates/jupyter-protocol",
     "crates/ollama-kernel",
     "crates/mybinder",
-    "crates/runt",
 ]
 
 default-members = [
