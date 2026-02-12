@@ -320,6 +320,8 @@ impl RawMessage {
             }
         };
 
+        // Per Jupyter spec, empty parent_header is sent as `{}`.
+        // This fails to parse as Header, and .ok() converts the error to None.
         let parent_header = serde_json::from_slice(&self.jparts[1]).ok();
 
         let message = JupyterMessage {
