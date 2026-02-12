@@ -1,4 +1,4 @@
-use crate::v4::{deserialize_outputs, CellId, CellMetadata, Metadata, Output};
+use crate::v4::{deserialize_outputs, deserialize_source, CellId, CellMetadata, Metadata, Output};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -19,6 +19,7 @@ pub enum Cell {
     Markdown {
         id: Option<CellId>,
         metadata: CellMetadata,
+        #[serde(deserialize_with = "deserialize_source")]
         source: Vec<String>,
         #[serde(default)]
         attachments: Option<Value>,
@@ -28,6 +29,7 @@ pub enum Cell {
         id: Option<CellId>,
         metadata: CellMetadata,
         execution_count: Option<i32>,
+        #[serde(deserialize_with = "deserialize_source")]
         source: Vec<String>,
         #[serde(deserialize_with = "deserialize_outputs")]
         outputs: Vec<Output>,
@@ -36,6 +38,7 @@ pub enum Cell {
     Raw {
         id: Option<CellId>,
         metadata: CellMetadata,
+        #[serde(deserialize_with = "deserialize_source")]
         source: Vec<String>,
     },
 }

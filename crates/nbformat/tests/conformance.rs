@@ -490,4 +490,141 @@ mod test {
 
         assert_eq!(notebook_json, serialized);
     }
+
+    #[test]
+    fn test_parse_notebook_with_string_source() {
+        let notebook_json = r###"{
+ "cells": [
+  {
+   "metadata": {},
+   "cell_type": "markdown",
+   "source": "# Notebook test",
+   "id": "4fa80f351e5e4f77"
+  },
+  {
+   "metadata": {},
+   "cell_type": "code",
+   "outputs": [],
+   "execution_count": null,
+   "source": "print(\"Cell 1\")",
+   "id": "93b25f370baef7fa"
+  },
+  {
+   "metadata": {},
+   "cell_type": "code",
+   "outputs": [],
+   "execution_count": null,
+   "source": "print(\"Cell 2\")",
+   "id": "b232b4b6e4fbed68"
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "name": "python3",
+   "language": "python",
+   "display_name": "Python 3 (ipykernel)"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}"###;
+
+        let notebook =
+            parse_notebook(notebook_json).expect("Failed to parse notebook with string source");
+
+        match &notebook {
+            Notebook::V4(notebook) => {
+                assert_eq!(notebook.cells.len(), 3);
+
+                if let Cell::Markdown { source, .. } = &notebook.cells[0] {
+                    assert_eq!(source, &vec!["# Notebook test".to_string()]);
+                } else {
+                    panic!("Expected markdown cell");
+                }
+
+                if let Cell::Code {
+                    source,
+                    execution_count,
+                    outputs,
+                    ..
+                } = &notebook.cells[1]
+                {
+                    assert_eq!(source, &vec!["print(\"Cell 1\")".to_string()]);
+                    assert_eq!(*execution_count, None);
+                    assert!(outputs.is_empty());
+                } else {
+                    panic!("Expected code cell");
+                }
+
+                if let Cell::Code { source, .. } = &notebook.cells[2] {
+                    assert_eq!(source, &vec!["print(\"Cell 2\")".to_string()]);
+                } else {
+                    panic!("Expected code cell");
+                }
+            }
+            Notebook::Legacy(_) => panic!("Expected V4 notebook, got legacy"),
+        }
+    }
+
+    #[test]
+    fn test_parse_notebook_with_mixed_source_formats() {
+        let notebook_json = r###"{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "cell-array",
+   "metadata": {},
+   "source": [
+    "# Array format\n",
+    "This is the array format."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "id": "cell-string",
+   "metadata": {},
+   "execution_count": null,
+   "outputs": [],
+   "source": "# String format\nprint('hello')"
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "name": "python3",
+   "language": "python",
+   "display_name": "Python 3"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}"###;
+
+        let notebook =
+            parse_notebook(notebook_json).expect("Failed to parse mixed format notebook");
+
+        match &notebook {
+            Notebook::V4(notebook) => {
+                assert_eq!(notebook.cells.len(), 2);
+
+                if let Cell::Markdown { source, .. } = &notebook.cells[0] {
+                    assert_eq!(
+                        source,
+                        &vec!["# Array format\n".to_string(), "This is the array format.".to_string()]
+                    );
+                } else {
+                    panic!("Expected markdown cell");
+                }
+
+                if let Cell::Code { source, .. } = &notebook.cells[1] {
+                    assert_eq!(
+                        source,
+                        &vec!["# String format\nprint('hello')".to_string()]
+                    );
+                } else {
+                    panic!("Expected code cell");
+                }
+            }
+            Notebook::Legacy(_) => panic!("Expected V4 notebook, got legacy"),
+        }
+    }
 }
