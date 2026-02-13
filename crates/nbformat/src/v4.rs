@@ -74,6 +74,48 @@ where
     deserializer.deserialize_any(MultilineStringVisitor)
 }
 
+pub(crate) fn deserialize_source<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct SourceVisitor;
+
+    impl<'de> serde::de::Visitor<'de> for SourceVisitor {
+        type Value = Vec<String>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("string or array of strings")
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Ok(vec![value.to_string()])
+        }
+
+        fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Ok(vec![value])
+        }
+
+        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+        where
+            A: serde::de::SeqAccess<'de>,
+        {
+            let mut result = Vec::new();
+            while let Some(s) = seq.next_element::<String>()? {
+                result.push(s);
+            }
+            Ok(result)
+        }
+    }
+
+    deserializer.deserialize_any(SourceVisitor)
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct DisplayData {
     #[serde(serialize_with = "serialize_media_for_notebook")]
@@ -236,6 +278,7 @@ pub enum Cell {
     Markdown {
         id: CellId,
         metadata: CellMetadata,
+        #[serde(deserialize_with = "deserialize_source")]
         source: Vec<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         attachments: Option<Value>,
@@ -245,6 +288,7 @@ pub enum Cell {
         id: CellId,
         metadata: CellMetadata,
         execution_count: Option<i32>,
+        #[serde(deserialize_with = "deserialize_source")]
         source: Vec<String>,
         #[serde(deserialize_with = "deserialize_outputs")]
         outputs: Vec<Output>,
@@ -253,6 +297,7 @@ pub enum Cell {
     Raw {
         id: CellId,
         metadata: CellMetadata,
+        #[serde(deserialize_with = "deserialize_source")]
         source: Vec<String>,
     },
 }
