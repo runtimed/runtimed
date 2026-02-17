@@ -22,6 +22,7 @@
 //! # Commands
 //!
 //! - `status` - Check server status (doesn't require notebook open)
+//! - `sessions` - List active sessions (to check if JupyterLab has a kernel)
 //! - `list` - List all cells in the notebook
 //! - `edit <index> <source>` - Edit a cell's source code
 //! - `add <source>` - Add a new code cell
@@ -51,6 +52,18 @@
 //! # Execute a cell
 //! cargo run -p jupyter-ysync --features client --example nb -- exec 0
 //! ```
+//!
+//! # Kernel Lifecycle
+//!
+//! Jupyter Server shuts down kernels when all WebSocket connections close.
+//! For persistent execution state across CLI invocations:
+//!
+//! 1. **Run a cell in JupyterLab first** - This creates a persistent session
+//! 2. **Keep JupyterLab open** - JupyterLab's connection keeps the kernel alive
+//! 3. **CLI reuses JupyterLab's session** - Variables persist between CLI calls
+//!
+//! If you run execution commands without JupyterLab having a session, each
+//! invocation creates a fresh kernel (no variable persistence).
 //!
 //! # Known Issues
 //!
@@ -96,6 +109,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .text()
             .await?;
         println!("{}", resp);
+        return Ok(());
+    }
+
+    // Sessions command shows existing sessions (helpful for debugging kernel lifecycle)
+    if cmd == "sessions" {
+        let client = reqwest::Client::new();
+        let resp = client
+            .get(format!("{}/api/sessions?token={}", base_url, token))
+            .send()
+            .await?
+            .text()
+            .await?;
+
+        #[derive(serde::Deserialize)]
+        struct Session {
+            id: String,
+            path: String,
+            kernel: SessionKernel,
+        }
+        #[derive(serde::Deserialize)]
+        struct SessionKernel {
+            id: String,
+            connections: u32,
+            execution_state: String,
+        }
+
+        if let Ok(sessions) = serde_json::from_str::<Vec<Session>>(&resp) {
+            if sessions.is_empty() {
+                println!("No active sessions.");
+                println!("\nTip: Run a cell in JupyterLab first to create a persistent session.");
+            } else {
+                for s in &sessions {
+                    println!(
+                        "{}: kernel={} ({}), connections={}",
+                        s.path, &s.kernel.id[..8], s.kernel.execution_state, s.kernel.connections
+                    );
+                }
+                println!("\nKernels with connections > 0 will stay alive.");
+            }
+        } else {
+            println!("{}", resp);
+        }
         return Ok(());
     }
 
@@ -196,7 +251,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => {
             eprintln!("Unknown command: {}", cmd);
-            eprintln!("Commands: status, list, edit <index> <source>, add <source>, execute <index>");
+            eprintln!("Commands: status, sessions, list, edit <index> <source>, add <source>, execute <index>");
         }
     }
 
