@@ -98,6 +98,8 @@ pub struct NotebookSession {
     executor: CellExecutor,
     /// Session configuration
     config: SessionConfig,
+    /// Jupyter session ID (for kernel connection association)
+    session_id: Option<String>,
 }
 
 /// Kernel connection state.
@@ -140,6 +142,7 @@ impl NotebookSession {
             kernel: None,
             executor: CellExecutor::new(),
             config,
+            session_id: None,
         })
     }
 
@@ -183,15 +186,21 @@ impl NotebookSession {
             token: self.config.token.clone().unwrap_or_default(),
         };
 
-        // Get or launch kernel
+        // Get or launch kernel (and session for association)
         let kernel_id = match kernel_id {
             Some(id) => id.to_string(),
-            None => self.launch_kernel(&server).await?,
+            None => {
+                let (session_id, kernel_id) = self.launch_kernel(&server).await?;
+                self.session_id = Some(session_id);
+                kernel_id
+            }
         };
 
-        // Connect to kernel WebSocket
+        // Connect to kernel WebSocket with session_id for proper association
+        // This tells the kernel manager that this connection belongs to a session,
+        // preventing premature kernel shutdown.
         let (kernel_ws, _response) = server
-            .connect_to_kernel(&kernel_id)
+            .connect_to_kernel_with_session(&kernel_id, self.session_id.as_deref())
             .await
             .map_err(|e| YSyncError::ProtocolError(format!("Failed to connect to kernel: {}", e)))?;
 
@@ -215,39 +224,44 @@ impl NotebookSession {
         Ok(())
     }
 
-    /// Find an existing session for the notebook, or launch a new kernel.
+    /// Find or create a session for the notebook.
     ///
-    /// jupyter-server-documents connects sessions/kernels to Y.Doc rooms,
-    /// so we should reuse any existing session to get outputs via Y-sync.
-    async fn launch_kernel(&self, server: &RemoteServer) -> Result<String> {
+    /// jupyter-server-documents uses the YDocSessionManager which links
+    /// sessions/kernels to Y.Doc rooms. Creating a session via the sessions API
+    /// (not the kernels API directly) ensures proper linkage.
+    ///
+    /// Returns (session_id, kernel_id) - the session_id is used when connecting
+    /// to the kernel WebSocket to associate the connection with the session.
+    async fn launch_kernel(&self, server: &RemoteServer) -> Result<(String, String)> {
         let client = reqwest::Client::new();
-
-        // First, check if there's an existing session for this notebook
         let sessions_url = format!("{}/api/sessions?token={}", server.base_url, server.token);
 
         #[derive(serde::Deserialize)]
         struct Session {
-            kernel: Kernel,
+            id: String,
+            kernel: SessionKernel,
             path: Option<String>,
         }
         #[derive(serde::Deserialize)]
-        struct Kernel {
+        struct SessionKernel {
             id: String,
         }
 
+        // First, check for an existing session for this notebook
         if let Ok(resp) = client.get(&sessions_url).send().await {
             if let Ok(sessions) = resp.json::<Vec<Session>>().await {
-                // Look for a session matching our notebook path
                 for session in sessions {
                     if session.path.as_deref() == Some(&self.config.notebook_path) {
-                        // Found existing session - use its kernel
-                        return Ok(session.kernel.id);
+                        return Ok((session.id, session.kernel.id));
                     }
                 }
             }
         }
 
-        // No existing session found - launch a new kernel
+        // No existing session - create one via the sessions API
+        // This is CRITICAL: YDocSessionManager intercepts session creation
+        // and links the kernel to the YRoom. Using /api/kernels directly
+        // creates orphan kernels not linked to the Y.Doc.
         let kernel_name = match &self.config.kernel_name {
             Some(name) => name.clone(),
             None => {
@@ -267,24 +281,38 @@ impl NotebookSession {
             }
         };
 
-        // Launch kernel
-        let url = format!("{}/api/kernels?token={}", server.base_url, server.token);
-        let launch_req = jupyter_websocket_client::KernelLaunchRequest {
-            name: kernel_name,
-            path: Some(self.config.notebook_path.clone()),
+        // Create session via POST /api/sessions (triggers YDocSessionManager)
+        #[derive(serde::Serialize)]
+        struct CreateSessionRequest {
+            path: String,
+            name: String,
+            #[serde(rename = "type")]
+            session_type: String,
+            kernel: KernelSpec,
+        }
+        #[derive(serde::Serialize)]
+        struct KernelSpec {
+            name: String,
+        }
+
+        let create_req = CreateSessionRequest {
+            path: self.config.notebook_path.clone(),
+            name: self.config.notebook_path.clone(),
+            session_type: "notebook".to_string(),
+            kernel: KernelSpec { name: kernel_name },
         };
 
-        let kernel: jupyter_websocket_client::Kernel = client
-            .post(&url)
-            .json(&launch_req)
+        let session: Session = client
+            .post(&sessions_url)
+            .json(&create_req)
             .send()
             .await
-            .map_err(|e| YSyncError::ProtocolError(format!("Failed to launch kernel: {}", e)))?
+            .map_err(|e| YSyncError::ProtocolError(format!("Failed to create session: {}", e)))?
             .json()
             .await
-            .map_err(|e| YSyncError::ProtocolError(format!("Failed to parse kernel response: {}", e)))?;
+            .map_err(|e| YSyncError::ProtocolError(format!("Failed to parse session response: {}", e)))?;
 
-        Ok(kernel.id)
+        Ok((session.id, session.kernel.id))
     }
 
     /// Wait for the IOPub channel to be ready.
@@ -490,6 +518,11 @@ impl NotebookSession {
     /// Get the kernel ID if connected.
     pub fn kernel_id(&self) -> Option<&str> {
         self.kernel.as_ref().map(|k| k.kernel_id.as_str())
+    }
+
+    /// Get the session ID if a session has been created/found.
+    pub fn session_id(&self) -> Option<&str> {
+        self.session_id.as_deref()
     }
 
     /// Check if a kernel is connected.

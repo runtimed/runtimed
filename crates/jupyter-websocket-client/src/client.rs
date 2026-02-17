@@ -150,12 +150,30 @@ impl RemoteServer {
         &self,
         kernel_id: &str,
     ) -> Result<(JupyterWebSocket, Response<Option<Vec<u8>>>)> {
-        let ws_url = format!(
+        self.connect_to_kernel_with_session(kernel_id, None).await
+    }
+
+    /// Connect to a kernel by ID with an optional session ID.
+    ///
+    /// The session_id parameter associates this WebSocket connection with a
+    /// Jupyter session. This is important for servers that track connections
+    /// by session (like jupyter-server-documents) to avoid premature kernel
+    /// shutdown when connections drop.
+    pub async fn connect_to_kernel_with_session(
+        &self,
+        kernel_id: &str,
+        session_id: Option<&str>,
+    ) -> Result<(JupyterWebSocket, Response<Option<Vec<u8>>>)> {
+        let mut ws_url = format!(
             "{}?token={}",
             api_url(&self.base_url, &format!("kernels/{}/channels", kernel_id))
                 .replace("http", "ws"),
             self.token
         );
+
+        if let Some(sid) = session_id {
+            ws_url.push_str(&format!("&session_id={}", sid));
+        }
 
         let mut req: Request<()> = ws_url.into_client_request()?;
         let headers = req.headers_mut();

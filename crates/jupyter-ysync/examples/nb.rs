@@ -162,6 +162,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             println!("Connecting to kernel...");
             session.connect_kernel(None).await?;
+            println!("Session ID: {:?}", session.session_id());
             println!("Kernel ID: {:?}", session.kernel_id());
 
             println!("Executing cell {}...", index);
