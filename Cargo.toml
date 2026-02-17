@@ -36,6 +36,7 @@ chrono = { version = "0.4", default-features = false, features = [
 futures = "0.3"
 bytes = "1"
 base64 = "0.22"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 runtimelib = { path = "crates/runtimelib", version = "1.2.0", default-features = false }
 jupyter-protocol = { path = "crates/jupyter-protocol", version = "1.2.0" }
 thiserror = "2"

@@ -30,15 +30,10 @@ futures = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
-jupyter-websocket-client = { path = "../jupyter-websocket-client" }
 futures = { workspace = true }
 
 [[example]]
 name = "live_edit"
-required-features = ["client"]
-
-[[example]]
-name = "execute_cell"
 required-features = ["client"]
 
 [features]

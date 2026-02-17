@@ -9,7 +9,8 @@ use async_tungstenite::{
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::websocket::JupyterWebSocket;
+use crate::binary_protocol::KERNEL_WEBSOCKET_PROTOCOL;
+use crate::websocket::{JupyterWebSocket, ProtocolMode};
 
 pub struct RemoteServer {
     pub base_url: String,
@@ -162,11 +163,36 @@ impl RemoteServer {
             "User-Agent",
             HeaderValue::from_str("runtimed/jupyter-websocket-client")?,
         );
+        // Request the v1 binary protocol
+        headers.insert(
+            "Sec-WebSocket-Protocol",
+            HeaderValue::from_static(KERNEL_WEBSOCKET_PROTOCOL),
+        );
 
         let response = connect_async(req).await;
 
         let (ws_stream, response) = response?;
 
-        Ok((JupyterWebSocket { inner: ws_stream }, response))
+        // Check if server accepted the v1 binary protocol
+        let protocol_mode = response
+            .headers()
+            .get("Sec-WebSocket-Protocol")
+            .and_then(|v| v.to_str().ok())
+            .map(|v| {
+                if v == KERNEL_WEBSOCKET_PROTOCOL {
+                    ProtocolMode::BinaryV1
+                } else {
+                    ProtocolMode::Json
+                }
+            })
+            .unwrap_or(ProtocolMode::Json);
+
+        Ok((
+            JupyterWebSocket {
+                inner: ws_stream,
+                protocol_mode,
+            },
+            response,
+        ))
     }
 }
