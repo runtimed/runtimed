@@ -32,6 +32,7 @@
 pub mod convert;
 pub mod doc;
 pub mod error;
+pub mod executor;
 pub mod output_mapping;
 pub mod protocol;
 
@@ -48,6 +49,7 @@ pub use output_mapping::{
     display_data_to_output, error_to_output, execute_result_to_output, is_output_message,
     message_to_kernel_output, stream_to_output, KernelOutput,
 };
+pub use executor::{CellExecutor, ExecutionEvent};
 pub use protocol::{AwarenessState, ClientAwareness, Message, SyncMessage, SyncProtocol, SyncState};
 
 #[cfg(feature = "client")]
