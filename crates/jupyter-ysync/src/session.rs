@@ -381,10 +381,11 @@ impl NotebookSession {
         // Register execution with coordinator
         self.executor.register_execution(msg_id.clone(), cell_index);
 
-        // Send execute request
-        kernel.writer.send(msg).await.map_err(|e| {
-            YSyncError::ProtocolError(format!("Failed to send execute request: {}", e))
-        })?;
+        // Send execute request - cancel registration if send fails
+        if let Err(e) = kernel.writer.send(msg).await {
+            self.executor.cancel(&msg_id);
+            return Err(YSyncError::ProtocolError(format!("Failed to send execute request: {}", e)));
+        }
 
         // Collect events
         let mut all_events = Vec::new();
@@ -491,12 +492,13 @@ fn handle_message_without_outputs(
         JupyterMessageContent::Status(status) => {
             match status.execution_state {
                 ExecutionState::Busy => {
+                    executor.mark_busy(expected_msg_id);
                     events.push(ExecutionEvent::Started {
                         cell_index,
                         msg_id: expected_msg_id.to_string(),
                     });
                 }
-                ExecutionState::Idle => {
+                ExecutionState::Idle if executor.saw_busy(expected_msg_id) => {
                     // Execution complete - cancel tracking
                     executor.cancel(expected_msg_id);
                     events.push(ExecutionEvent::Completed {
@@ -508,13 +510,12 @@ fn handle_message_without_outputs(
             }
         }
         JupyterMessageContent::ExecuteReply(reply) => {
-            if let Some(count) = reply.execution_count.value().checked_sub(0) {
-                if count > 0 {
-                    events.push(ExecutionEvent::ExecutionCountUpdated {
-                        cell_index,
-                        count: count as i32,
-                    });
-                }
+            let count = reply.execution_count.value();
+            if count > 0 {
+                events.push(ExecutionEvent::ExecutionCountUpdated {
+                    cell_index,
+                    count: count as i32,
+                });
             }
         }
         JupyterMessageContent::ErrorOutput(error) => {

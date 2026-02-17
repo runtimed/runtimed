@@ -20,6 +20,18 @@ const BASE_URL: &str = "http://localhost:18888";
 const TOKEN: &str = "testtoken123";
 const NOTEBOOK_PATH: &str = "test.ipynb";
 
+/// Truncate a string to a maximum number of characters, adding "..." if truncated.
+/// This is UTF-8 safe (truncates at char boundaries, not byte boundaries).
+fn truncate_preview(s: &str, max_chars: usize) -> String {
+    let char_count = s.chars().count();
+    if char_count > max_chars {
+        let truncated: String = s.chars().take(max_chars).collect();
+        format!("{}...", truncated)
+    } else {
+        s.to_string()
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== Collaborative Notebook Execution ===\n");
@@ -48,11 +60,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Show all cell sources
     for i in 0..cell_count {
         if let Some(source) = session.get_cell_source(i) {
-            let preview = if source.len() > 50 {
-                format!("{}...", &source[..50])
-            } else {
-                source.clone()
-            };
+            let preview = truncate_preview(&source, 50);
             println!("  Cell {}: {}", i, preview.replace('\n', "\\n"));
         }
     }

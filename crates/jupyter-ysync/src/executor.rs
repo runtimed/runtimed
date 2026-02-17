@@ -228,6 +228,20 @@ impl CellExecutor {
     pub fn get_cell_index(&self, msg_id: &str) -> Option<u32> {
         self.pending.get(msg_id).map(|p| p.cell_index)
     }
+
+    /// Mark an execution as having seen the busy state.
+    ///
+    /// This should be called when a Status::Busy message is received.
+    pub fn mark_busy(&mut self, msg_id: &str) {
+        if let Some(pending) = self.pending.get_mut(msg_id) {
+            pending.saw_busy = true;
+        }
+    }
+
+    /// Check if an execution has seen the busy state.
+    pub fn saw_busy(&self, msg_id: &str) -> bool {
+        self.pending.get(msg_id).is_some_and(|p| p.saw_busy)
+    }
 }
 
 impl Default for CellExecutor {

@@ -63,6 +63,18 @@ fn get_config() -> (String, String, String) {
     (base_url, token, notebook)
 }
 
+/// Truncate a string to a maximum number of characters, adding "..." if truncated.
+/// This is UTF-8 safe (truncates at char boundaries, not byte boundaries).
+fn truncate_preview(s: &str, max_chars: usize) -> String {
+    let char_count = s.chars().count();
+    if char_count > max_chars {
+        let truncated: String = s.chars().take(max_chars).collect();
+        format!("{}...", truncated)
+    } else {
+        s.to_string()
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
@@ -102,11 +114,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Some(yrs::Out::Any(yrs::Any::String(s))) => s.to_string(),
                         _ => "<no source>".to_string(),
                     };
-                    let preview = if source.len() > 60 {
-                        format!("{}...", &source[..60])
-                    } else {
-                        source
-                    };
+                    let preview = truncate_preview(&source, 60);
                     println!("[{}] {}", i, preview.replace('\n', "\\n"));
                 }
             }
