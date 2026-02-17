@@ -27,6 +27,8 @@ pyo3 = { version = "0.23", optional = true, features = ["extension-module"] }
 async-tungstenite = { version = "0.32", features = ["tokio-runtime"], optional = true }
 tokio = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
+jupyter-websocket-client = { workspace = true, optional = true }
+reqwest = { workspace = true, features = ["json"], optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
@@ -36,10 +38,34 @@ futures = { workspace = true }
 name = "live_edit"
 required-features = ["client"]
 
+[[example]]
+name = "collaborative_execute"
+required-features = ["client"]
+
+[[example]]
+name = "add_cell"
+required-features = ["client"]
+
+[[example]]
+name = "edit_cell"
+required-features = ["client"]
+
+[[example]]
+name = "list_cells"
+required-features = ["client"]
+
+[[example]]
+name = "quick_edit"
+required-features = ["client"]
+
+[[example]]
+name = "nb"
+required-features = ["client"]
+
 [features]
 default = []
 python = ["pyo3"]
-client = ["async-tungstenite", "tokio", "futures"]
+client = ["async-tungstenite", "tokio", "futures", "jupyter-websocket-client", "reqwest"]
 
 [package.metadata.docs.rs]
 all-features = true

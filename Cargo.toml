@@ -44,6 +44,7 @@ tokio = { version = "1.36.0", features = ["full"] }
 yrs = "0.21"
 dashmap = "6"
 nbformat = { path = "crates/nbformat", version = "1.0.0" }
+jupyter-websocket-client = { path = "crates/jupyter-websocket-client", version = "1.0.0" }
 
 [profile.release]
 opt-level = 'z'

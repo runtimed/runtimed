@@ -24,7 +24,7 @@ use async_tungstenite::tungstenite::client::IntoClientRequest;
 use async_tungstenite::tungstenite::Message as WsMessage;
 use async_tungstenite::WebSocketStream;
 use futures::StreamExt;
-use yrs::Doc;
+use yrs::{Doc, ReadTxn, StateVector, Transact};
 
 use crate::error::{Result, YSyncError};
 use crate::protocol::awareness::ClientAwareness;
@@ -90,6 +90,8 @@ impl ClientConfig {
 pub struct YSyncClient {
     stream: WsStream,
     protocol: SyncProtocol,
+    /// Last known remote state vector for computing incremental updates
+    last_synced_sv: Option<StateVector>,
 }
 
 impl YSyncClient {
@@ -114,6 +116,7 @@ impl YSyncClient {
         Ok(Self {
             stream,
             protocol: SyncProtocol::new(),
+            last_synced_sv: None,
         })
     }
 
@@ -151,6 +154,10 @@ impl YSyncClient {
                 self.handle_message(doc, &msg).await?;
             }
         }
+
+        // Store the current state vector for computing incremental updates
+        let txn = doc.transact();
+        self.last_synced_sv = Some(txn.state_vector());
 
         Ok(())
     }
@@ -237,9 +244,20 @@ impl YSyncClient {
     ///
     /// Call this after making changes to the document to broadcast
     /// them to other connected clients.
+    ///
+    /// This sends only the changes since the last sync, not the full document.
     pub async fn send_update(&mut self, doc: &Doc) -> Result<()> {
-        let msg = SyncProtocol::encode_full_update(doc);
-        self.send_message(&msg).await
+        let msg = match &self.last_synced_sv {
+            Some(sv) => SyncProtocol::encode_update(doc, sv),
+            None => SyncProtocol::encode_full_update(doc),
+        };
+        self.send_message(&msg).await?;
+
+        // Update the state vector after sending
+        let txn = doc.transact();
+        self.last_synced_sv = Some(txn.state_vector());
+
+        Ok(())
     }
 
     /// Send an awareness update.

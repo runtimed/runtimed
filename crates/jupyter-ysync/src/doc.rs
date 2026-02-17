@@ -4,7 +4,7 @@ use nbformat::v4::Output;
 use yrs::updates::decoder::Decode;
 use yrs::{
     Any, Array, ArrayPrelim, ArrayRef, Doc, GetString, Map, MapPrelim, MapRef, Out, ReadTxn,
-    TextRef, Transact, Update, WriteTxn,
+    TextPrelim, TextRef, Transact, Update, WriteTxn,
 };
 
 use crate::convert::output_to_any;
@@ -124,16 +124,16 @@ impl NotebookDoc {
         let insert_index = index.unwrap_or_else(|| cells.len(&txn));
 
         // Build the cell as a nested map structure
+        // Note: source and outputs are added as CRDT types (Y.Text, Y.Array) after insertion
         let mut cell_content: HashMap<String, Any> = HashMap::new();
         cell_content.insert(keys::ID.into(), Any::String(id.into()));
         cell_content.insert(keys::CELL_TYPE.into(), Any::String(cell_type.into()));
-        cell_content.insert(keys::SOURCE.into(), Any::String(source.into()));
         cell_content.insert(
             keys::CELL_METADATA.into(),
             Any::Map(HashMap::new().into()),
         );
 
-        // Add execution_count for code cells (outputs added separately as YArray)
+        // Add execution_count for code cells
         if cell_type == cell_types::CODE {
             cell_content.insert(keys::EXECUTION_COUNT.into(), Any::Null);
         }
@@ -142,9 +142,13 @@ impl NotebookDoc {
         let cell_prelim = MapPrelim::from_iter(cell_content);
         cells.insert(&mut txn, insert_index, cell_prelim);
 
-        // For code cells, add outputs as a proper YArray (for CRDT modification support)
-        if cell_type == cell_types::CODE {
-            if let Some(Out::YMap(cell_map)) = cells.get(&txn, insert_index) {
+        // Get reference to the inserted cell to add CRDT types
+        if let Some(Out::YMap(cell_map)) = cells.get(&txn, insert_index) {
+            // Add source as Y.Text (required for collaborative editing)
+            cell_map.insert(&mut txn, keys::SOURCE, TextPrelim::new(source));
+
+            // For code cells, add outputs as Y.Array
+            if cell_type == cell_types::CODE {
                 cell_map.insert(&mut txn, keys::OUTPUTS, ArrayPrelim::default());
             }
         }
