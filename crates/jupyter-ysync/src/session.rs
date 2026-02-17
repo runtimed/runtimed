@@ -28,7 +28,7 @@
 
 use futures::{SinkExt, StreamExt};
 use jupyter_protocol::{ExecuteRequest, ExecutionState, JupyterMessage, JupyterMessageContent};
-use jupyter_websocket_client::{JupyterWebSocket, RemoteServer};
+use jupyter_websocket_client::{JupyterWebSocket, ProtocolMode, RemoteServer};
 use yrs::{Array, Map, Text, Transact};
 
 use crate::client::{build_room_url, ClientConfig, RoomId, YSyncClient};
@@ -121,6 +121,8 @@ impl NotebookSession {
         let file_id = Self::get_file_id(&config).await?;
 
         // Build room URL with file ID
+        // jupyter-server-documents uses format:contentType:file_id
+        // For notebooks, contentType is "notebook"
         let room_id = RoomId::new("json", "notebook", &file_id);
         let room_url = build_room_url(&config.base_url, &room_id, config.token.as_deref());
 
@@ -193,6 +195,9 @@ impl NotebookSession {
             .await
             .map_err(|e| YSyncError::ProtocolError(format!("Failed to connect to kernel: {}", e)))?;
 
+        // Check if v1 binary protocol is being used (which sends IoPubWelcome)
+        let is_v1_protocol = kernel_ws.protocol_mode == ProtocolMode::BinaryV1;
+
         let (writer, reader) = kernel_ws.split();
 
         self.kernel = Some(KernelConnection {
@@ -201,17 +206,48 @@ impl NotebookSession {
             reader,
         });
 
-        // Wait for iopub_welcome to ensure IOPub channel is ready
-        self.wait_for_iopub_ready().await?;
+        // Wait for iopub_welcome only if using v1 binary protocol
+        // JSON/legacy protocol doesn't send this message
+        if is_v1_protocol {
+            self.wait_for_iopub_ready().await?;
+        }
 
         Ok(())
     }
 
-    /// Launch a new kernel and return its ID.
+    /// Find an existing session for the notebook, or launch a new kernel.
+    ///
+    /// jupyter-server-documents connects sessions/kernels to Y.Doc rooms,
+    /// so we should reuse any existing session to get outputs via Y-sync.
     async fn launch_kernel(&self, server: &RemoteServer) -> Result<String> {
         let client = reqwest::Client::new();
 
-        // Get default kernel name if not specified
+        // First, check if there's an existing session for this notebook
+        let sessions_url = format!("{}/api/sessions?token={}", server.base_url, server.token);
+
+        #[derive(serde::Deserialize)]
+        struct Session {
+            kernel: Kernel,
+            path: Option<String>,
+        }
+        #[derive(serde::Deserialize)]
+        struct Kernel {
+            id: String,
+        }
+
+        if let Ok(resp) = client.get(&sessions_url).send().await {
+            if let Ok(sessions) = resp.json::<Vec<Session>>().await {
+                // Look for a session matching our notebook path
+                for session in sessions {
+                    if session.path.as_deref() == Some(&self.config.notebook_path) {
+                        // Found existing session - use its kernel
+                        return Ok(session.kernel.id);
+                    }
+                }
+            }
+        }
+
+        // No existing session found - launch a new kernel
         let kernel_name = match &self.config.kernel_name {
             Some(name) => name.clone(),
             None => {
@@ -252,22 +288,42 @@ impl NotebookSession {
     }
 
     /// Wait for the IOPub channel to be ready.
+    ///
+    /// Waits for `IoPubWelcome` message or times out after receiving other messages.
+    /// Some servers may not send IoPubWelcome, so we proceed after a timeout.
     async fn wait_for_iopub_ready(&mut self) -> Result<()> {
         let kernel = self.kernel.as_mut().ok_or_else(|| {
             YSyncError::ProtocolError("No kernel connected".into())
         })?;
 
-        while let Some(response) = kernel.reader.next().await {
-            let msg = response.map_err(|e| {
-                YSyncError::ProtocolError(format!("Kernel message error: {}", e))
-            })?;
+        // Wait for first few messages to check for IoPubWelcome
+        // If we get other messages (like status), assume the channel is ready
+        for _ in 0..3 {
+            let recv_future = kernel.reader.next();
+            let timeout_duration = tokio::time::Duration::from_millis(500);
 
-            if matches!(&msg.content, JupyterMessageContent::IoPubWelcome(_)) {
-                return Ok(());
+            match tokio::time::timeout(timeout_duration, recv_future).await {
+                Ok(Some(Ok(msg))) => {
+                    if matches!(&msg.content, JupyterMessageContent::IoPubWelcome(_)) {
+                        return Ok(());
+                    }
+                    // Got another message type - channel is working, continue checking
+                }
+                Ok(Some(Err(e))) => {
+                    return Err(YSyncError::ProtocolError(format!("Kernel message error: {}", e)));
+                }
+                Ok(None) => {
+                    return Err(YSyncError::ProtocolError("Connection closed".into()));
+                }
+                Err(_) => {
+                    // Timeout - no IoPubWelcome but that's OK for some servers
+                    return Ok(());
+                }
             }
         }
 
-        Err(YSyncError::ProtocolError("Connection closed before IOPub ready".into()))
+        // Received messages but no IoPubWelcome - channel is working
+        Ok(())
     }
 
     /// Get a reference to the notebook document.
@@ -462,8 +518,15 @@ impl NotebookSession {
     }
 
     /// Close the session, shutting down the kernel and disconnecting.
+    ///
+    /// This includes a brief delay to allow the server to process any pending
+    /// sync updates before the WebSocket connection is closed.
     pub async fn close(mut self) -> Result<()> {
         self.shutdown_kernel().await?;
+        // Brief delay to allow server to process pending updates
+        // This works around a race condition in jupyter-server-documents where
+        // the server may still be processing our last update when we disconnect
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         self.ysync_client.close().await?;
         Ok(())
     }

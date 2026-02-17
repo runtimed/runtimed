@@ -124,14 +124,10 @@ impl NotebookDoc {
         let insert_index = index.unwrap_or_else(|| cells.len(&txn));
 
         // Build the cell as a nested map structure
-        // Note: source and outputs are added as CRDT types (Y.Text, Y.Array) after insertion
+        // Note: source, metadata, and outputs are added as CRDT types after insertion
         let mut cell_content: HashMap<String, Any> = HashMap::new();
         cell_content.insert(keys::ID.into(), Any::String(id.into()));
         cell_content.insert(keys::CELL_TYPE.into(), Any::String(cell_type.into()));
-        cell_content.insert(
-            keys::CELL_METADATA.into(),
-            Any::Map(HashMap::new().into()),
-        );
 
         // Add execution_count for code cells
         if cell_type == cell_types::CODE {
@@ -146,6 +142,9 @@ impl NotebookDoc {
         if let Some(Out::YMap(cell_map)) = cells.get(&txn, insert_index) {
             // Add source as Y.Text (required for collaborative editing)
             cell_map.insert(&mut txn, keys::SOURCE, TextPrelim::new(source));
+
+            // Add metadata as Y.Map (JupyterLab expects this to be a Y.Map, not plain object)
+            cell_map.insert(&mut txn, keys::CELL_METADATA, MapPrelim::default());
 
             // For code cells, add outputs as Y.Array
             if cell_type == cell_types::CODE {
