@@ -13,6 +13,16 @@
 //! - **Conversion**: Bidirectional conversion between `nbformat::v4::Notebook` and Y.Doc
 //! - **Character-level editing**: Cell sources use Y.Text for fine-grained collaboration
 //!
+//! ### Client Feature (Beta)
+//!
+//! With the `client` feature enabled, this crate provides:
+//!
+//! - **YSyncClient**: WebSocket client for connecting to Y-sync servers
+//! - **NotebookSession**: High-level API combining Y-sync with kernel execution
+//!
+//! **Note**: The client feature is experimental. The notebook must be open in
+//! JupyterLab for the collaboration room to be active. See the `nb` example.
+//!
 //! ## Example
 //!
 //! ```rust

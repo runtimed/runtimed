@@ -1,48 +1,96 @@
-//! Simple notebook CLI for testing Y-sync
+//! Notebook CLI for testing Y-sync collaborative editing.
 //!
-//! Usage:
-//!   cargo run -p jupyter-ysync --features client --example nb -- <command> [args]
+//! This is a simple CLI tool for interacting with Jupyter notebooks via the
+//! Y-sync protocol (jupyter-server-documents). **BETA** - for testing only.
 //!
-//! Commands:
-//!   list                     - List all cells
-//!   edit <index> <source>    - Edit a cell's source
-//!   add <source>             - Add a new cell
-//!   status                   - Show connection status
+//! # Prerequisites
+//!
+//! 1. Start a Jupyter server with jupyter-server-documents:
+//!    ```bash
+//!    uv run --with jupyter-server --with jupyter-server-documents --with jupyterlab \
+//!      jupyter lab --port 18889 --IdentityProvider.token=testtoken123
+//!    ```
+//!
+//! 2. Open a notebook in JupyterLab (the collaboration room must be active)
+//!
+//! # Usage
+//!
+//! ```bash
+//! cargo run -p jupyter-ysync --features client --example nb -- <command> [args]
+//! ```
+//!
+//! # Commands
+//!
+//! - `status` - Check server status (doesn't require notebook open)
+//! - `list` - List all cells in the notebook
+//! - `edit <index> <source>` - Edit a cell's source code
+//! - `add <source>` - Add a new code cell
+//!
+//! # Environment Variables
+//!
+//! - `JUPYTER_URL` - Base URL (default: http://localhost:18889)
+//! - `JUPYTER_TOKEN` - Auth token (default: testtoken123)
+//! - `NOTEBOOK_PATH` - Notebook path (default: test.ipynb)
+//!
+//! # Examples
+//!
+//! ```bash
+//! # Check server status
+//! cargo run -p jupyter-ysync --features client --example nb -- status
+//!
+//! # List cells
+//! cargo run -p jupyter-ysync --features client --example nb -- list
+//!
+//! # Edit cell 0
+//! cargo run -p jupyter-ysync --features client --example nb -- edit 0 "print('hello')"
+//!
+//! # Add a new cell
+//! cargo run -p jupyter-ysync --features client --example nb -- add "x = 42"
+//! ```
+//!
+//! # Known Issues
+//!
+//! - Notebook must be open in JupyterLab for Y-sync room to be active
+//! - Rapid connections may cause JupyterLab frontend issues
 
 use jupyter_ysync::{NotebookSession, SessionConfig};
 use yrs::{Array, GetString, Map, ReadTxn, Text, Transact};
 
-const BASE_URL: &str = "http://localhost:18889";
-const TOKEN: &str = "testtoken123";
-const NOTEBOOK_PATH: &str = "agent_test.ipynb";
+fn get_config() -> (String, String, String) {
+    let base_url = std::env::var("JUPYTER_URL").unwrap_or_else(|_| "http://localhost:18889".into());
+    let token = std::env::var("JUPYTER_TOKEN").unwrap_or_else(|_| "testtoken123".into());
+    let notebook = std::env::var("NOTEBOOK_PATH").unwrap_or_else(|_| "test.ipynb".into());
+    (base_url, token, notebook)
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
     let cmd = args.get(1).map(|s| s.as_str()).unwrap_or("list");
+    let (base_url, token, notebook_path) = get_config();
 
-    match cmd {
-        "status" => {
-            println!("Checking server...");
-            let client = reqwest::Client::new();
-            let resp = client
-                .get(format!("{}/api/status?token={}", BASE_URL, TOKEN))
-                .send()
-                .await?
-                .text()
-                .await?;
-            println!("{}", resp);
-            return Ok(());
-        }
-        _ => {}
+    // Status command doesn't need Y-sync connection
+    if cmd == "status" {
+        println!("Server: {}", base_url);
+        let client = reqwest::Client::new();
+        let resp = client
+            .get(format!("{}/api/status?token={}", base_url, token))
+            .send()
+            .await?
+            .text()
+            .await?;
+        println!("{}", resp);
+        return Ok(());
     }
 
-    let config = SessionConfig::new(BASE_URL, NOTEBOOK_PATH).with_token(TOKEN);
+    // Connect to notebook via Y-sync
+    println!("Connecting to {}...", notebook_path);
+    let config = SessionConfig::new(&base_url, &notebook_path).with_token(&token);
     let mut session = NotebookSession::connect(config).await?;
+    println!("Connected! Cells: {}\n", session.cell_count());
 
     match cmd {
         "list" => {
-            println!("Cells: {}\n", session.cell_count());
             let doc = session.doc().doc();
             let txn = doc.transact();
             let cells = txn.get_array("cells").unwrap();
@@ -54,8 +102,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Some(yrs::Out::Any(yrs::Any::String(s))) => s.to_string(),
                         _ => "<no source>".to_string(),
                     };
-                    let preview = if source.len() > 50 {
-                        format!("{}...", &source[..50])
+                    let preview = if source.len() > 60 {
+                        format!("{}...", &source[..60])
                     } else {
                         source
                     };
@@ -80,8 +128,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     text.insert(&mut txn, 0, source);
                     drop(txn);
                     session.sync_to_server().await?;
-                    println!("Cell {} updated", index);
+                    println!("Updated cell {}", index);
                 }
+            } else {
+                println!("Cell {} not found", index);
             }
         }
         "add" => {
@@ -91,10 +141,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .doc()
                 .add_cell(&cell_id, jupyter_ysync::cell_types::CODE, source, None)?;
             session.sync_to_server().await?;
-            println!("Added cell: {}", source.replace('\n', "\\n"));
+            println!("Added cell");
         }
         _ => {
-            println!("Unknown command: {}", cmd);
+            eprintln!("Unknown command: {}", cmd);
+            eprintln!("Commands: status, list, edit <index> <source>, add <source>");
         }
     }
 

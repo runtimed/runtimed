@@ -43,22 +43,6 @@ name = "collaborative_execute"
 required-features = ["client"]
 
 [[example]]
-name = "add_cell"
-required-features = ["client"]
-
-[[example]]
-name = "edit_cell"
-required-features = ["client"]
-
-[[example]]
-name = "list_cells"
-required-features = ["client"]
-
-[[example]]
-name = "quick_edit"
-required-features = ["client"]
-
-[[example]]
 name = "nb"
 required-features = ["client"]
 
