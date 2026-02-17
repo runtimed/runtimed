@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use nbformat::v4::{Cell, CellId, CellMetadata, Metadata, Notebook, Output};
 use serde_json::Value;
 use yrs::types::ToJson;
-use yrs::{Any, Array, GetString, Map, MapPrelim, MapRef, Out, ReadTxn, Transact, WriteTxn};
+use yrs::{
+    Any, Array, ArrayPrelim, GetString, Map, MapPrelim, MapRef, Out, ReadTxn, Transact, WriteTxn,
+};
 
 use crate::doc::{cell_types, keys, NotebookDoc};
 use crate::error::{Result, YSyncError};
@@ -21,9 +23,24 @@ pub fn notebook_to_ydoc(notebook: &Notebook) -> Result<NotebookDoc> {
 
         // Convert cells
         let cells_array = txn.get_or_insert_array(keys::CELLS);
-        for cell in &notebook.cells {
-            let cell_prelim = convert_cell_to_ymap_prelim(cell)?;
+        for (idx, cell) in notebook.cells.iter().enumerate() {
+            let (cell_prelim, outputs) = convert_cell_to_ymap_prelim(cell)?;
             cells_array.push_back(&mut txn, cell_prelim);
+
+            // For code cells, add outputs as a proper YArray (for CRDT modification support)
+            if let Some(outputs) = outputs {
+                if let Some(Out::YMap(cell_map)) = cells_array.get(&txn, idx as u32) {
+                    // Create the outputs YArray
+                    cell_map.insert(&mut txn, keys::OUTPUTS, ArrayPrelim::default());
+
+                    // Add the outputs to the array
+                    if let Some(Out::YArray(outputs_array)) = cell_map.get(&txn, keys::OUTPUTS) {
+                        for output in outputs {
+                            outputs_array.push_back(&mut txn, output);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -115,7 +132,10 @@ fn convert_metadata_to_ymap(
 }
 
 /// Convert a cell to a Y.Map prelim for insertion.
-fn convert_cell_to_ymap_prelim(cell: &Cell) -> Result<MapPrelim> {
+///
+/// Returns the map prelim and optionally outputs (for code cells).
+/// Outputs are returned separately so they can be inserted as a proper YArray.
+fn convert_cell_to_ymap_prelim(cell: &Cell) -> Result<(MapPrelim, Option<Vec<Any>>)> {
     let mut prelim: HashMap<String, Any> = HashMap::new();
 
     match cell {
@@ -141,15 +161,16 @@ fn convert_cell_to_ymap_prelim(cell: &Cell) -> Result<MapPrelim> {
                     .unwrap_or(Any::Null),
             );
 
-            // Convert outputs to JSON array
-            let outputs_json: Vec<Any> = outputs
+            // Convert outputs to Any values (will be inserted as YArray separately)
+            let outputs_any: Vec<Any> = outputs
                 .iter()
                 .filter_map(|o| output_to_any(o).ok())
                 .collect();
-            prelim.insert(keys::OUTPUTS.into(), Any::Array(outputs_json.into()));
 
             // Convert cell metadata
             prelim.insert(keys::CELL_METADATA.into(), cell_metadata_to_any(metadata));
+
+            Ok((MapPrelim::from_iter(prelim), Some(outputs_any)))
         }
         Cell::Markdown {
             id,
@@ -171,6 +192,8 @@ fn convert_cell_to_ymap_prelim(cell: &Cell) -> Result<MapPrelim> {
             if let Some(ref att) = attachments {
                 prelim.insert(keys::ATTACHMENTS.into(), json_to_any(att));
             }
+
+            Ok((MapPrelim::from_iter(prelim), None))
         }
         Cell::Raw {
             id,
@@ -184,10 +207,10 @@ fn convert_cell_to_ymap_prelim(cell: &Cell) -> Result<MapPrelim> {
             prelim.insert(keys::SOURCE.into(), Any::String(source_str.into()));
 
             prelim.insert(keys::CELL_METADATA.into(), cell_metadata_to_any(metadata));
+
+            Ok((MapPrelim::from_iter(prelim), None))
         }
     }
-
-    Ok(MapPrelim::from_iter(prelim))
 }
 
 /// Convert Y.Map metadata back to nbformat Metadata.
@@ -354,7 +377,7 @@ fn get_outputs_from_ymap<T: ReadTxn>(map: &MapRef, txn: &T) -> Result<Vec<Output
 }
 
 /// Convert serde_json::Value to yrs::Any.
-fn json_to_any(value: &Value) -> Any {
+pub fn json_to_any(value: &Value) -> Any {
     match value {
         Value::Null => Any::Null,
         Value::Bool(b) => Any::Bool(*b),
@@ -433,7 +456,7 @@ fn cell_metadata_to_any(metadata: &CellMetadata) -> Any {
 }
 
 /// Convert Output to yrs::Any for storage in Y.Array.
-fn output_to_any(output: &Output) -> Result<Any> {
+pub fn output_to_any(output: &Output) -> Result<Any> {
     let json = serde_json::to_value(output)?;
     Ok(json_to_any(&json))
 }
@@ -667,5 +690,66 @@ mod tests {
         let ks = converted.metadata.kernelspec.unwrap();
         assert_eq!(ks.name, "python3");
         assert_eq!(ks.display_name, "Python 3");
+    }
+
+    #[test]
+    fn test_converted_doc_supports_output_modification() {
+        // Create a notebook with a code cell and some outputs
+        let notebook = Notebook {
+            metadata: Metadata {
+                kernelspec: None,
+                language_info: None,
+                authors: None,
+                additional: Default::default(),
+            },
+            nbformat: 4,
+            nbformat_minor: 5,
+            cells: vec![Cell::Code {
+                id: CellId::new("cell-1").unwrap(),
+                metadata: default_cell_metadata(),
+                execution_count: Some(1),
+                source: vec!["print('hello')".into()],
+                outputs: vec![Output::Stream {
+                    name: "stdout".into(),
+                    text: MultilineString("hello\n".into()),
+                }],
+            }],
+        };
+
+        let doc = notebook_to_ydoc(&notebook).unwrap();
+
+        // Verify the output is there
+        {
+            let cell = doc.get_cell(0).unwrap();
+            let txn = doc.doc().transact();
+            let outputs = cell.outputs(&txn).unwrap();
+            assert_eq!(outputs.len(&txn), 1);
+        }
+
+        // Add another output - this should work because outputs is a YArray
+        let new_output = Output::Stream {
+            name: "stdout".into(),
+            text: MultilineString("world\n".into()),
+        };
+        doc.append_output(0, &new_output).unwrap();
+
+        // Verify both outputs are there
+        {
+            let cell = doc.get_cell(0).unwrap();
+            let txn = doc.doc().transact();
+            let outputs = cell.outputs(&txn).unwrap();
+            assert_eq!(outputs.len(&txn), 2);
+        }
+
+        // Clear outputs
+        doc.clear_cell_outputs(0).unwrap();
+
+        // Verify outputs are cleared
+        {
+            let cell = doc.get_cell(0).unwrap();
+            let txn = doc.doc().transact();
+            let outputs = cell.outputs(&txn).unwrap();
+            assert_eq!(outputs.len(&txn), 0);
+        }
     }
 }

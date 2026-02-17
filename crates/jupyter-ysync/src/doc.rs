@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 
+use nbformat::v4::Output;
 use yrs::updates::decoder::Decode;
 use yrs::{
-    Any, Array, ArrayRef, Doc, GetString, Map, MapPrelim, MapRef, Out, ReadTxn, TextRef, Transact,
-    Update, WriteTxn,
+    Any, Array, ArrayPrelim, ArrayRef, Doc, GetString, Map, MapPrelim, MapRef, Out, ReadTxn,
+    TextRef, Transact, Update, WriteTxn,
 };
 
+use crate::convert::output_to_any;
 use crate::error::{Result, YSyncError};
 
 /// Y.Doc schema keys for notebook structure
@@ -131,15 +133,21 @@ impl NotebookDoc {
             Any::Map(HashMap::new().into()),
         );
 
-        // Add code-cell specific fields
+        // Add execution_count for code cells (outputs added separately as YArray)
         if cell_type == cell_types::CODE {
-            cell_content.insert(keys::OUTPUTS.into(), Any::Array(Vec::new().into()));
             cell_content.insert(keys::EXECUTION_COUNT.into(), Any::Null);
         }
 
         // Insert the cell into the cells array
         let cell_prelim = MapPrelim::from_iter(cell_content);
         cells.insert(&mut txn, insert_index, cell_prelim);
+
+        // For code cells, add outputs as a proper YArray (for CRDT modification support)
+        if cell_type == cell_types::CODE {
+            if let Some(Out::YMap(cell_map)) = cells.get(&txn, insert_index) {
+                cell_map.insert(&mut txn, keys::OUTPUTS, ArrayPrelim::default());
+            }
+        }
 
         Ok(insert_index)
     }
@@ -198,6 +206,128 @@ impl NotebookDoc {
         let mut txn = self.doc.transact_mut();
         txn.apply_update(update)
             .map_err(|e| YSyncError::TransactionError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    /// Clear all outputs from a code cell.
+    ///
+    /// Returns an error if the cell doesn't exist or isn't a code cell.
+    pub fn clear_cell_outputs(&self, cell_index: u32) -> Result<()> {
+        let mut txn = self.doc.transact_mut();
+        let cells = self.cells(&txn);
+
+        if cell_index >= cells.len(&txn) {
+            return Err(YSyncError::ConversionError(format!(
+                "Cell index {} out of bounds",
+                cell_index
+            )));
+        }
+
+        let cell_value = cells.get(&txn, cell_index).ok_or_else(|| {
+            YSyncError::ConversionError(format!("Cell {} not found", cell_index))
+        })?;
+
+        let Out::YMap(cell_map) = cell_value else {
+            return Err(YSyncError::ConversionError("Cell is not a map".into()));
+        };
+
+        // Get the outputs array
+        let outputs_value = cell_map.get(&txn, keys::OUTPUTS).ok_or_else(|| {
+            YSyncError::ConversionError("Cell has no outputs (not a code cell?)".into())
+        })?;
+
+        let Out::YArray(outputs) = outputs_value else {
+            return Err(YSyncError::ConversionError(
+                "Outputs is not an array".into(),
+            ));
+        };
+
+        // Clear all outputs
+        let len = outputs.len(&txn);
+        if len > 0 {
+            outputs.remove_range(&mut txn, 0, len);
+        }
+
+        Ok(())
+    }
+
+    /// Append an output to a code cell.
+    ///
+    /// Returns an error if the cell doesn't exist or isn't a code cell.
+    pub fn append_output(&self, cell_index: u32, output: &Output) -> Result<()> {
+        let mut txn = self.doc.transact_mut();
+        let cells = self.cells(&txn);
+
+        if cell_index >= cells.len(&txn) {
+            return Err(YSyncError::ConversionError(format!(
+                "Cell index {} out of bounds",
+                cell_index
+            )));
+        }
+
+        let cell_value = cells.get(&txn, cell_index).ok_or_else(|| {
+            YSyncError::ConversionError(format!("Cell {} not found", cell_index))
+        })?;
+
+        let Out::YMap(cell_map) = cell_value else {
+            return Err(YSyncError::ConversionError("Cell is not a map".into()));
+        };
+
+        // Get the outputs array
+        let outputs_value = cell_map.get(&txn, keys::OUTPUTS).ok_or_else(|| {
+            YSyncError::ConversionError("Cell has no outputs (not a code cell?)".into())
+        })?;
+
+        let Out::YArray(outputs) = outputs_value else {
+            return Err(YSyncError::ConversionError(
+                "Outputs is not an array".into(),
+            ));
+        };
+
+        // Convert output to yrs::Any and append
+        let output_any = output_to_any(output)?;
+        outputs.push_back(&mut txn, output_any);
+
+        Ok(())
+    }
+
+    /// Set the execution count for a code cell.
+    ///
+    /// Pass `None` to clear the execution count.
+    /// Returns an error if the cell doesn't exist or isn't a code cell.
+    pub fn set_execution_count(&self, cell_index: u32, count: Option<i32>) -> Result<()> {
+        let mut txn = self.doc.transact_mut();
+        let cells = self.cells(&txn);
+
+        if cell_index >= cells.len(&txn) {
+            return Err(YSyncError::ConversionError(format!(
+                "Cell index {} out of bounds",
+                cell_index
+            )));
+        }
+
+        let cell_value = cells.get(&txn, cell_index).ok_or_else(|| {
+            YSyncError::ConversionError(format!("Cell {} not found", cell_index))
+        })?;
+
+        let Out::YMap(cell_map) = cell_value else {
+            return Err(YSyncError::ConversionError("Cell is not a map".into()));
+        };
+
+        // Check this is a code cell by looking for execution_count field
+        if cell_map.get(&txn, keys::EXECUTION_COUNT).is_none() {
+            return Err(YSyncError::ConversionError(
+                "Cell has no execution_count (not a code cell?)".into(),
+            ));
+        }
+
+        // Set the execution count
+        let value = match count {
+            Some(n) => Any::BigInt(n as i64),
+            None => Any::Null,
+        };
+        cell_map.insert(&mut txn, keys::EXECUTION_COUNT, value);
 
         Ok(())
     }
@@ -372,5 +502,112 @@ mod tests {
         assert_eq!(doc.cell_count(), 2);
         doc.remove_cell(0).unwrap();
         assert_eq!(doc.cell_count(), 1);
+    }
+
+    #[test]
+    fn test_append_output() {
+        use nbformat::v4::MultilineString;
+
+        let doc = NotebookDoc::new();
+        doc.add_cell("cell-1", cell_types::CODE, "print('hello')", None)
+            .unwrap();
+
+        let output = Output::Stream {
+            name: "stdout".into(),
+            text: MultilineString("hello\n".into()),
+        };
+
+        doc.append_output(0, &output).unwrap();
+
+        // Verify output was added
+        let cell = doc.get_cell(0).unwrap();
+        let txn = doc.doc().transact();
+        let outputs = cell.outputs(&txn).unwrap();
+        assert_eq!(outputs.len(&txn), 1);
+    }
+
+    #[test]
+    fn test_clear_cell_outputs() {
+        use nbformat::v4::MultilineString;
+
+        let doc = NotebookDoc::new();
+        doc.add_cell("cell-1", cell_types::CODE, "print('hello')", None)
+            .unwrap();
+
+        // Add some outputs
+        let output = Output::Stream {
+            name: "stdout".into(),
+            text: MultilineString("hello\n".into()),
+        };
+        doc.append_output(0, &output).unwrap();
+        doc.append_output(0, &output).unwrap();
+
+        // Verify outputs exist
+        {
+            let cell = doc.get_cell(0).unwrap();
+            let txn = doc.doc().transact();
+            let outputs = cell.outputs(&txn).unwrap();
+            assert_eq!(outputs.len(&txn), 2);
+        }
+
+        // Clear outputs
+        doc.clear_cell_outputs(0).unwrap();
+
+        // Verify outputs are gone
+        let cell = doc.get_cell(0).unwrap();
+        let txn = doc.doc().transact();
+        let outputs = cell.outputs(&txn).unwrap();
+        assert_eq!(outputs.len(&txn), 0);
+    }
+
+    #[test]
+    fn test_set_execution_count() {
+        let doc = NotebookDoc::new();
+        doc.add_cell("cell-1", cell_types::CODE, "x = 1", None)
+            .unwrap();
+
+        // Initially execution_count is null
+        {
+            let cell = doc.get_cell(0).unwrap();
+            let txn = doc.doc().transact();
+            assert_eq!(cell.execution_count(&txn), Some(None));
+        }
+
+        // Set execution count
+        doc.set_execution_count(0, Some(42)).unwrap();
+
+        {
+            let cell = doc.get_cell(0).unwrap();
+            let txn = doc.doc().transact();
+            assert_eq!(cell.execution_count(&txn), Some(Some(42)));
+        }
+
+        // Clear execution count
+        doc.set_execution_count(0, None).unwrap();
+
+        {
+            let cell = doc.get_cell(0).unwrap();
+            let txn = doc.doc().transact();
+            assert_eq!(cell.execution_count(&txn), Some(None));
+        }
+    }
+
+    #[test]
+    fn test_output_on_non_code_cell_fails() {
+        use nbformat::v4::MultilineString;
+
+        let doc = NotebookDoc::new();
+        doc.add_cell("cell-1", cell_types::MARKDOWN, "# Hello", None)
+            .unwrap();
+
+        let output = Output::Stream {
+            name: "stdout".into(),
+            text: MultilineString("hello\n".into()),
+        };
+
+        // Should fail because markdown cells don't have outputs
+        assert!(doc.append_output(0, &output).is_err());
+        assert!(doc.clear_cell_outputs(0).is_err());
+        assert!(doc.set_execution_count(0, Some(1)).is_err());
     }
 }

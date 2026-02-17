@@ -40,7 +40,7 @@ pub mod client;
 #[cfg(feature = "python")]
 pub mod python;
 
-pub use convert::{notebook_to_ydoc, ydoc_to_notebook};
+pub use convert::{any_to_json, json_to_any, notebook_to_ydoc, output_to_any, ydoc_to_notebook};
 pub use doc::{cell_types, keys, NotebookDoc};
 pub use error::{Result, YSyncError};
 pub use protocol::{AwarenessState, ClientAwareness, Message, SyncMessage, SyncProtocol, SyncState};
