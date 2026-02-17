@@ -15,21 +15,37 @@ impl Stream for JupyterWebSocket {
     type Item = Result<JupyterMessage>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut TaskContext<'_>) -> Poll<Option<Self::Item>> {
-        match self.inner.poll_next_unpin(cx) {
-            Poll::Ready(Some(Ok(msg))) => match msg {
-                Message::Text(text) => Poll::Ready(Some(
-                    serde_json::from_str(&text)
-                        .context("Failed to parse JSON")
-                        .and_then(|value| {
-                            JupyterMessage::from_value(value)
-                                .context("Failed to create JupyterMessage")
-                        }),
-                )),
-                _ => Poll::Ready(Some(Err(anyhow::anyhow!("Received non-text message")))),
-            },
-            Poll::Ready(Some(Err(e))) => Poll::Ready(Some(Err(e.into()))),
-            Poll::Ready(None) => Poll::Ready(None),
-            Poll::Pending => Poll::Pending,
+        // Loop to skip control frames (ping/pong) and unexpected frame types
+        loop {
+            match self.inner.poll_next_unpin(cx) {
+                Poll::Ready(Some(Ok(msg))) => match msg {
+                    Message::Text(text) => {
+                        return Poll::Ready(Some(
+                            serde_json::from_str(&text)
+                                .context("Failed to parse JSON")
+                                .and_then(|value| {
+                                    JupyterMessage::from_value(value)
+                                        .context("Failed to create JupyterMessage")
+                                }),
+                        ));
+                    }
+                    // Ping/Pong are handled automatically by tungstenite - skip and continue
+                    Message::Ping(_) | Message::Pong(_) => {
+                        continue;
+                    }
+                    // Close frame signals end of stream
+                    Message::Close(_) => {
+                        return Poll::Ready(None);
+                    }
+                    // Binary and raw frames are unexpected for Jupyter protocol - skip them
+                    Message::Binary(_) | Message::Frame(_) => {
+                        continue;
+                    }
+                },
+                Poll::Ready(Some(Err(e))) => return Poll::Ready(Some(Err(e.into()))),
+                Poll::Ready(None) => return Poll::Ready(None),
+                Poll::Pending => return Poll::Pending,
+            }
         }
     }
 }
