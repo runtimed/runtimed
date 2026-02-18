@@ -142,9 +142,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("\nTip: Run a cell in JupyterLab first to create a persistent session.");
             } else {
                 for s in &sessions {
+                    // Safely truncate kernel ID (avoid panic if < 8 chars)
+                    let kernel_short: String = s.kernel.id.chars().take(8).collect();
                     println!(
                         "{}: kernel={} ({}), connections={}",
-                        s.path, &s.kernel.id[..8], s.kernel.execution_state, s.kernel.connections
+                        s.path, kernel_short, s.kernel.execution_state, s.kernel.connections
                     );
                 }
                 println!("\nKernels with connections > 0 will stay alive.");

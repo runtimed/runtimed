@@ -100,6 +100,10 @@ pub struct NotebookSession {
     config: SessionConfig,
     /// Jupyter session ID (for kernel connection association)
     session_id: Option<String>,
+    /// Whether we created the session (vs. found an existing one)
+    /// If we found an existing session (e.g., JupyterLab's), we should NOT
+    /// shut down the kernel when we close - that would kill JupyterLab's kernel.
+    owns_session: bool,
 }
 
 /// Kernel connection state.
@@ -143,6 +147,7 @@ impl NotebookSession {
             executor: CellExecutor::new(),
             config,
             session_id: None,
+            owns_session: false,
         })
     }
 
@@ -190,8 +195,9 @@ impl NotebookSession {
         let kernel_id = match kernel_id {
             Some(id) => id.to_string(),
             None => {
-                let (session_id, kernel_id) = self.launch_kernel(&server).await?;
+                let (session_id, kernel_id, created) = self.launch_kernel(&server).await?;
                 self.session_id = Some(session_id);
+                self.owns_session = created;
                 kernel_id
             }
         };
@@ -230,9 +236,11 @@ impl NotebookSession {
     /// sessions/kernels to Y.Doc rooms. Creating a session via the sessions API
     /// (not the kernels API directly) ensures proper linkage.
     ///
-    /// Returns (session_id, kernel_id) - the session_id is used when connecting
-    /// to the kernel WebSocket to associate the connection with the session.
-    async fn launch_kernel(&self, server: &RemoteServer) -> Result<(String, String)> {
+    /// Returns (session_id, kernel_id, created) where:
+    /// - session_id: Used when connecting to kernel WebSocket
+    /// - kernel_id: The kernel to connect to
+    /// - created: true if we created a new session, false if we found an existing one
+    async fn launch_kernel(&self, server: &RemoteServer) -> Result<(String, String, bool)> {
         let client = reqwest::Client::new();
         let sessions_url = format!("{}/api/sessions?token={}", server.base_url, server.token);
 
@@ -252,7 +260,8 @@ impl NotebookSession {
             if let Ok(sessions) = resp.json::<Vec<Session>>().await {
                 for session in sessions {
                     if session.path.as_deref() == Some(&self.config.notebook_path) {
-                        return Ok((session.id, session.kernel.id));
+                        // Found existing session (e.g., JupyterLab's) - don't own it
+                        return Ok((session.id, session.kernel.id, false));
                     }
                 }
             }
@@ -312,7 +321,8 @@ impl NotebookSession {
             .await
             .map_err(|e| YSyncError::ProtocolError(format!("Failed to parse session response: {}", e)))?;
 
-        Ok((session.id, session.kernel.id))
+        // We created this session, so we own it
+        Ok((session.id, session.kernel.id, true))
     }
 
     /// Wait for the IOPub channel to be ready.
@@ -530,22 +540,31 @@ impl NotebookSession {
         self.kernel.is_some()
     }
 
-    /// Shutdown the kernel.
+    /// Shutdown the kernel and session if we own it.
+    ///
+    /// If we found and reused an existing session (e.g., JupyterLab's), we don't
+    /// shut down the kernel - that would destroy JupyterLab's kernel and all
+    /// execution state.
     pub async fn shutdown_kernel(&mut self) -> Result<()> {
-        if let Some(kernel) = self.kernel.take() {
-            let client = reqwest::Client::new();
-            let url = format!(
-                "{}/api/kernels/{}?token={}",
-                self.config.base_url,
-                kernel.kernel_id,
-                self.config.token.as_deref().unwrap_or("")
-            );
+        // Always drop our kernel connection
+        let _kernel = self.kernel.take();
 
-            client
-                .delete(&url)
-                .send()
-                .await
-                .map_err(|e| YSyncError::ProtocolError(format!("Failed to shutdown kernel: {}", e)))?;
+        // Only delete the session/kernel if we created it
+        if self.owns_session {
+            if let Some(session_id) = self.session_id.take() {
+                let client = reqwest::Client::new();
+
+                // Delete the session (which also cleans up the kernel)
+                let url = format!(
+                    "{}/api/sessions/{}?token={}",
+                    self.config.base_url,
+                    session_id,
+                    self.config.token.as_deref().unwrap_or("")
+                );
+
+                // Best effort - don't fail if cleanup fails
+                let _ = client.delete(&url).send().await;
+            }
         }
         Ok(())
     }
