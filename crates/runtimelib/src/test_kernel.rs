@@ -3,21 +3,209 @@
 //! TestKernel implements the Jupyter messaging protocol with predictable behavior,
 //! making it ideal for testing Jupyter clients without requiring a real kernel process.
 //!
-//! # Example
+//! # Overview
+//!
+//! TestKernel provides a lightweight mock kernel that:
+//! - Responds to all standard Jupyter protocol messages
+//! - Echoes executed code back as stdout by default (echo mode)
+//! - Supports canned responses for testing rich media types
+//! - Requires no external dependencies (no Python, no ipykernel)
+//!
+//! # Quick Start
+//!
+//! Add the `test-kernel` feature to your `Cargo.toml`:
+//!
+//! ```toml
+//! [dev-dependencies]
+//! runtimelib = { version = "1.2", features = ["test-kernel"] }
+//! ```
+//!
+//! # Common Usage Patterns
+//!
+//! ## Basic Test Setup (Echo Mode)
+//!
+//! The simplest way to test your frontend is using echo mode, where executed code
+//! is echoed back as stdout:
+//!
+//! ```ignore
+//! use runtimelib::{
+//!     TestKernel, TestKernelConfig,
+//!     create_client_shell_connection_with_identity,
+//!     create_client_iopub_connection,
+//!     peer_identity_for_session,
+//! };
+//! use jupyter_protocol::{ExecuteRequest, JupyterMessage, JupyterMessageContent};
+//! use uuid::Uuid;
+//!
+//! #[tokio::test]
+//! async fn test_my_frontend() {
+//!     // 1. Start the test kernel
+//!     let (kernel_handle, connection_info) =
+//!         TestKernel::start_ephemeral(TestKernelConfig::default()).await.unwrap();
+//!
+//!     // 2. Give the kernel time to bind its sockets
+//!     tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+//!
+//!     // 3. Connect your client (shell for requests, iopub for outputs)
+//!     let session_id = Uuid::new_v4().to_string();
+//!     let identity = peer_identity_for_session(&session_id).unwrap();
+//!
+//!     let mut shell = create_client_shell_connection_with_identity(
+//!         &connection_info, &session_id, identity
+//!     ).await.unwrap();
+//!
+//!     let mut iopub = create_client_iopub_connection(
+//!         &connection_info, "", &session_id
+//!     ).await.unwrap();
+//!
+//!     // 4. Wait for iopub subscription to establish
+//!     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+//!
+//!     // 5. Send an execute request
+//!     let request: JupyterMessage = ExecuteRequest::new("print('hello')".to_string()).into();
+//!     shell.send(request).await.unwrap();
+//!
+//!     // 6. Read outputs from iopub (will receive "print('hello')" as stdout)
+//!     // ... your test assertions here ...
+//!
+//!     // 7. Clean up
+//!     kernel_handle.abort();
+//! }
+//! ```
+//!
+//! ## Testing Rich Media (Canned Responses)
+//!
+//! For testing how your frontend handles different output types (images, HTML, JSON),
+//! configure canned responses:
+//!
+//! ```ignore
+//! use runtimelib::{TestKernel, TestKernelConfig, CannedResponse};
+//! use jupyter_protocol::{DisplayData, MediaType, ExecuteResult, ExecutionCount};
+//!
+//! #[tokio::test]
+//! async fn test_image_display() {
+//!     let config = TestKernelConfig::default()
+//!         // When user executes "show_plot()", return an image
+//!         .with_response("show_plot()", CannedResponse {
+//!             outputs: vec![
+//!                 DisplayData::from(MediaType::Png("iVBORw0KGgo...".to_string())).into(),
+//!             ],
+//!         })
+//!         // When user executes "get_data()", return JSON
+//!         .with_response("get_data()", CannedResponse {
+//!             outputs: vec![
+//!                 ExecuteResult {
+//!                     execution_count: ExecutionCount::new(1),
+//!                     data: jupyter_protocol::Media::from(
+//!                         MediaType::Json(serde_json::json!({"key": "value"}))
+//!                     ),
+//!                     metadata: Default::default(),
+//!                     transient: None,
+//!                 }.into(),
+//!             ],
+//!         });
+//!
+//!     let (kernel_handle, connection_info) =
+//!         TestKernel::start_ephemeral(config).await.unwrap();
+//!
+//!     // Now when you execute "show_plot()", you'll get a PNG display_data
+//!     // When you execute "get_data()", you'll get a JSON execute_result
+//!     // Any other code falls back to echo mode
+//!
+//!     kernel_handle.abort();
+//! }
+//! ```
+//!
+//! ## Testing Error Handling
+//!
+//! Test how your frontend handles kernel errors:
+//!
+//! ```ignore
+//! use runtimelib::{TestKernel, TestKernelConfig, CannedResponse};
+//! use jupyter_protocol::ErrorOutput;
+//!
+//! let config = TestKernelConfig::default()
+//!     .with_response("raise_error()", CannedResponse {
+//!         outputs: vec![
+//!             ErrorOutput {
+//!                 ename: "ValueError".to_string(),
+//!                 evalue: "Something went wrong".to_string(),
+//!                 traceback: vec![
+//!                     "Traceback (most recent call last):".to_string(),
+//!                     "  File \"<test>\", line 1, in <module>".to_string(),
+//!                     "ValueError: Something went wrong".to_string(),
+//!                 ],
+//!             }.into(),
+//!         ],
+//!     });
+//! ```
+//!
+//! ## Integration Testing with Connection Files
+//!
+//! For testing code that reads connection files (like real kernel launchers):
 //!
 //! ```ignore
 //! use runtimelib::{TestKernel, TestKernelConfig};
+//! use jupyter_protocol::ConnectionInfo;
+//! use std::io::Write;
 //!
 //! #[tokio::test]
-//! async fn test_kernel_interaction() {
-//!     // Start kernel with auto-assigned ports
-//!     let (handle, connection_info) = TestKernel::start_ephemeral(Default::default()).await?;
+//! async fn test_connection_file_workflow() {
+//!     // Create a connection file like Jupyter would
+//!     let connection_info = ConnectionInfo {
+//!         ip: "127.0.0.1".to_string(),
+//!         transport: jupyter_protocol::Transport::TCP,
+//!         shell_port: 55555,
+//!         iopub_port: 55556,
+//!         stdin_port: 55557,
+//!         control_port: 55558,
+//!         hb_port: 55559,
+//!         key: "test-key".to_string(),
+//!         signature_scheme: "hmac-sha256".to_string(),
+//!         kernel_name: Some("test".to_string()),
+//!     };
 //!
-//!     // Connect clients using connection_info...
+//!     let temp_dir = tempfile::tempdir().unwrap();
+//!     let conn_file = temp_dir.path().join("kernel.json");
+//!     std::fs::write(&conn_file, serde_json::to_string(&connection_info).unwrap()).unwrap();
 //!
-//!     handle.abort();
+//!     // Start kernel from file (like a real kernel would be started)
+//!     let kernel_handle = TestKernel::start_from_file(
+//!         &conn_file,
+//!         TestKernelConfig::default()
+//!     ).await.unwrap();
+//!
+//!     // Your code under test can now connect to the ports in the connection file
+//!
+//!     kernel_handle.abort();
 //! }
 //! ```
+//!
+//! # Message Types Supported
+//!
+//! TestKernel responds to these Jupyter protocol messages:
+//!
+//! | Message | Response |
+//! |---------|----------|
+//! | `kernel_info_request` | Returns kernel info (name: "test", protocol: 5.3) |
+//! | `execute_request` | Echoes code as stdout, or sends canned response |
+//! | `complete_request` | Returns empty completions |
+//! | `inspect_request` | Returns `found: false` |
+//! | `is_complete_request` | Returns `complete` |
+//! | `history_request` | Returns empty history |
+//! | `comm_info_request` | Returns empty comms |
+//! | `shutdown_request` | Shuts down the kernel |
+//!
+//! # Tips
+//!
+//! - **ZMQ timing**: Always add a small delay (~50-100ms) after connecting iopub
+//!   before sending requests, to allow the pub/sub subscription to establish.
+//!
+//! - **Message correlation**: Filter iopub messages by `parent_header.msg_id` to
+//!   only process outputs related to your request.
+//!
+//! - **Cleanup**: Always call `handle.abort()` at the end of tests to clean up
+//!   the kernel's background tasks.
 
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr};
