@@ -27,6 +27,7 @@
 //! - `edit <index> <source>` - Edit a cell's source code
 //! - `add <source>` - Add a new code cell
 //! - `execute <index>` - Execute a cell (alias: `exec`)
+//! - `run <indices>` - Execute multiple cells, keeping kernel alive (e.g., `run 0,1,2`)
 //!
 //! # Environment Variables
 //!
@@ -249,9 +250,69 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             session.sync_to_server().await?;
             println!("Done! Check JupyterLab for outputs.");
         }
+        "run" => {
+            // Parse comma-separated cell indices (e.g., "0,1,2" or "0-2")
+            let indices_str = args.get(2).map(|s| s.as_str()).unwrap_or("0");
+            let indices: Vec<u32> = indices_str
+                .split(',')
+                .filter_map(|s| {
+                    let s = s.trim();
+                    if s.contains('-') {
+                        // Handle range like "0-2"
+                        let parts: Vec<&str> = s.split('-').collect();
+                        if parts.len() == 2 {
+                            let start: u32 = parts[0].parse().ok()?;
+                            let end: u32 = parts[1].parse().ok()?;
+                            return Some((start..=end).collect::<Vec<_>>());
+                        }
+                        None
+                    } else {
+                        s.parse().ok().map(|n| vec![n])
+                    }
+                })
+                .flatten()
+                .collect();
+
+            if indices.is_empty() {
+                eprintln!("No valid cell indices provided. Use: run 0,1,2 or run 0-2");
+                return Ok(());
+            }
+
+            println!("Connecting to kernel...");
+            session.connect_kernel(None).await?;
+            println!("Session ID: {:?}", session.session_id());
+            println!("Kernel ID: {:?}", session.kernel_id());
+            println!();
+
+            // Execute cells in sequence, keeping kernel connection open
+            for index in &indices {
+                println!("Executing cell {}...", index);
+                let events = session.execute_cell(*index).await?;
+
+                for event in &events {
+                    match event {
+                        ExecutionEvent::Started { .. } => {}
+                        ExecutionEvent::ExecutionCountUpdated { count, .. } => {
+                            println!("  In [{}]", count)
+                        }
+                        ExecutionEvent::Completed { .. } => {
+                            println!("  Completed")
+                        }
+                        ExecutionEvent::Error { ename, evalue, .. } => {
+                            println!("  Error: {} - {}", ename, evalue)
+                        }
+                        _ => {}
+                    }
+                }
+                println!();
+            }
+
+            session.sync_to_server().await?;
+            println!("All cells executed. Check JupyterLab for outputs.");
+        }
         _ => {
             eprintln!("Unknown command: {}", cmd);
-            eprintln!("Commands: status, sessions, list, edit <index> <source>, add <source>, execute <index>");
+            eprintln!("Commands: status, sessions, list, edit, add, exec, run");
         }
     }
 
