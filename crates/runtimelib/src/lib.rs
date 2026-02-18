@@ -34,3 +34,8 @@ pub use error::{Result, RuntimeError};
 pub mod connection;
 #[cfg(any(feature = "tokio-runtime", feature = "async-dispatcher-runtime"))]
 pub use connection::*;
+
+#[cfg(feature = "test-kernel")]
+pub mod test_kernel;
+#[cfg(feature = "test-kernel")]
+pub use test_kernel::*;

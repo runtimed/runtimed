@@ -39,6 +39,7 @@ async-dispatcher-runtime = [
     "smol",
 ]
 tokio-runtime = ["tokio", "zeromq/tokio-runtime"]
+test-kernel = ["tokio-runtime"]
 
 [dependencies.tokio]
 version = "1.36.0"
