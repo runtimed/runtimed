@@ -11,7 +11,9 @@ jupyter-protocol (no internal deps)
     ↓
 jupyter-serde, nbformat, jupyter-websocket-client, runtimelib
     ↓
-ollama-kernel
+jupyter-ysync (depends on jupyter-protocol, nbformat; optionally jupyter-websocket-client)
+    ↓
+ollama-kernel (depends on runtimelib)
 ```
 
 `mybinder` is standalone with no internal dependencies.
@@ -38,7 +40,16 @@ Runtimelib requires a feature flag when publishing:
 cargo release -p runtimelib --features tokio-runtime <patch|minor|major>
 ```
 
-### 3. ollama-kernel
+### 3. jupyter-ysync
+
+> [!WARNING]
+> jupyter-protocol, nbformat, and jupyter-websocket-client must be published before this.
+
+```
+cargo release -p jupyter-ysync <patch|minor|major>
+```
+
+### 4. ollama-kernel
 
 > [!WARNING]
 > Runtimelib _must_ be published before this.
