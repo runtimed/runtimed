@@ -8,9 +8,7 @@ repository = "https://github.com/runtimed/runtimed"
 keywords = ["jupyter", "crdt", "yjs", "collaboration"]
 categories = ["data-structures", "network-programming"]
 
-[lib]
-# cdylib needed for Python extension (built via maturin), lib for Rust usage
-crate-type = ["cdylib", "lib"]
+
 
 [dependencies]
 yrs = { workspace = true }
