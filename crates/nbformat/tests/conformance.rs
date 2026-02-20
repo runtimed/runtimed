@@ -490,6 +490,69 @@ mod test {
     }
 
     #[test]
+    fn test_pandas_notebook_roundtrip() {
+        let notebook_json = read_notebook("tests/notebooks/pandas_basic.ipynb");
+        let notebook = parse_notebook(&notebook_json).expect("Failed to parse pandas notebook");
+
+        // Verify structure
+        let nb = if let Notebook::V4(ref nb) = notebook {
+            nb
+        } else {
+            panic!("Expected V4 notebook");
+        };
+
+        assert_eq!(nb.nbformat, 4);
+        assert_eq!(nb.nbformat_minor, 5);
+        assert_eq!(nb.cells.len(), 4);
+
+        // Cell 0: import pandas as pd
+        assert!(matches!(&nb.cells[0], Cell::Code { source, outputs, execution_count: Some(1), .. } if source == &vec!["import pandas as pd"] && outputs.is_empty()));
+
+        // Cell 1: create DataFrame and display
+        if let Cell::Code { source, outputs, execution_count: Some(2), .. } = &nb.cells[1] {
+            assert_eq!(source.len(), 6); // 6 lines of source
+            assert_eq!(outputs.len(), 1);
+            assert!(matches!(&outputs[0], Output::ExecuteResult(_)));
+        } else {
+            panic!("Expected code cell with execution_count 2");
+        }
+
+        // Cell 2: df
+        if let Cell::Code { source, outputs, execution_count: Some(3), .. } = &nb.cells[2] {
+            assert_eq!(source, &vec!["df"]);
+            assert_eq!(outputs.len(), 1);
+            assert!(matches!(&outputs[0], Output::ExecuteResult(_)));
+        } else {
+            panic!("Expected code cell with execution_count 3");
+        }
+
+        // Cell 3: df.describe()
+        if let Cell::Code { source, outputs, execution_count: Some(4), .. } = &nb.cells[3] {
+            assert_eq!(source, &vec!["df.describe()"]);
+            assert_eq!(outputs.len(), 1);
+            assert!(matches!(&outputs[0], Output::ExecuteResult(_)));
+        } else {
+            panic!("Expected code cell with execution_count 4");
+        }
+
+        // First roundtrip: serialize and compare byte-for-byte
+        let serialized = serialize_notebook(&notebook).expect("Failed to serialize notebook");
+        assert_eq!(
+            notebook_json, serialized,
+            "First roundtrip: serialized output does not match original"
+        );
+
+        // Second roundtrip: parse the serialized output, serialize again
+        let notebook2 = parse_notebook(&serialized).expect("Failed to parse serialized notebook");
+        let serialized2 =
+            serialize_notebook(&notebook2).expect("Failed to serialize notebook a second time");
+        assert_eq!(
+            notebook_json, serialized2,
+            "Second roundtrip: re-serialized output does not match original"
+        );
+    }
+
+    #[test]
     fn test_parse_notebook_with_string_source() {
         let notebook_json = r###"{
  "cells": [
