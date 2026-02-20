@@ -299,14 +299,13 @@ where
             | MediaType::Markdown(text)
             | MediaType::Svg(text) => {
                 if with_multiline {
-                    let lines: Vec<&str> = text.lines().collect();
+                    let lines: Vec<String> = text
+                        .split_inclusive('\n')
+                        .map(|s| s.to_string())
+                        .collect();
 
                     if lines.len() > 1 {
-                        let entries = lines
-                            .iter()
-                            .map(|line| Value::String(format!("{}\n", line)));
-
-                        Value::Array(entries.collect())
+                        Value::Array(lines.into_iter().map(Value::String).collect())
                     } else {
                         Value::Array(vec![Value::String(text.clone())])
                     }
@@ -323,14 +322,13 @@ where
             // with newlines interspersed. We could perform the chunking but then in many cases we will no longer match.
             MediaType::Jpeg(text) | MediaType::Png(text) | MediaType::Gif(text) => {
                 if with_multiline {
-                    let lines: Vec<&str> = text.lines().collect();
+                    let lines: Vec<String> = text
+                        .split_inclusive('\n')
+                        .map(|s| s.to_string())
+                        .collect();
 
                     if lines.len() > 1 {
-                        let entries = lines
-                            .iter()
-                            .map(|line| Value::String(format!("{}\n", line)));
-
-                        Value::Array(entries.collect())
+                        Value::Array(lines.into_iter().map(Value::String).collect())
                     } else {
                         Value::String(text.clone())
                     }
