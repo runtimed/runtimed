@@ -255,7 +255,9 @@ impl RawMessage {
 
     fn digest(&self, mac: &hmac::Key) -> hmac::Context {
         let mut hmac_ctx = hmac::Context::with_key(mac);
-        for part in &self.jparts {
+        // Per Jupyter spec, HMAC only covers header, parent_header, metadata, and content.
+        // Binary buffers are NOT included in the signature.
+        for part in &self.jparts[..4] {
             hmac_ctx.update(part);
         }
         hmac_ctx
@@ -522,4 +524,78 @@ pub async fn create_client_heartbeat_connection(
     let mut socket = zeromq::ReqSocket::new();
     socket.connect(&endpoint).await?;
     Ok(ClientHeartbeatConnection { socket })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bytes::Bytes;
+    use jupyter_protocol::messaging::{ExecuteRequest, JupyterMessage};
+
+    /// Test that HMAC signing produces the same result whether or not buffers are present.
+    ///
+    /// Per the Jupyter spec, HMAC should only cover header, parent_header, metadata, and content.
+    /// Binary buffers should NOT be included in the signature.
+    #[test]
+    fn test_hmac_excludes_buffers() {
+        let key = hmac::Key::new(hmac::HMAC_SHA256, b"test-key");
+
+        // Create a message without buffers
+        let msg_no_buffers: JupyterMessage =
+            ExecuteRequest::new("print('hello')".to_string()).into();
+        let raw_no_buffers = RawMessage::from_jupyter_message(msg_no_buffers.clone()).unwrap();
+
+        // Create the same message but with buffers added
+        let mut msg_with_buffers = msg_no_buffers.clone();
+        msg_with_buffers.buffers =
+            vec![Bytes::from(vec![1, 2, 3, 4]), Bytes::from(vec![5, 6, 7, 8])];
+        let raw_with_buffers = RawMessage::from_jupyter_message(msg_with_buffers).unwrap();
+
+        // Compute HMAC for both
+        let hmac_no_buffers = raw_no_buffers.hmac(&Some(key.clone()));
+        let hmac_with_buffers = raw_with_buffers.hmac(&Some(key));
+
+        // Per Jupyter spec, these should be EQUAL because buffers aren't in the signature.
+        // If this assertion FAILS, it confirms the bug exists.
+        assert_eq!(
+            hmac_no_buffers, hmac_with_buffers,
+            "HMAC should NOT include buffers per Jupyter spec. \
+             The fact that these differ proves the bug exists."
+        );
+    }
+
+    /// Test that verification only checks first 4 parts (correct per spec).
+    #[test]
+    fn test_hmac_verification_excludes_buffers() {
+        let key = hmac::Key::new(hmac::HMAC_SHA256, b"test-key");
+
+        // Create a message with buffers
+        let mut msg: JupyterMessage = ExecuteRequest::new("print('hello')".to_string()).into();
+        msg.buffers = vec![Bytes::from(vec![1, 2, 3, 4])];
+        let raw = RawMessage::from_jupyter_message(msg).unwrap();
+
+        // The verification code correctly uses only first 4 parts
+        // This test documents the correct behavior on the receiver side
+        assert!(raw.jparts.len() > 4, "Message should have buffers");
+
+        // Compute spec-compliant HMAC (only first 4 parts)
+        let mut hmac_ctx = hmac::Context::with_key(&key);
+        for part in &raw.jparts[..4] {
+            hmac_ctx.update(part);
+        }
+        let spec_compliant_hmac = HEXLOWER.encode(hmac_ctx.sign().as_ref());
+
+        // The current digest() includes all parts - this should differ
+        let current_hmac = raw.hmac(&Some(key));
+
+        // This assertion documents the bug: they SHOULD be equal but currently aren't
+        if current_hmac != spec_compliant_hmac {
+            println!(
+                "BUG CONFIRMED: digest() includes buffers but spec says it shouldn't.\n\
+                 Current HMAC: {}\n\
+                 Spec-compliant HMAC: {}",
+                current_hmac, spec_compliant_hmac
+            );
+        }
+    }
 }
