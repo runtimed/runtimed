@@ -1780,6 +1780,7 @@ pub struct IsCompleteReply {
     /// to indent the next line. This is only a hint: frontends may ignore it
     /// and use their own autoindentation rules. For other statuses, this
     /// field does not exist.
+    #[serde(default)]
     pub indent: String,
 }
 impl Default for IsCompleteReply {
