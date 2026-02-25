@@ -1,0 +1,21 @@
+[package]
+name = "jupyter-kernel-test"
+version = "0.1.0"
+edition = "2021"
+description = "Protocol conformance test suite for Jupyter kernels"
+repository = "https://github.com/runtimed/runtimed"
+license = "BSD-3-Clause"
+
+[[bin]]
+name = "jupyter-kernel-test"
+path = "src/main.rs"
+
+[dependencies]
+runtimelib = { workspace = true, features = ["tokio-runtime", "ring"] }
+jupyter-protocol = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { version = "0.4", features = ["std", "serde", "clock"] }
+clap = { version = "4", features = ["derive"] }

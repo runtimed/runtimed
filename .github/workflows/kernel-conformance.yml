@@ -1,0 +1,65 @@
+name: Kernel Protocol Conformance
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        kernel:
+          - name: ipykernel
+            install: |
+              pip install ipykernel
+              python -m ipykernel install --user --name=python3
+            kernel_name: python3
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install rust
+        uses: dsherret/rust-toolchain-file@v1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install kernel (${{ matrix.kernel.name }})
+        run: ${{ matrix.kernel.install }}
+
+      - name: Build test suite
+        run: cargo build -p jupyter-kernel-test
+
+      - name: Run conformance tests
+        run: |
+          cargo run -p jupyter-kernel-test -- \
+            ${{ matrix.kernel.kernel_name }} \
+            --format json \
+            --output conformance-${{ matrix.kernel.name }}.json
+
+      - name: Generate markdown report
+        if: always()
+        run: |
+          cargo run -p jupyter-kernel-test -- \
+            ${{ matrix.kernel.kernel_name }} \
+            --format markdown \
+            --output conformance-${{ matrix.kernel.name }}.md
+
+      - name: Upload conformance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-${{ matrix.kernel.name }}
+          path: |
+            conformance-${{ matrix.kernel.name }}.json
+            conformance-${{ matrix.kernel.name }}.md

@@ -9,6 +9,7 @@ members = [
     "crates/jupyter-ysync",
     "crates/ollama-kernel",
     "crates/mybinder",
+    "crates/jupyter-kernel-test",
 ]
 
 default-members = [
