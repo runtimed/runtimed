@@ -1048,6 +1048,7 @@ pub struct KernelInfoReply {
     pub implementation_version: String,
     pub language_info: LanguageInfo,
     pub banner: String,
+    #[serde(default)]
     pub help_links: Vec<HelpLink>,
     #[serde(default = "default_debugger")]
     pub debugger: bool,
@@ -1491,6 +1492,7 @@ pub struct CommInfo {
 pub struct CommInfoReply {
     #[serde(default)]
     pub status: ReplyStatus,
+    #[serde(default)]
     pub comms: HashMap<CommId, CommInfo>,
     // pub comms: HashMap<CommId, CommInfo>,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
@@ -1626,8 +1628,9 @@ impl Default for InputRequest {
 ///
 /// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#messages-on-the-stdin-router-dealer-channel>
 pub struct InputReply {
+    #[serde(default)]
     pub value: String,
-
+    #[serde(default)]
     pub status: ReplyStatus,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub error: Option<Box<ReplyError>>,
@@ -1672,8 +1675,11 @@ impl Default for InspectRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InspectReply {
+    #[serde(default)]
     pub found: bool,
+    #[serde(default)]
     pub data: Media,
+    #[serde(default)]
     pub metadata: serde_json::Map<String, Value>,
     #[serde(default)]
     pub status: ReplyStatus,
@@ -1706,9 +1712,13 @@ pub struct CompleteRequest {
 /// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#completion>
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CompleteReply {
+    #[serde(default)]
     pub matches: Vec<String>,
+    #[serde(default)]
     pub cursor_start: usize,
+    #[serde(default)]
     pub cursor_end: usize,
+    #[serde(default)]
     pub metadata: serde_json::Map<String, Value>,
     #[serde(default)]
     pub status: ReplyStatus,
