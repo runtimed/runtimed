@@ -15,8 +15,8 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
-use yrs::sync::awareness::{Awareness, AwarenessUpdate};
 pub use yrs::sync::awareness::Event as AwarenessEvent;
+use yrs::sync::awareness::{Awareness, AwarenessUpdate};
 use yrs::Doc;
 
 use crate::error::{Result, YSyncError};

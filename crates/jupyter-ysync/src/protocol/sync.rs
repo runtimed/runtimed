@@ -68,11 +68,7 @@ impl SyncProtocol {
     /// Handle an incoming sync message and generate a response if needed.
     ///
     /// Returns a list of messages to send in response.
-    pub fn handle_sync_message(
-        &mut self,
-        doc: &Doc,
-        msg: &SyncMessage,
-    ) -> Result<Vec<Message>> {
+    pub fn handle_sync_message(&mut self, doc: &Doc, msg: &SyncMessage) -> Result<Vec<Message>> {
         match msg {
             SyncMessage::SyncStep1(sv_data) => self.handle_sync_step1(doc, sv_data),
             SyncMessage::SyncStep2(update_data) => self.handle_sync_step2(doc, update_data),
@@ -129,9 +125,8 @@ impl SyncProtocol {
             return Ok(());
         }
 
-        let update = Update::decode_v1(update_data).map_err(|e| {
-            YSyncError::ProtocolError(format!("Failed to decode update: {}", e))
-        })?;
+        let update = Update::decode_v1(update_data)
+            .map_err(|e| YSyncError::ProtocolError(format!("Failed to decode update: {}", e)))?;
 
         let mut txn = doc.transact_mut();
         txn.apply_update(update)

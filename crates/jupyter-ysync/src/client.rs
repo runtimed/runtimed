@@ -183,12 +183,9 @@ impl YSyncClient {
                 Some(Ok(WsMessage::Close(_))) => return Ok(None),
                 Some(Ok(WsMessage::Ping(data))) => {
                     // Respond to ping with pong
-                    self.stream
-                        .send(WsMessage::Pong(data))
-                        .await
-                        .map_err(|e| {
-                            YSyncError::ProtocolError(format!("Failed to send pong: {}", e))
-                        })?;
+                    self.stream.send(WsMessage::Pong(data)).await.map_err(|e| {
+                        YSyncError::ProtocolError(format!("Failed to send pong: {}", e))
+                    })?;
                     // Continue receiving
                 }
                 Some(Ok(WsMessage::Pong(_))) => {
@@ -293,7 +290,11 @@ pub struct RoomId {
 
 impl RoomId {
     /// Create a new room ID.
-    pub fn new(format: impl Into<String>, doc_type: impl Into<String>, path: impl Into<String>) -> Self {
+    pub fn new(
+        format: impl Into<String>,
+        doc_type: impl Into<String>,
+        path: impl Into<String>,
+    ) -> Self {
         Self {
             format: format.into(),
             doc_type: doc_type.into(),
@@ -333,7 +334,11 @@ pub fn build_room_url(base_url: &str, room_id: &RoomId, token: Option<&str>) -> 
         .replace("http://", "ws://")
         .replace("https://", "wss://");
 
-    let url = format!("{}/api/collaboration/room/{}", ws_url.trim_end_matches('/'), room_id);
+    let url = format!(
+        "{}/api/collaboration/room/{}",
+        ws_url.trim_end_matches('/'),
+        room_id
+    );
 
     match token {
         Some(t) => format!("{}?token={}", url, t),
@@ -385,20 +390,41 @@ mod tests {
 
     #[test]
     fn test_build_room_url() {
-        let url = build_room_url("http://localhost:8888", &RoomId::notebook("test.ipynb"), None);
-        assert_eq!(url, "ws://localhost:8888/api/collaboration/room/json:file:test.ipynb");
+        let url = build_room_url(
+            "http://localhost:8888",
+            &RoomId::notebook("test.ipynb"),
+            None,
+        );
+        assert_eq!(
+            url,
+            "ws://localhost:8888/api/collaboration/room/json:file:test.ipynb"
+        );
     }
 
     #[test]
     fn test_build_room_url_with_token() {
-        let url = build_room_url("http://localhost:8888", &RoomId::notebook("test.ipynb"), Some("abc123"));
-        assert_eq!(url, "ws://localhost:8888/api/collaboration/room/json:file:test.ipynb?token=abc123");
+        let url = build_room_url(
+            "http://localhost:8888",
+            &RoomId::notebook("test.ipynb"),
+            Some("abc123"),
+        );
+        assert_eq!(
+            url,
+            "ws://localhost:8888/api/collaboration/room/json:file:test.ipynb?token=abc123"
+        );
     }
 
     #[test]
     fn test_build_room_url_https() {
-        let url = build_room_url("https://example.com/jupyter", &RoomId::notebook("test.ipynb"), None);
-        assert_eq!(url, "wss://example.com/jupyter/api/collaboration/room/json:file:test.ipynb");
+        let url = build_room_url(
+            "https://example.com/jupyter",
+            &RoomId::notebook("test.ipynb"),
+            None,
+        );
+        assert_eq!(
+            url,
+            "wss://example.com/jupyter/api/collaboration/room/json:file:test.ipynb"
+        );
     }
 
     #[test]
@@ -418,6 +444,9 @@ mod tests {
         assert_eq!(config.build_url(), "ws://localhost:8888/room?token=abc");
 
         let config2 = ClientConfig::new("ws://localhost:8888/room?foo=bar").with_token("abc");
-        assert_eq!(config2.build_url(), "ws://localhost:8888/room?foo=bar&token=abc");
+        assert_eq!(
+            config2.build_url(),
+            "ws://localhost:8888/room?foo=bar&token=abc"
+        );
     }
 }

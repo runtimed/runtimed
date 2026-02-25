@@ -453,10 +453,7 @@ Please generate a few responses to complete their text for them.
         anyhow::Ok(())
     }
 
-    pub async fn handle_shell(
-        &mut self,
-        reader: &mut RouterRecvConnection,
-    ) -> Result<()> {
+    pub async fn handle_shell(&mut self, reader: &mut RouterRecvConnection) -> Result<()> {
         loop {
             let msg = reader.read().await?;
             match self.handle_shell_message(&msg).await {

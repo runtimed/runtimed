@@ -2,7 +2,7 @@
 mod test {
     use nbformat::legacy::Cell as LegacyCell;
     use nbformat::v4::{Cell, CellId, Output};
-    use nbformat::{Notebook, parse_notebook, serialize_notebook};
+    use nbformat::{parse_notebook, serialize_notebook, Notebook};
     use serde_json::Value;
     use std::fs;
     use std::path::Path;
@@ -509,10 +509,18 @@ mod test {
         assert_eq!(nb.cells.len(), 4);
 
         // Cell 0: import pandas as pd
-        assert!(matches!(&nb.cells[0], Cell::Code { source, outputs, execution_count: Some(1), .. } if source == &vec!["import pandas as pd"] && outputs.is_empty()));
+        assert!(
+            matches!(&nb.cells[0], Cell::Code { source, outputs, execution_count: Some(1), .. } if source == &vec!["import pandas as pd"] && outputs.is_empty())
+        );
 
         // Cell 1: create DataFrame and display
-        if let Cell::Code { source, outputs, execution_count: Some(2), .. } = &nb.cells[1] {
+        if let Cell::Code {
+            source,
+            outputs,
+            execution_count: Some(2),
+            ..
+        } = &nb.cells[1]
+        {
             assert_eq!(source.len(), 6); // 6 lines of source
             assert_eq!(outputs.len(), 1);
             assert!(matches!(&outputs[0], Output::ExecuteResult(_)));
@@ -521,7 +529,13 @@ mod test {
         }
 
         // Cell 2: df
-        if let Cell::Code { source, outputs, execution_count: Some(3), .. } = &nb.cells[2] {
+        if let Cell::Code {
+            source,
+            outputs,
+            execution_count: Some(3),
+            ..
+        } = &nb.cells[2]
+        {
             assert_eq!(source, &vec!["df"]);
             assert_eq!(outputs.len(), 1);
             assert!(matches!(&outputs[0], Output::ExecuteResult(_)));
@@ -530,7 +544,13 @@ mod test {
         }
 
         // Cell 3: df.describe()
-        if let Cell::Code { source, outputs, execution_count: Some(4), .. } = &nb.cells[3] {
+        if let Cell::Code {
+            source,
+            outputs,
+            execution_count: Some(4),
+            ..
+        } = &nb.cells[3]
+        {
             assert_eq!(source, &vec!["df.describe()"]);
             assert_eq!(outputs.len(), 1);
             assert!(matches!(&outputs[0], Output::ExecuteResult(_)));
@@ -635,8 +655,8 @@ mod test {
 
     fn parse_v3_and_upgrade(path: &str) -> nbformat::v4::Notebook {
         let json = read_notebook(path);
-        let notebook = parse_notebook(&json)
-            .unwrap_or_else(|e| panic!("Failed to parse {}: {:?}", path, e));
+        let notebook =
+            parse_notebook(&json).unwrap_or_else(|e| panic!("Failed to parse {}: {:?}", path, e));
         match notebook {
             Notebook::V3(v3) => nbformat::upgrade_v3_notebook(v3)
                 .unwrap_or_else(|e| panic!("Failed to upgrade {}: {:?}", path, e)),
@@ -670,44 +690,125 @@ mod test {
         }
 
         // cell[5] is the all-outputs code cell: pyout, display_data, pyerr, stream x2
-        if let Cell::Code { outputs, execution_count, .. } = &v4.cells[5] {
+        if let Cell::Code {
+            outputs,
+            execution_count,
+            ..
+        } = &v4.cells[5]
+        {
             assert_eq!(execution_count, &Some(3));
             assert_eq!(outputs.len(), 5);
 
             // pyout -> ExecuteResult with all _mime_map keys
-            let result = if let Output::ExecuteResult(r) = &outputs[0] { r }
-                else { panic!("Expected ExecuteResult, got {:?}", outputs[0]) };
+            let result = if let Output::ExecuteResult(r) = &outputs[0] {
+                r
+            } else {
+                panic!("Expected ExecuteResult, got {:?}", outputs[0])
+            };
             assert_eq!(result.execution_count.value(), 3);
             for (check, label) in [
-                (has_media_type(&result.data, |mt| matches!(mt, jupyter_protocol::media::MediaType::Plain(_))),      "text->Plain"),
-                (has_media_type(&result.data, |mt| matches!(mt, jupyter_protocol::media::MediaType::Html(_))),       "html->Html"),
-                (has_media_type(&result.data, |mt| matches!(mt, jupyter_protocol::media::MediaType::Svg(_))),        "svg->Svg"),
-                (has_media_type(&result.data, |mt| matches!(mt, jupyter_protocol::media::MediaType::Png(_))),        "png->Png"),
-                (has_media_type(&result.data, |mt| matches!(mt, jupyter_protocol::media::MediaType::Jpeg(_))),       "jpeg->Jpeg"),
-                (has_media_type(&result.data, |mt| matches!(mt, jupyter_protocol::media::MediaType::Latex(_))),      "latex->Latex"),
-                (has_media_type(&result.data, |mt| matches!(mt, jupyter_protocol::media::MediaType::Javascript(_))), "javascript->Javascript"),
-                (has_media_type(&result.data, |mt| matches!(mt, jupyter_protocol::media::MediaType::Json(_))),       "json->Json"),
+                (
+                    has_media_type(&result.data, |mt| {
+                        matches!(mt, jupyter_protocol::media::MediaType::Plain(_))
+                    }),
+                    "text->Plain",
+                ),
+                (
+                    has_media_type(&result.data, |mt| {
+                        matches!(mt, jupyter_protocol::media::MediaType::Html(_))
+                    }),
+                    "html->Html",
+                ),
+                (
+                    has_media_type(&result.data, |mt| {
+                        matches!(mt, jupyter_protocol::media::MediaType::Svg(_))
+                    }),
+                    "svg->Svg",
+                ),
+                (
+                    has_media_type(&result.data, |mt| {
+                        matches!(mt, jupyter_protocol::media::MediaType::Png(_))
+                    }),
+                    "png->Png",
+                ),
+                (
+                    has_media_type(&result.data, |mt| {
+                        matches!(mt, jupyter_protocol::media::MediaType::Jpeg(_))
+                    }),
+                    "jpeg->Jpeg",
+                ),
+                (
+                    has_media_type(&result.data, |mt| {
+                        matches!(mt, jupyter_protocol::media::MediaType::Latex(_))
+                    }),
+                    "latex->Latex",
+                ),
+                (
+                    has_media_type(&result.data, |mt| {
+                        matches!(mt, jupyter_protocol::media::MediaType::Javascript(_))
+                    }),
+                    "javascript->Javascript",
+                ),
+                (
+                    has_media_type(&result.data, |mt| {
+                        matches!(mt, jupyter_protocol::media::MediaType::Json(_))
+                    }),
+                    "json->Json",
+                ),
             ] {
                 assert!(check, "pyout {label} missing in ExecuteResult");
             }
 
             let json_val = result.data.content.iter().find_map(|mt| {
-                if let jupyter_protocol::media::MediaType::Json(v) = mt { Some(v) } else { None }
+                if let jupyter_protocol::media::MediaType::Json(v) = mt {
+                    Some(v)
+                } else {
+                    None
+                }
             });
             assert!(
                 json_val.map(|v| v.is_object()).unwrap_or(false),
-                "pyout json field should be parsed into a JSON object, got {:?}", json_val
+                "pyout json field should be parsed into a JSON object, got {:?}",
+                json_val
             );
 
             // display_data with same flat media keys
-            let dd = if let Output::DisplayData(d) = &outputs[1] { d }
-                else { panic!("Expected DisplayData, got {:?}", outputs[1]) };
+            let dd = if let Output::DisplayData(d) = &outputs[1] {
+                d
+            } else {
+                panic!("Expected DisplayData, got {:?}", outputs[1])
+            };
             for (check, label) in [
-                (has_media_type(&dd.data, |mt| matches!(mt, jupyter_protocol::media::MediaType::Plain(_))),      "text->Plain"),
-                (has_media_type(&dd.data, |mt| matches!(mt, jupyter_protocol::media::MediaType::Html(_))),       "html->Html"),
-                (has_media_type(&dd.data, |mt| matches!(mt, jupyter_protocol::media::MediaType::Png(_))),        "png->Png"),
-                (has_media_type(&dd.data, |mt| matches!(mt, jupyter_protocol::media::MediaType::Javascript(_))), "javascript->Javascript"),
-                (has_media_type(&dd.data, |mt| matches!(mt, jupyter_protocol::media::MediaType::Json(_))),       "json->Json"),
+                (
+                    has_media_type(&dd.data, |mt| {
+                        matches!(mt, jupyter_protocol::media::MediaType::Plain(_))
+                    }),
+                    "text->Plain",
+                ),
+                (
+                    has_media_type(&dd.data, |mt| {
+                        matches!(mt, jupyter_protocol::media::MediaType::Html(_))
+                    }),
+                    "html->Html",
+                ),
+                (
+                    has_media_type(&dd.data, |mt| {
+                        matches!(mt, jupyter_protocol::media::MediaType::Png(_))
+                    }),
+                    "png->Png",
+                ),
+                (
+                    has_media_type(&dd.data, |mt| {
+                        matches!(mt, jupyter_protocol::media::MediaType::Javascript(_))
+                    }),
+                    "javascript->Javascript",
+                ),
+                (
+                    has_media_type(&dd.data, |mt| {
+                        matches!(mt, jupyter_protocol::media::MediaType::Json(_))
+                    }),
+                    "json->Json",
+                ),
             ] {
                 assert!(check, "display_data {label} missing");
             }
@@ -782,16 +883,21 @@ mod test {
             "worksheets":[{"cells":[{"cell_type":"code","metadata":{},
             "input":["x = 1"],"language":"python","outputs":[]}]}]}"#;
         let nb = parse_notebook(json).expect("parse failed");
-        let v3 = if let Notebook::V3(v3) = nb { v3 } else { panic!() };
+        let v3 = if let Notebook::V3(v3) = nb {
+            v3
+        } else {
+            panic!()
+        };
         let v4 = nbformat::upgrade_v3_notebook(v3).expect("upgrade failed");
-        if let Cell::Code { execution_count, .. } = &v4.cells[0] {
+        if let Cell::Code {
+            execution_count, ..
+        } = &v4.cells[0]
+        {
             assert_eq!(*execution_count, None);
         } else {
             panic!("Expected code cell");
         }
     }
-
-
 
     #[test]
     fn test_parse_notebook_with_mixed_source_formats() {
@@ -897,34 +1003,26 @@ mod test {
 
         // "hello\n" should serialize as ["hello\n"], not ["hello\n\n"]
         let ms = MultilineString("hello\n".to_string());
-        let serialized: Vec<String> = serde_json::from_str(
-            &serde_json::to_string(&ms).unwrap(),
-        )
-        .unwrap();
+        let serialized: Vec<String> =
+            serde_json::from_str(&serde_json::to_string(&ms).unwrap()).unwrap();
         assert_eq!(serialized, vec!["hello\n"]);
 
         // "hello" (no trailing newline) should serialize as ["hello"]
         let ms = MultilineString("hello".to_string());
-        let serialized: Vec<String> = serde_json::from_str(
-            &serde_json::to_string(&ms).unwrap(),
-        )
-        .unwrap();
+        let serialized: Vec<String> =
+            serde_json::from_str(&serde_json::to_string(&ms).unwrap()).unwrap();
         assert_eq!(serialized, vec!["hello"]);
 
         // Multi-line: "a\nb\n" should serialize as ["a\n", "b\n"]
         let ms = MultilineString("a\nb\n".to_string());
-        let serialized: Vec<String> = serde_json::from_str(
-            &serde_json::to_string(&ms).unwrap(),
-        )
-        .unwrap();
+        let serialized: Vec<String> =
+            serde_json::from_str(&serde_json::to_string(&ms).unwrap()).unwrap();
         assert_eq!(serialized, vec!["a\n", "b\n"]);
 
         // Multi-line without trailing: "a\nb" should serialize as ["a\n", "b"]
         let ms = MultilineString("a\nb".to_string());
-        let serialized: Vec<String> = serde_json::from_str(
-            &serde_json::to_string(&ms).unwrap(),
-        )
-        .unwrap();
+        let serialized: Vec<String> =
+            serde_json::from_str(&serde_json::to_string(&ms).unwrap()).unwrap();
         assert_eq!(serialized, vec!["a\n", "b"]);
     }
 }

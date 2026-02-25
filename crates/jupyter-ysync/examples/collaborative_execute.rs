@@ -37,8 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== Collaborative Notebook Execution ===\n");
 
     // Create session configuration
-    let config = SessionConfig::new(BASE_URL, NOTEBOOK_PATH)
-        .with_token(TOKEN);
+    let config = SessionConfig::new(BASE_URL, NOTEBOOK_PATH).with_token(TOKEN);
 
     println!("Connecting to notebook: {}", NOTEBOOK_PATH);
     println!("Base URL: {}", BASE_URL);

@@ -1,8 +1,8 @@
-use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use uuid::Uuid;
 
-use jupyter_protocol::{ExecutionCount, media::Media, media::serialize_media_for_notebook};
+use jupyter_protocol::{media::serialize_media_for_notebook, media::Media, ExecutionCount};
 
 use core::fmt;
 use std::{
@@ -21,7 +21,10 @@ impl Serialize for MultilineString {
         let lines: Vec<String> = if self.0.is_empty() {
             vec!["".to_string()]
         } else {
-            self.0.split_inclusive('\n').map(|s| s.to_string()).collect()
+            self.0
+                .split_inclusive('\n')
+                .map(|s| s.to_string())
+                .collect()
         };
         serializer.collect_seq(lines)
     }

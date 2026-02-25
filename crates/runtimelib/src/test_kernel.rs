@@ -222,9 +222,8 @@ use uuid::Uuid;
 
 use crate::{
     create_kernel_control_connection, create_kernel_heartbeat_connection,
-    create_kernel_iopub_connection, create_kernel_shell_connection,
-    create_kernel_stdin_connection, peek_ports, KernelIoPubConnection, Result,
-    RouterRecvConnection, RouterSendConnection,
+    create_kernel_iopub_connection, create_kernel_shell_connection, create_kernel_stdin_connection,
+    peek_ports, KernelIoPubConnection, Result, RouterRecvConnection, RouterSendConnection,
 };
 
 /// A canned response for a specific code input.
@@ -380,9 +379,8 @@ impl TestKernel {
         };
 
         // Heartbeat task
-        let heartbeat_handle = tokio::spawn(async move {
-            while heartbeat.single_heartbeat().await.is_ok() {}
-        });
+        let heartbeat_handle =
+            tokio::spawn(async move { while heartbeat.single_heartbeat().await.is_ok() {} });
 
         // Control channel task
         let control_handle = tokio::spawn(async move {
@@ -591,14 +589,14 @@ mod tests {
         peer_identity_for_session,
     };
     use jupyter_protocol::{
-        DisplayData, ExecuteRequest, ExecutionState, KernelInfoRequest, MediaType,
-        ShutdownRequest,
+        DisplayData, ExecuteRequest, ExecutionState, KernelInfoRequest, MediaType, ShutdownRequest,
     };
 
     #[tokio::test]
     async fn test_start_ephemeral_returns_valid_connection_info() {
-        let (handle, connection_info) =
-            TestKernel::start_ephemeral(TestKernelConfig::default()).await.unwrap();
+        let (handle, connection_info) = TestKernel::start_ephemeral(TestKernelConfig::default())
+            .await
+            .unwrap();
 
         assert_eq!(connection_info.ip, "127.0.0.1");
         assert_eq!(connection_info.transport, Transport::TCP);
@@ -614,8 +612,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_kernel_info_request() {
-        let (handle, connection_info) =
-            TestKernel::start_ephemeral(TestKernelConfig::default()).await.unwrap();
+        let (handle, connection_info) = TestKernel::start_ephemeral(TestKernelConfig::default())
+            .await
+            .unwrap();
 
         // Give kernel time to bind
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
@@ -647,8 +646,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_echo_mode() {
-        let (handle, connection_info) =
-            TestKernel::start_ephemeral(TestKernelConfig::default()).await.unwrap();
+        let (handle, connection_info) = TestKernel::start_ephemeral(TestKernelConfig::default())
+            .await
+            .unwrap();
 
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
 
@@ -676,13 +676,10 @@ mod tests {
         let mut stream_text = String::new();
 
         loop {
-            let msg = tokio::time::timeout(
-                tokio::time::Duration::from_secs(5),
-                iopub.read(),
-            )
-            .await
-            .expect("timeout waiting for iopub message")
-            .unwrap();
+            let msg = tokio::time::timeout(tokio::time::Duration::from_secs(5), iopub.read())
+                .await
+                .expect("timeout waiting for iopub message")
+                .unwrap();
 
             // Only process messages related to our request
             let is_ours = msg
@@ -730,10 +727,9 @@ mod tests {
         let config = TestKernelConfig::default().with_response(
             "show_image()",
             CannedResponse {
-                outputs: vec![DisplayData::from(MediaType::Plain(
-                    "test image output".to_string(),
-                ))
-                .into()],
+                outputs: vec![
+                    DisplayData::from(MediaType::Plain("test image output".to_string())).into(),
+                ],
             },
         );
 
@@ -764,13 +760,10 @@ mod tests {
         let mut received_display_data = false;
 
         loop {
-            let msg = tokio::time::timeout(
-                tokio::time::Duration::from_secs(5),
-                iopub.read(),
-            )
-            .await
-            .expect("timeout waiting for iopub message")
-            .unwrap();
+            let msg = tokio::time::timeout(tokio::time::Duration::from_secs(5), iopub.read())
+                .await
+                .expect("timeout waiting for iopub message")
+                .unwrap();
 
             let is_ours = msg
                 .parent_header
@@ -805,8 +798,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_shutdown_request() {
-        let (handle, connection_info) =
-            TestKernel::start_ephemeral(TestKernelConfig::default()).await.unwrap();
+        let (handle, connection_info) = TestKernel::start_ephemeral(TestKernelConfig::default())
+            .await
+            .unwrap();
 
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
 
@@ -831,6 +825,9 @@ mod tests {
 
         // The kernel should exit cleanly
         let result = tokio::time::timeout(tokio::time::Duration::from_secs(2), handle).await;
-        assert!(result.is_ok(), "Kernel should shut down after shutdown request");
+        assert!(
+            result.is_ok(),
+            "Kernel should shut down after shutdown request"
+        );
     }
 }

@@ -17,28 +17,15 @@ use crate::output_mapping::{message_to_kernel_output, KernelOutput};
 #[derive(Debug, Clone)]
 pub enum ExecutionEvent {
     /// Execution has started (kernel is busy).
-    Started {
-        cell_index: u32,
-        msg_id: String,
-    },
+    Started { cell_index: u32, msg_id: String },
     /// An output was added to the cell.
-    OutputAdded {
-        cell_index: u32,
-    },
+    OutputAdded { cell_index: u32 },
     /// Outputs were cleared.
-    OutputsCleared {
-        cell_index: u32,
-    },
+    OutputsCleared { cell_index: u32 },
     /// Execution count was updated.
-    ExecutionCountUpdated {
-        cell_index: u32,
-        count: i32,
-    },
+    ExecutionCountUpdated { cell_index: u32, count: i32 },
     /// Execution completed successfully.
-    Completed {
-        cell_index: u32,
-        msg_id: String,
-    },
+    Completed { cell_index: u32, msg_id: String },
     /// Execution failed with an error.
     Error {
         cell_index: u32,
@@ -271,7 +258,10 @@ mod tests {
     use yrs::{Array, Transact};
 
     /// Create a child message with a specific parent message ID.
-    fn make_child_message(content: JupyterMessageContent, parent: &JupyterMessage) -> JupyterMessage {
+    fn make_child_message(
+        content: JupyterMessageContent,
+        parent: &JupyterMessage,
+    ) -> JupyterMessage {
         JupyterMessage::new(content, Some(parent))
     }
 
@@ -325,7 +315,10 @@ mod tests {
         assert!(events.is_some());
         let events = events.unwrap();
         assert_eq!(events.len(), 1);
-        assert!(matches!(events[0], ExecutionEvent::Started { cell_index: 0, .. }));
+        assert!(matches!(
+            events[0],
+            ExecutionEvent::Started { cell_index: 0, .. }
+        ));
     }
 
     #[test]
@@ -360,7 +353,10 @@ mod tests {
         assert!(events.is_some());
         let events = events.unwrap();
         assert_eq!(events.len(), 1);
-        assert!(matches!(events[0], ExecutionEvent::OutputAdded { cell_index: 0 }));
+        assert!(matches!(
+            events[0],
+            ExecutionEvent::OutputAdded { cell_index: 0 }
+        ));
 
         // Verify output was added to cell
         let cell = doc.get_cell(0).unwrap();
@@ -404,7 +400,10 @@ mod tests {
         let events = executor.handle_message(&reply, &doc).unwrap().unwrap();
         assert!(matches!(
             events[0],
-            ExecutionEvent::ExecutionCountUpdated { cell_index: 0, count: 1 }
+            ExecutionEvent::ExecutionCountUpdated {
+                cell_index: 0,
+                count: 1
+            }
         ));
 
         // Verify execution count was set

@@ -216,11 +216,9 @@ impl SyncMessage {
     /// Parse the state vector from a SyncStep1 message.
     pub fn parse_state_vector(&self) -> Result<StateVector> {
         match self {
-            SyncMessage::SyncStep1(data) => {
-                StateVector::decode_v1(data).map_err(|e| {
-                    YSyncError::ProtocolError(format!("Failed to decode state vector: {}", e))
-                })
-            }
+            SyncMessage::SyncStep1(data) => StateVector::decode_v1(data).map_err(|e| {
+                YSyncError::ProtocolError(format!("Failed to decode state vector: {}", e))
+            }),
             _ => Err(YSyncError::ProtocolError(
                 "Expected SyncStep1 message".to_string(),
             )),

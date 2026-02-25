@@ -1,4 +1,4 @@
-use crate::v4::{CellId, CellMetadata, Metadata, Output, deserialize_outputs, deserialize_source};
+use crate::v4::{deserialize_outputs, deserialize_source, CellId, CellMetadata, Metadata, Output};
 use serde::Deserialize;
 use serde_json::Value;
 

@@ -49,11 +49,7 @@ pub fn serialize_v1(msg: &JupyterMessage, channel: &str) -> Result<Vec<u8>> {
 
     // Add buffer parts if present
     let buffer_refs: Vec<&[u8]> = msg.buffers.iter().map(|b| b.as_ref()).collect();
-    let all_parts: Vec<&[u8]> = msg_list
-        .iter()
-        .chain(buffer_refs.iter())
-        .copied()
-        .collect();
+    let all_parts: Vec<&[u8]> = msg_list.iter().chain(buffer_refs.iter()).copied().collect();
 
     // Calculate offsets
     // offset_count = number of parts + 1 (for the end marker)
@@ -143,8 +139,7 @@ pub fn deserialize_v1(data: &[u8]) -> Result<(String, JupyterMessage)> {
 
     // Parse channel
     let channel_bytes = get_part(0)?;
-    let channel_str =
-        std::str::from_utf8(channel_bytes).context("Channel is not valid UTF-8")?;
+    let channel_str = std::str::from_utf8(channel_bytes).context("Channel is not valid UTF-8")?;
 
     // Parse header
     let header_bytes = get_part(1)?;
@@ -171,11 +166,9 @@ pub fn deserialize_v1(data: &[u8]) -> Result<(String, JupyterMessage)> {
 
     // Get the msg_type from header to parse content correctly
     let msg_type = &header.msg_type;
-    let content = jupyter_protocol::JupyterMessageContent::from_type_and_content(
-        msg_type,
-        content_value,
-    )
-    .context("Failed to parse message content")?;
+    let content =
+        jupyter_protocol::JupyterMessageContent::from_type_and_content(msg_type, content_value)
+            .context("Failed to parse message content")?;
 
     // Extract any binary buffers (parts after the first 5)
     let mut buffers = Vec::new();
@@ -245,8 +238,7 @@ mod tests {
 
         let channel = "shell";
         let serialized = serialize_v1(&msg, channel).expect("serialize failed");
-        let (parsed_channel, parsed_msg) =
-            deserialize_v1(&serialized).expect("deserialize failed");
+        let (parsed_channel, parsed_msg) = deserialize_v1(&serialized).expect("deserialize failed");
 
         assert_eq!(parsed_channel, channel);
         assert_eq!(parsed_msg.header.msg_type, msg.header.msg_type);

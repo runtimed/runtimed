@@ -164,7 +164,9 @@ impl NotebookSession {
             id: String,
         }
 
-        let mut request = client.post(&base_url).query(&[("path", &config.notebook_path)]);
+        let mut request = client
+            .post(&base_url)
+            .query(&[("path", &config.notebook_path)]);
 
         if let Some(token) = &config.token {
             request = request.query(&[("token", token)]);
@@ -176,7 +178,9 @@ impl NotebookSession {
             .map_err(|e| YSyncError::ProtocolError(format!("Failed to get file ID: {}", e)))?
             .json()
             .await
-            .map_err(|e| YSyncError::ProtocolError(format!("Failed to parse file ID response: {}", e)))?;
+            .map_err(|e| {
+                YSyncError::ProtocolError(format!("Failed to parse file ID response: {}", e))
+            })?;
 
         Ok(resp.id)
     }
@@ -208,7 +212,9 @@ impl NotebookSession {
         let (kernel_ws, _response) = server
             .connect_to_kernel_with_session(&kernel_id, self.session_id.as_deref())
             .await
-            .map_err(|e| YSyncError::ProtocolError(format!("Failed to connect to kernel: {}", e)))?;
+            .map_err(|e| {
+                YSyncError::ProtocolError(format!("Failed to connect to kernel: {}", e))
+            })?;
 
         // Check if v1 binary protocol is being used (which sends IoPubWelcome)
         let is_v1_protocol = kernel_ws.protocol_mode == ProtocolMode::BinaryV1;
@@ -274,18 +280,19 @@ impl NotebookSession {
         let kernel_name = match &self.config.kernel_name {
             Some(name) => name.clone(),
             None => {
-                let url = format!(
-                    "{}/api/kernelspecs?token={}",
-                    server.base_url, server.token
-                );
+                let url = format!("{}/api/kernelspecs?token={}", server.base_url, server.token);
                 let resp: jupyter_websocket_client::KernelSpecsResponse = client
                     .get(&url)
                     .send()
                     .await
-                    .map_err(|e| YSyncError::ProtocolError(format!("Failed to get kernelspecs: {}", e)))?
+                    .map_err(|e| {
+                        YSyncError::ProtocolError(format!("Failed to get kernelspecs: {}", e))
+                    })?
                     .json()
                     .await
-                    .map_err(|e| YSyncError::ProtocolError(format!("Failed to parse kernelspecs: {}", e)))?;
+                    .map_err(|e| {
+                        YSyncError::ProtocolError(format!("Failed to parse kernelspecs: {}", e))
+                    })?;
                 resp.default
             }
         };
@@ -319,7 +326,9 @@ impl NotebookSession {
             .map_err(|e| YSyncError::ProtocolError(format!("Failed to create session: {}", e)))?
             .json()
             .await
-            .map_err(|e| YSyncError::ProtocolError(format!("Failed to parse session response: {}", e)))?;
+            .map_err(|e| {
+                YSyncError::ProtocolError(format!("Failed to parse session response: {}", e))
+            })?;
 
         // We created this session, so we own it
         Ok((session.id, session.kernel.id, true))
@@ -330,9 +339,10 @@ impl NotebookSession {
     /// Waits for `IoPubWelcome` message or times out after receiving other messages.
     /// Some servers may not send IoPubWelcome, so we proceed after a timeout.
     async fn wait_for_iopub_ready(&mut self) -> Result<()> {
-        let kernel = self.kernel.as_mut().ok_or_else(|| {
-            YSyncError::ProtocolError("No kernel connected".into())
-        })?;
+        let kernel = self
+            .kernel
+            .as_mut()
+            .ok_or_else(|| YSyncError::ProtocolError("No kernel connected".into()))?;
 
         // Wait for first few messages to check for IoPubWelcome
         // If we get other messages (like status), assume the channel is ready
@@ -348,7 +358,10 @@ impl NotebookSession {
                     // Got another message type - channel is working, continue checking
                 }
                 Ok(Some(Err(e))) => {
-                    return Err(YSyncError::ProtocolError(format!("Kernel message error: {}", e)));
+                    return Err(YSyncError::ProtocolError(format!(
+                        "Kernel message error: {}",
+                        e
+                    )));
                 }
                 Ok(None) => {
                     return Err(YSyncError::ProtocolError("Connection closed".into()));
@@ -393,9 +406,9 @@ impl NotebookSession {
             )));
         }
 
-        let cell = cells.get(&txn, cell_index).ok_or_else(|| {
-            YSyncError::ConversionError(format!("Cell {} not found", cell_index))
-        })?;
+        let cell = cells
+            .get(&txn, cell_index)
+            .ok_or_else(|| YSyncError::ConversionError(format!("Cell {} not found", cell_index)))?;
 
         let yrs::Out::YMap(cell_map) = cell else {
             return Err(YSyncError::ConversionError("Cell is not a map".into()));
@@ -430,14 +443,15 @@ impl NotebookSession {
     /// come from the server via Y-sync.
     pub async fn execute_cell(&mut self, cell_index: u32) -> Result<Vec<ExecutionEvent>> {
         // Get cell source
-        let source = self.get_cell_source(cell_index).ok_or_else(|| {
-            YSyncError::ConversionError(format!("Cell {} not found", cell_index))
-        })?;
+        let source = self
+            .get_cell_source(cell_index)
+            .ok_or_else(|| YSyncError::ConversionError(format!("Cell {} not found", cell_index)))?;
 
         // Verify it's a code cell
-        let cell = self.doc.get_cell(cell_index).ok_or_else(|| {
-            YSyncError::ConversionError(format!("Cell {} not found", cell_index))
-        })?;
+        let cell = self
+            .doc
+            .get_cell(cell_index)
+            .ok_or_else(|| YSyncError::ConversionError(format!("Cell {} not found", cell_index)))?;
         let txn = self.doc.doc().transact();
         let cell_type = cell.cell_type(&txn);
         drop(txn);
@@ -455,9 +469,10 @@ impl NotebookSession {
         }
 
         // Get kernel connection
-        let kernel = self.kernel.as_mut().ok_or_else(|| {
-            YSyncError::ProtocolError("No kernel connected".into())
-        })?;
+        let kernel = self
+            .kernel
+            .as_mut()
+            .ok_or_else(|| YSyncError::ProtocolError("No kernel connected".into()))?;
 
         // Create execute request
         let execute_request = ExecuteRequest {
@@ -478,7 +493,10 @@ impl NotebookSession {
         // Send execute request - cancel registration if send fails
         if let Err(e) = kernel.writer.send(msg).await {
             self.executor.cancel(&msg_id);
-            return Err(YSyncError::ProtocolError(format!("Failed to send execute request: {}", e)));
+            return Err(YSyncError::ProtocolError(format!(
+                "Failed to send execute request: {}",
+                e
+            )));
         }
 
         // Collect events
@@ -498,7 +516,12 @@ impl NotebookSession {
                     }
                 } else {
                     // Just track execution state, don't write outputs
-                    if let Some(events) = handle_message_without_outputs(&mut self.executor, &msg, &msg_id, cell_index)? {
+                    if let Some(events) = handle_message_without_outputs(
+                        &mut self.executor,
+                        &msg,
+                        &msg_id,
+                        cell_index,
+                    )? {
                         all_events.extend(events);
                     }
                 }
@@ -518,7 +541,9 @@ impl NotebookSession {
     /// Receive and apply updates from the server.
     pub async fn receive_updates(&mut self) -> Result<bool> {
         if let Some(msg) = self.ysync_client.receive_message().await? {
-            self.ysync_client.handle_message(self.doc.doc(), &msg).await?;
+            self.ysync_client
+                .handle_message(self.doc.doc(), &msg)
+                .await?;
             Ok(true)
         } else {
             Ok(false)

@@ -227,9 +227,9 @@ impl NotebookDoc {
             )));
         }
 
-        let cell_value = cells.get(&txn, cell_index).ok_or_else(|| {
-            YSyncError::ConversionError(format!("Cell {} not found", cell_index))
-        })?;
+        let cell_value = cells
+            .get(&txn, cell_index)
+            .ok_or_else(|| YSyncError::ConversionError(format!("Cell {} not found", cell_index)))?;
 
         let Out::YMap(cell_map) = cell_value else {
             return Err(YSyncError::ConversionError("Cell is not a map".into()));
@@ -269,9 +269,9 @@ impl NotebookDoc {
             )));
         }
 
-        let cell_value = cells.get(&txn, cell_index).ok_or_else(|| {
-            YSyncError::ConversionError(format!("Cell {} not found", cell_index))
-        })?;
+        let cell_value = cells
+            .get(&txn, cell_index)
+            .ok_or_else(|| YSyncError::ConversionError(format!("Cell {} not found", cell_index)))?;
 
         let Out::YMap(cell_map) = cell_value else {
             return Err(YSyncError::ConversionError("Cell is not a map".into()));
@@ -310,9 +310,9 @@ impl NotebookDoc {
             )));
         }
 
-        let cell_value = cells.get(&txn, cell_index).ok_or_else(|| {
-            YSyncError::ConversionError(format!("Cell {} not found", cell_index))
-        })?;
+        let cell_value = cells
+            .get(&txn, cell_index)
+            .ok_or_else(|| YSyncError::ConversionError(format!("Cell {} not found", cell_index)))?;
 
         let Out::YMap(cell_map) = cell_value else {
             return Err(YSyncError::ConversionError("Cell is not a map".into()));
@@ -403,10 +403,12 @@ impl CellView {
 
     /// Get the cell metadata map.
     pub fn metadata<T: ReadTxn>(&self, txn: &T) -> Option<MapRef> {
-        self.map.get(txn, keys::CELL_METADATA).and_then(|v| match v {
-            Out::YMap(map) => Some(map),
-            _ => None,
-        })
+        self.map
+            .get(txn, keys::CELL_METADATA)
+            .and_then(|v| match v {
+                Out::YMap(map) => Some(map),
+                _ => None,
+            })
     }
 
     /// Get the outputs array (for code cells).

@@ -13,8 +13,8 @@
 //!   cargo run -p jupyter-websocket-client --example execute -- http://localhost:8888 mytoken "print('hello')"
 
 use futures::{SinkExt, StreamExt};
-use jupyter_protocol::{ExecuteRequest, ExecutionState, JupyterMessage, JupyterMessageContent};
 use jupyter_protocol::media::MediaType;
+use jupyter_protocol::{ExecuteRequest, ExecutionState, JupyterMessage, JupyterMessageContent};
 use jupyter_websocket_client::RemoteServer;
 use std::env;
 
@@ -26,13 +26,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("Usage: {} <server-url> <token> [code]", args[0]);
         eprintln!();
         eprintln!("Example:");
-        eprintln!("  {} http://localhost:8888 mytoken \"print('hello')\"", args[0]);
+        eprintln!(
+            "  {} http://localhost:8888 mytoken \"print('hello')\"",
+            args[0]
+        );
         std::process::exit(1);
     }
 
     let server_url = &args[1];
     let token = &args[2];
-    let code = args.get(3).map(|s| s.as_str()).unwrap_or("print('Hello from jupyter-websocket-client!')");
+    let code = args
+        .get(3)
+        .map(|s| s.as_str())
+        .unwrap_or("print('Hello from jupyter-websocket-client!')");
 
     let server = RemoteServer {
         base_url: server_url.clone(),
@@ -44,12 +50,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // List available kernelspecs
     println!("Fetching available kernels...");
     let kernelspecs_url = format!("{}/api/kernelspecs?token={}", server_url, token);
-    let kernelspecs: jupyter_websocket_client::KernelSpecsResponse = client
-        .get(&kernelspecs_url)
-        .send()
-        .await?
-        .json()
-        .await?;
+    let kernelspecs: jupyter_websocket_client::KernelSpecsResponse =
+        client.get(&kernelspecs_url).send().await?.json().await?;
 
     println!("Available kernels:");
     for (name, spec) in &kernelspecs.kernelspecs {
@@ -157,17 +159,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             JupyterMessageContent::ExecuteReply(reply) => {
                 execution_status = Some(reply.status.clone());
             }
-            JupyterMessageContent::Status(status) => {
-                match status.execution_state {
-                    ExecutionState::Busy => {
-                        saw_busy = true;
-                    }
-                    ExecutionState::Idle if saw_busy => {
-                        break;
-                    }
-                    _ => {}
+            JupyterMessageContent::Status(status) => match status.execution_state {
+                ExecutionState::Busy => {
+                    saw_busy = true;
                 }
-            }
+                ExecutionState::Idle if saw_busy => {
+                    break;
+                }
+                _ => {}
+            },
             _ => {}
         }
     }

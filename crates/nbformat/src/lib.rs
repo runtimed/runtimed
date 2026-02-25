@@ -298,9 +298,8 @@ fn convert_v3_output(v3_output: v3::Output) -> v4::Output {
                 serde_json::Value::Object(map) => map,
                 _ => serde_json::Map::new(),
             };
-            let execution_count = jupyter_protocol::ExecutionCount::new(
-                prompt_number.unwrap_or(0).max(0) as usize,
-            );
+            let execution_count =
+                jupyter_protocol::ExecutionCount::new(prompt_number.unwrap_or(0).max(0) as usize);
             v4::Output::ExecuteResult(v4::ExecuteResult {
                 execution_count,
                 data: jupyter_protocol::media::Media::new(data),
@@ -313,8 +312,7 @@ fn convert_v3_output(v3_output: v3::Output) -> v4::Output {
         } => {
             // v3 display_data also stores media as flat top-level keys. Skip the
             // structural fields that are not media.
-            let media_vec =
-                map_v3_media_fields(&extra_fields, &["output_type", "metadata"]);
+            let media_vec = map_v3_media_fields(&extra_fields, &["output_type", "metadata"]);
             v4::Output::DisplayData(v4::DisplayData {
                 data: jupyter_protocol::media::Media::new(media_vec),
                 metadata: serde_json::Map::new(),

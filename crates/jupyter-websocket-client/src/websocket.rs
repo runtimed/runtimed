@@ -59,7 +59,9 @@ impl Stream for JupyterWebSocket {
                     }
                     // Raw frames are unexpected - log and skip them
                     Message::Frame(_) => {
-                        eprintln!("jupyter-websocket-client: received unexpected raw frame, skipping");
+                        eprintln!(
+                            "jupyter-websocket-client: received unexpected raw frame, skipping"
+                        );
                         continue;
                     }
                 },

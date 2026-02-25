@@ -6,4 +6,6 @@ mod websocket;
 
 pub use client::*;
 
-pub use websocket::{JupyterWebSocket, JupyterWebSocketReader, JupyterWebSocketWriter, ProtocolMode};
+pub use websocket::{
+    JupyterWebSocket, JupyterWebSocketReader, JupyterWebSocketWriter, ProtocolMode,
+};

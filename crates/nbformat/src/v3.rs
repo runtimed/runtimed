@@ -1,4 +1,4 @@
-use crate::v4::{CellMetadata, deserialize_source};
+use crate::v4::{deserialize_source, CellMetadata};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -132,7 +132,10 @@ where
             Ok(Some(vec![v]))
         }
 
-        fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+        fn visit_seq<A: serde::de::SeqAccess<'de>>(
+            self,
+            mut seq: A,
+        ) -> Result<Self::Value, A::Error> {
             let mut lines = Vec::new();
             while let Some(line) = seq.next_element::<String>()? {
                 lines.push(line);

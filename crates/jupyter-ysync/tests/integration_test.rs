@@ -78,7 +78,10 @@ async fn test_edit_cell_syncs_to_server() {
         .get_cell_source(0)
         .expect("Cell 0 should exist")
         .clone();
-    println!("Original cell 0: {}", original.chars().take(30).collect::<String>());
+    println!(
+        "Original cell 0: {}",
+        original.chars().take(30).collect::<String>()
+    );
 
     // Edit cell with unique timestamp
     let timestamp = std::time::SystemTime::now()
@@ -104,7 +107,10 @@ async fn test_edit_cell_syncs_to_server() {
         .expect("Failed to connect");
 
     let synced_content = session2.get_cell_source(0).expect("Cell 0 should exist");
-    println!("Synced cell 0: {}", synced_content.chars().take(50).collect::<String>());
+    println!(
+        "Synced cell 0: {}",
+        synced_content.chars().take(50).collect::<String>()
+    );
     assert!(
         synced_content.contains(&format!("{}", timestamp)),
         "Edit should have synced"
@@ -135,7 +141,12 @@ async fn test_add_and_remove_cell() {
     let cell_id = uuid::Uuid::new_v4().to_string();
     session
         .doc()
-        .add_cell(&cell_id, cell_types::CODE, "# test cell from integration test", None)
+        .add_cell(
+            &cell_id,
+            cell_types::CODE,
+            "# test cell from integration test",
+            None,
+        )
         .expect("Failed to add cell");
     session.sync_to_server().await.expect("Failed to sync");
 
@@ -243,7 +254,10 @@ async fn test_collaborative_scenario() {
             None,
         )
         .expect("Failed to add cell");
-    agent_session.sync_to_server().await.expect("Failed to sync");
+    agent_session
+        .sync_to_server()
+        .await
+        .expect("Failed to sync");
 
     println!(
         "Agent added cell. New count: {}",
@@ -261,10 +275,13 @@ async fn test_collaborative_scenario() {
         .expect("Failed to connect kernel");
 
     let last_cell = agent_session.cell_count() - 1;
-    let events = timeout(Duration::from_secs(30), agent_session.execute_cell(last_cell))
-        .await
-        .expect("Execution timed out")
-        .expect("Failed to execute");
+    let events = timeout(
+        Duration::from_secs(30),
+        agent_session.execute_cell(last_cell),
+    )
+    .await
+    .expect("Execution timed out")
+    .expect("Failed to execute");
 
     println!("\nExecution events for cell {}:", last_cell);
     for event in &events {
@@ -293,7 +310,10 @@ async fn test_collaborative_scenario() {
         .doc()
         .remove_cell(last_cell)
         .expect("Failed to remove cell");
-    agent_session.sync_to_server().await.expect("Failed to sync");
+    agent_session
+        .sync_to_server()
+        .await
+        .expect("Failed to sync");
     println!("\nCleaned up test cell");
 
     agent_session.close().await.expect("Failed to close");

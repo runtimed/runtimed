@@ -273,7 +273,9 @@ fn convert_ymap_to_cell<T: ReadTxn>(map: &MapRef, txn: &T) -> Result<Cell> {
             })
         }
         cell_types::MARKDOWN => {
-            let attachments = map.get(txn, keys::ATTACHMENTS).map(|v| out_to_json(&v, txn));
+            let attachments = map
+                .get(txn, keys::ATTACHMENTS)
+                .map(|v| out_to_json(&v, txn));
 
             Ok(Cell::Markdown {
                 id,
@@ -300,11 +302,7 @@ fn get_source_from_ymap<T: ReadTxn>(map: &MapRef, txn: &T) -> Result<Vec<String>
     let source_str = match source_value {
         Out::YText(text) => text.get_string(txn),
         Out::Any(Any::String(s)) => s.to_string(),
-        _ => {
-            return Err(YSyncError::ConversionError(
-                "Invalid source type".into(),
-            ))
-        }
+        _ => return Err(YSyncError::ConversionError("Invalid source type".into())),
     };
 
     // Split into lines, preserving newlines at the end of each line (nbformat style)

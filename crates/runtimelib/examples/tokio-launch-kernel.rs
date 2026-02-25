@@ -68,8 +68,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut iopub_socket =
         runtimelib::create_client_iopub_connection(&connection_info, "", &session_id).await?;
     let identity = runtimelib::peer_identity_for_session(&session_id)?;
-    let mut shell_socket =
-        runtimelib::create_client_shell_connection_with_identity(&connection_info, &session_id, identity).await?;
+    let mut shell_socket = runtimelib::create_client_shell_connection_with_identity(
+        &connection_info,
+        &session_id,
+        identity,
+    )
+    .await?;
     // Control socket is for kernel management, not used here
     // let mut control_socket =
     //     runtimelib::create_client_control_connection(&connection_info, &session_id).await?;

@@ -8,8 +8,8 @@ use jupyter_protocol::{
     ExecuteResult as KernelExecuteResult, JupyterMessageContent, Stdio, StreamContent,
 };
 use nbformat::v4::{
-    DisplayData as NbDisplayData, ErrorOutput as NbErrorOutput,
-    ExecuteResult as NbExecuteResult, MultilineString, Output,
+    DisplayData as NbDisplayData, ErrorOutput as NbErrorOutput, ExecuteResult as NbExecuteResult,
+    MultilineString, Output,
 };
 
 /// Represents a kernel output that should be stored in a notebook.
@@ -209,7 +209,10 @@ mod tests {
         });
 
         let output = message_to_kernel_output(&content);
-        assert!(matches!(output, Some(KernelOutput::Output(Output::Stream { .. }))));
+        assert!(matches!(
+            output,
+            Some(KernelOutput::Output(Output::Stream { .. }))
+        ));
     }
 
     #[test]
@@ -217,7 +220,10 @@ mod tests {
         let content = JupyterMessageContent::ClearOutput(ClearOutput { wait: true });
 
         let output = message_to_kernel_output(&content);
-        assert!(matches!(output, Some(KernelOutput::ClearOutput { wait: true })));
+        assert!(matches!(
+            output,
+            Some(KernelOutput::ClearOutput { wait: true })
+        ));
     }
 
     #[test]
