@@ -1044,9 +1044,16 @@ pub struct KernelInfoRequest {}
 pub struct KernelInfoReply {
     pub status: ReplyStatus,
     pub protocol_version: String,
+    /// Kernel implementation name (e.g., "ipykernel", "IRkernel").
+    /// Some kernels may not provide this field.
+    #[serde(default)]
     pub implementation: String,
+    /// Version of the kernel implementation.
+    /// Some kernels may not provide this field.
+    #[serde(default)]
     pub implementation_version: String,
     pub language_info: LanguageInfo,
+    #[serde(default)]
     pub banner: String,
     #[serde(default)]
     pub help_links: Vec<HelpLink>,
