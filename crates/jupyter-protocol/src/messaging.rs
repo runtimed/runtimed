@@ -125,7 +125,8 @@ struct UnknownJupyterMessage {
 /// - `msg_id`: A unique identifier for the message.
 /// - `username`: The name of the user who sent the message.
 /// - `session`: The session identifier.
-/// - `date`: The timestamp when the message was created.
+/// - `date`: The timestamp when the message was created. Defaults to UNIX_EPOCH if
+///   not provided by the kernel (non-conformant behavior).
 /// - `msg_type`: The type of message (e.g., `execute_request`).
 /// - `version`: The version of the messaging protocol.
 ///
@@ -148,6 +149,10 @@ pub struct Header {
     pub msg_id: String,
     pub username: String,
     pub session: String,
+    /// The timestamp when the message was created.
+    /// Defaults to UNIX_EPOCH (1970-01-01T00:00:00Z) if not provided by the kernel.
+    /// Some kernels (e.g., Almond) omit this field, which is non-conformant behavior.
+    #[serde(default, deserialize_with = "deserialize_date_with_default")]
     pub date: DateTime<Utc>,
     pub msg_type: String,
     pub version: String,
@@ -201,6 +206,21 @@ where
             .map(Some)
             .map_err(D::Error::custom)
     }
+}
+
+/// Deserializes the `date` field, defaulting to UNIX_EPOCH if missing or null.
+///
+/// Some kernels (e.g., Almond) don't include the `date` field in message headers,
+/// which violates the Jupyter protocol spec. This deserializer tolerates missing
+/// dates by defaulting to UNIX epoch (1970-01-01T00:00:00Z).
+///
+/// If you see UNIX_EPOCH as the date, it likely means the kernel omitted the field.
+fn deserialize_date_with_default<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let opt = Option::<DateTime<Utc>>::deserialize(deserializer)?;
+    Ok(opt.unwrap_or_else(|| DateTime::<Utc>::from_timestamp(0, 0).expect("UNIX_EPOCH is valid")))
 }
 
 /// A message in the Jupyter protocol format.
@@ -1042,6 +1062,10 @@ pub struct KernelInfoRequest {}
 /// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#kernel-info>
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KernelInfoReply {
+    /// Execution status. Per the Jupyter spec this should always be present,
+    /// but some kernels omit it. Defaults to `Ok` when missing.
+    /// Kernels should explicitly set this field.
+    #[serde(default)]
     pub status: ReplyStatus,
     pub protocol_version: String,
     /// Kernel implementation name (e.g., "ipykernel", "IRkernel").
@@ -2592,5 +2616,78 @@ mod test {
             }
             _ => panic!("Expected ExecuteRequest"),
         }
+    }
+
+    #[test]
+    fn test_header_missing_date_defaults_to_epoch() {
+        // Some kernels (e.g., Almond) don't include the date field
+        let header_json = json!({
+            "msg_id": "test-msg-id",
+            "username": "testuser",
+            "session": "test-session",
+            "msg_type": "execute_request",
+            "version": "5.3"
+        });
+
+        let header: Header = serde_json::from_value(header_json).unwrap();
+        assert_eq!(header.msg_id, "test-msg-id");
+        // Date should default to UNIX_EPOCH when missing
+        assert_eq!(header.date, DateTime::<Utc>::from_timestamp(0, 0).unwrap());
+    }
+
+    #[test]
+    fn test_header_with_date_parses_correctly() {
+        let header_json = json!({
+            "msg_id": "test-msg-id",
+            "username": "testuser",
+            "session": "test-session",
+            "date": "2025-05-14T14:32:23.490Z",
+            "msg_type": "execute_request",
+            "version": "5.3"
+        });
+
+        let header: Header = serde_json::from_value(header_json).unwrap();
+        assert_ne!(header.date, DateTime::<Utc>::from_timestamp(0, 0).unwrap());
+    }
+
+    #[test]
+    fn test_kernel_info_reply_missing_status_defaults_to_ok() {
+        // Some kernels don't include the status field in kernel_info_reply
+        let reply_json = json!({
+            "protocol_version": "5.3",
+            "implementation": "test_kernel",
+            "implementation_version": "1.0.0",
+            "language_info": {
+                "name": "python",
+                "version": "3.9.0"
+            },
+            "banner": "Test Kernel",
+            "help_links": [],
+            "debugger": false
+        });
+
+        let reply: KernelInfoReply = serde_json::from_value(reply_json).unwrap();
+        // Status should default to Ok when missing
+        assert_eq!(reply.status, ReplyStatus::Ok);
+    }
+
+    #[test]
+    fn test_kernel_info_reply_with_status_parses_correctly() {
+        let reply_json = json!({
+            "status": "error",
+            "protocol_version": "5.3",
+            "implementation": "test_kernel",
+            "implementation_version": "1.0.0",
+            "language_info": {
+                "name": "python",
+                "version": "3.9.0"
+            },
+            "banner": "Test Kernel",
+            "help_links": [],
+            "debugger": false
+        });
+
+        let reply: KernelInfoReply = serde_json::from_value(reply_json).unwrap();
+        assert_eq!(reply.status, ReplyStatus::Error);
     }
 }
