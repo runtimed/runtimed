@@ -143,11 +143,17 @@ struct UnknownJupyterMessage {
 ///     version: "5.3".to_string(),
 /// };
 /// ```
+fn default_date() -> DateTime<Utc> {
+    Utc::now()
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Header {
     pub msg_id: String,
     pub username: String,
     pub session: String,
+    /// Timestamp of the message. Some kernels may not provide this field.
+    #[serde(default = "default_date")]
     pub date: DateTime<Utc>,
     pub msg_type: String,
     pub version: String,
