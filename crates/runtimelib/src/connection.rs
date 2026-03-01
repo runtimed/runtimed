@@ -64,6 +64,13 @@ pub struct Connection<S> {
 }
 
 pub type KernelIoPubConnection = Connection<zeromq::PubSocket>;
+/// Kernel IOPub connection using XPUB socket (JEP 65).
+///
+/// XPUB enables detection of client subscriptions, allowing the kernel
+/// to send `iopub_welcome` messages when clients connect. Unlike the
+/// standard PubSocket, the XPUB socket receives subscription notifications
+/// which can be read using [`Connection::recv_subscription`].
+pub type KernelIoPubXPubConnection = Connection<zeromq::XPubSocket>;
 pub type KernelShellConnection = Connection<zeromq::RouterSocket>;
 pub type KernelControlConnection = Connection<zeromq::RouterSocket>;
 pub type KernelStdinConnection = Connection<zeromq::RouterSocket>;
@@ -86,6 +93,45 @@ pub type DealerRecvConnection = Connection<zeromq::DealerRecvHalf>;
 // Split half type aliases for RouterSocket connections
 pub type RouterSendConnection = Connection<zeromq::RouterSendHalf>;
 pub type RouterRecvConnection = Connection<zeromq::RouterRecvHalf>;
+
+/// Represents a subscription event from an XPUB socket.
+///
+/// XPUB sockets receive notifications when clients subscribe or unsubscribe
+/// to topics. This enables kernels to implement JEP 65 by sending
+/// `iopub_welcome` messages in response to subscriptions.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SubscriptionEvent {
+    /// Client subscribed to the given topic.
+    Subscribe(String),
+    /// Client unsubscribed from the given topic.
+    Unsubscribe(String),
+}
+
+/// Parse a subscription message from an XPUB socket.
+///
+/// XPUB sockets receive subscription/unsubscription notifications as messages
+/// where the first byte is 1 (subscribe) or 0 (unsubscribe), followed by the topic bytes.
+///
+/// Returns `None` if the message format is invalid.
+pub fn parse_subscription_message(msg: &zeromq::ZmqMessage) -> Option<SubscriptionEvent> {
+    let parts: Vec<_> = msg.iter().collect();
+    if parts.is_empty() {
+        return None;
+    }
+    let first_part = &parts[0];
+    if first_part.is_empty() {
+        return None;
+    }
+
+    let event_type = first_part[0];
+    let topic = String::from_utf8_lossy(&first_part[1..]).to_string();
+
+    match event_type {
+        1 => Some(SubscriptionEvent::Subscribe(topic)),
+        0 => Some(SubscriptionEvent::Unsubscribe(topic)),
+        _ => None,
+    }
+}
 
 impl Connection<zeromq::DealerSocket> {
     /// Splits the connection into independent send and receive halves,
@@ -173,6 +219,31 @@ impl<S: zeromq::SocketRecv> Connection<S> {
         let raw_message = RawMessage::from_multipart(self.socket.recv().await?, &self.mac)?;
         let message = raw_message.into_jupyter_message()?;
         Ok(message)
+    }
+}
+
+impl Connection<zeromq::XPubSocket> {
+    /// Receive a subscription event from the XPUB socket.
+    ///
+    /// This is used by kernels to detect when clients subscribe,
+    /// enabling them to send `iopub_welcome` messages per JEP 65.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let mut iopub = create_kernel_iopub_xpub_connection(&conn_info, &session_id).await?;
+    /// match iopub.recv_subscription().await? {
+    ///     SubscriptionEvent::Subscribe(topic) => {
+    ///         iopub.send(IoPubWelcome::new(topic).into()).await?;
+    ///     }
+    ///     SubscriptionEvent::Unsubscribe(_) => {}
+    /// }
+    /// ```
+    pub async fn recv_subscription(&mut self) -> Result<SubscriptionEvent> {
+        let msg = self.socket.recv().await?;
+        parse_subscription_message(&msg).ok_or_else(|| {
+            RuntimeError::ZmqMessageError("Invalid subscription message format".to_string())
+        })
     }
 }
 
@@ -355,6 +426,34 @@ pub async fn create_kernel_iopub_connection(
     Ok(Connection::new(socket, &connection_info.key, session_id))
 }
 
+/// Create a kernel IOPub connection using XPUB socket (JEP 65).
+///
+/// XPUB enables detection of client subscriptions, allowing the kernel
+/// to send `iopub_welcome` messages when clients connect. Use
+/// [`Connection::recv_subscription`] to receive subscription events
+/// and respond with `IoPubWelcome`.
+///
+/// # Example
+///
+/// ```ignore
+/// let mut iopub = create_kernel_iopub_xpub_connection(&conn_info, &session_id).await?;
+///
+/// // In your event loop:
+/// if let Ok(SubscriptionEvent::Subscribe(topic)) = iopub.recv_subscription().await {
+///     iopub.send(IoPubWelcome::new(topic).into()).await?;
+/// }
+/// ```
+pub async fn create_kernel_iopub_xpub_connection(
+    connection_info: &ConnectionInfo,
+    session_id: &str,
+) -> Result<KernelIoPubXPubConnection> {
+    let endpoint = connection_info.iopub_url();
+
+    let mut socket = zeromq::XPubSocket::new();
+    socket.bind(&endpoint).await?;
+    Ok(Connection::new(socket, &connection_info.key, session_id))
+}
+
 pub async fn create_kernel_shell_connection(
     connection_info: &ConnectionInfo,
     session_id: &str,
@@ -524,6 +623,57 @@ pub async fn create_client_heartbeat_connection(
     let mut socket = zeromq::ReqSocket::new();
     socket.connect(&endpoint).await?;
     Ok(ClientHeartbeatConnection { socket })
+}
+
+/// Wait for an `iopub_welcome` message on the IOPub connection.
+///
+/// This implements the client-side of JEP 65. If the kernel supports XPUB,
+/// it will send an `iopub_welcome` when the subscription is established.
+/// For older kernels using PUB sockets, this will timeout gracefully.
+///
+/// # Arguments
+///
+/// * `iopub` - The IOPub connection to listen on
+/// * `timeout` - How long to wait for the welcome message
+///
+/// # Returns
+///
+/// * `Ok(Some(subscription))` - Received welcome with the echoed subscription topic
+/// * `Ok(None)` - Timeout (kernel likely uses PUB socket, which is fine)
+/// * `Err(_)` - Connection error
+///
+/// # Example
+///
+/// ```ignore
+/// let mut iopub = create_client_iopub_connection(&conn_info, "", &session_id).await?;
+/// match wait_for_iopub_welcome(&mut iopub, Duration::from_millis(500)).await? {
+///     Some(topic) => println!("Kernel supports XPUB, subscribed to: {}", topic),
+///     None => println!("Kernel uses PUB socket (no welcome), proceeding anyway"),
+/// }
+/// ```
+#[cfg(feature = "tokio-runtime")]
+pub async fn wait_for_iopub_welcome(
+    iopub: &mut ClientIoPubConnection,
+    timeout: std::time::Duration,
+) -> Result<Option<String>> {
+    use tokio::time::timeout as tokio_timeout;
+
+    match tokio_timeout(timeout, iopub.read()).await {
+        Ok(Ok(msg)) => {
+            if let JupyterMessageContent::IoPubWelcome(welcome) = msg.content {
+                Ok(Some(welcome.subscription))
+            } else {
+                // Got another message type - kernel is working but no welcome
+                // This shouldn't normally happen with XPUB, but handle gracefully
+                Ok(None)
+            }
+        }
+        Ok(Err(e)) => Err(e),
+        Err(_) => {
+            // Timeout - kernel probably doesn't support XPUB, which is fine
+            Ok(None)
+        }
+    }
 }
 
 #[cfg(test)]

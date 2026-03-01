@@ -32,10 +32,12 @@
 //!     TestKernel, TestKernelConfig,
 //!     create_client_shell_connection_with_identity,
 //!     create_client_iopub_connection,
+//!     wait_for_iopub_welcome,
 //!     peer_identity_for_session,
 //! };
 //! use jupyter_protocol::{ExecuteRequest, JupyterMessage, JupyterMessageContent};
 //! use uuid::Uuid;
+//! use std::time::Duration;
 //!
 //! #[tokio::test]
 //! async fn test_my_frontend() {
@@ -58,8 +60,8 @@
 //!         &connection_info, "", &session_id
 //!     ).await.unwrap();
 //!
-//!     // 4. Wait for iopub subscription to establish
-//!     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+//!     // 4. Wait for iopub_welcome (JEP 65) - confirms subscription is ready
+//!     wait_for_iopub_welcome(&mut iopub, Duration::from_secs(1)).await.unwrap();
 //!
 //!     // 5. Send an execute request
 //!     let request: JupyterMessage = ExecuteRequest::new("print('hello')".to_string()).into();
@@ -198,8 +200,17 @@
 //!
 //! # Tips
 //!
-//! - **ZMQ timing**: Always add a small delay (~50-100ms) after connecting iopub
-//!   before sending requests, to allow the pub/sub subscription to establish.
+//! - **IOPub subscription**: TestKernel uses XPUB sockets and sends `iopub_welcome`
+//!   per JEP 65. Use [`wait_for_iopub_welcome`] to wait for the subscription to establish:
+//!
+//!   ```ignore
+//!   let mut iopub = create_client_iopub_connection(&connection_info, "", &session_id).await?;
+//!   wait_for_iopub_welcome(&mut iopub, Duration::from_secs(1)).await?;
+//!   // Now safe to send requests
+//!   ```
+//!
+//!   For kernels that don't support XPUB, `wait_for_iopub_welcome` will timeout
+//!   gracefully and return `Ok(None)`, so your code works with both old and new kernels.
 //!
 //! - **Message correlation**: Filter iopub messages by `parent_header.msg_id` to
 //!   only process outputs related to your request.
@@ -222,8 +233,9 @@ use uuid::Uuid;
 
 use crate::{
     create_kernel_control_connection, create_kernel_heartbeat_connection,
-    create_kernel_iopub_connection, create_kernel_shell_connection, create_kernel_stdin_connection,
-    peek_ports, KernelIoPubConnection, Result, RouterRecvConnection, RouterSendConnection,
+    create_kernel_iopub_xpub_connection, create_kernel_shell_connection,
+    create_kernel_stdin_connection, peek_ports, KernelIoPubXPubConnection, Result,
+    RouterSendConnection, SubscriptionEvent,
 };
 
 /// A canned response for a specific code input.
@@ -265,9 +277,10 @@ impl TestKernelConfig {
 /// - By default, echoes executed code back as stdout (echo mode)
 /// - Can be configured with canned responses for specific code inputs
 /// - Responds to all standard Jupyter protocol messages
+/// - Uses XPUB socket and sends `iopub_welcome` per JEP 65
 pub struct TestKernel {
     execution_count: ExecutionCount,
-    iopub: KernelIoPubConnection,
+    iopub: KernelIoPubXPubConnection,
     shell: RouterSendConnection,
     config: TestKernelConfig,
 }
@@ -359,6 +372,8 @@ impl TestKernel {
     }
 
     async fn run(connection_info: &ConnectionInfo, config: TestKernelConfig) -> Result<()> {
+        use jupyter_protocol::IoPubWelcome;
+
         let session_id = Uuid::new_v4().to_string();
 
         // Create all connections
@@ -369,7 +384,9 @@ impl TestKernel {
             create_kernel_control_connection(connection_info, &session_id).await?;
         let _stdin_connection =
             create_kernel_stdin_connection(connection_info, &session_id).await?;
-        let iopub_connection = create_kernel_iopub_connection(connection_info, &session_id).await?;
+        // Use XPUB for iopub to support JEP 65 iopub_welcome
+        let iopub_connection =
+            create_kernel_iopub_xpub_connection(connection_info, &session_id).await?;
 
         let mut kernel = Self {
             execution_count: Default::default(),
@@ -382,7 +399,8 @@ impl TestKernel {
         let heartbeat_handle =
             tokio::spawn(async move { while heartbeat.single_heartbeat().await.is_ok() {} });
 
-        // Control channel task
+        // Control channel task - uses a oneshot channel to signal shutdown
+        let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
         let control_handle = tokio::spawn(async move {
             while let Ok(message) = control_connection.read().await {
                 match &message.content {
@@ -398,6 +416,7 @@ impl TestKernel {
                         }
                         .as_child_of(&message);
                         let _ = control_connection.send(reply).await;
+                        let _ = shutdown_tx.send(());
                         return;
                     }
                     _ => {}
@@ -405,10 +424,47 @@ impl TestKernel {
             }
         });
 
-        // Shell channel task
+        // Main event loop - handles shell messages and XPUB subscriptions
         let shell_handle = tokio::spawn(async move {
-            if let Err(err) = kernel.handle_shell(&mut shell_reader).await {
-                eprintln!("TestKernel shell error: {}", err);
+            loop {
+                tokio::select! {
+                    // Handle shell messages
+                    result = shell_reader.read() => {
+                        match result {
+                            Ok(msg) => {
+                                if let Err(err) = kernel.handle_shell_message(&msg).await {
+                                    eprintln!("TestKernel error handling message: {}", err);
+                                }
+                            }
+                            Err(err) => {
+                                eprintln!("TestKernel shell read error: {}", err);
+                                break;
+                            }
+                        }
+                    }
+                    // Handle XPUB subscription events (JEP 65)
+                    result = kernel.iopub.recv_subscription() => {
+                        match result {
+                            Ok(SubscriptionEvent::Subscribe(topic)) => {
+                                // Send iopub_welcome per JEP 65
+                                let welcome: JupyterMessage = IoPubWelcome::new(topic).into();
+                                if let Err(err) = kernel.iopub.send(welcome).await {
+                                    eprintln!("TestKernel error sending iopub_welcome: {}", err);
+                                }
+                            }
+                            Ok(SubscriptionEvent::Unsubscribe(_)) => {
+                                // Client unsubscribed, nothing to do
+                            }
+                            Err(err) => {
+                                eprintln!("TestKernel subscription error: {}", err);
+                            }
+                        }
+                    }
+                    // Handle shutdown signal
+                    _ = &mut shutdown_rx => {
+                        break;
+                    }
+                }
             }
         });
 
@@ -420,15 +476,6 @@ impl TestKernel {
         }
 
         Ok(())
-    }
-
-    async fn handle_shell(&mut self, reader: &mut RouterRecvConnection) -> Result<()> {
-        loop {
-            let msg = reader.read().await?;
-            if let Err(err) = self.handle_shell_message(&msg).await {
-                eprintln!("TestKernel error handling message: {}", err);
-            }
-        }
     }
 
     async fn handle_shell_message(&mut self, parent: &JupyterMessage) -> Result<()> {
@@ -829,5 +876,40 @@ mod tests {
             result.is_ok(),
             "Kernel should shut down after shutdown request"
         );
+    }
+
+    #[tokio::test]
+    async fn test_iopub_welcome_received() {
+        use crate::wait_for_iopub_welcome;
+
+        let (handle, connection_info) = TestKernel::start_ephemeral(TestKernelConfig::default())
+            .await
+            .unwrap();
+
+        // Give kernel time to bind
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+        let session_id = Uuid::new_v4().to_string();
+
+        // Connect to iopub
+        let mut iopub = create_client_iopub_connection(&connection_info, "", &session_id)
+            .await
+            .unwrap();
+
+        // Wait for iopub_welcome (JEP 65) - should succeed since TestKernel uses XPUB
+        let result = wait_for_iopub_welcome(
+            &mut iopub,
+            tokio::time::Duration::from_secs(2),
+        )
+        .await
+        .unwrap();
+
+        assert!(
+            result.is_some(),
+            "TestKernel should send iopub_welcome since it uses XPUB"
+        );
+        assert_eq!(result.unwrap(), "", "Subscription topic should be empty string");
+
+        handle.abort();
     }
 }
