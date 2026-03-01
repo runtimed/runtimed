@@ -897,18 +897,19 @@ mod tests {
             .unwrap();
 
         // Wait for iopub_welcome (JEP 65) - should succeed since TestKernel uses XPUB
-        let result = wait_for_iopub_welcome(
-            &mut iopub,
-            tokio::time::Duration::from_secs(2),
-        )
-        .await
-        .unwrap();
+        let result = wait_for_iopub_welcome(&mut iopub, tokio::time::Duration::from_secs(2))
+            .await
+            .unwrap();
 
         assert!(
             result.is_some(),
             "TestKernel should send iopub_welcome since it uses XPUB"
         );
-        assert_eq!(result.unwrap(), "", "Subscription topic should be empty string");
+        assert_eq!(
+            result.unwrap(),
+            "",
+            "Subscription topic should be empty string"
+        );
 
         handle.abort();
     }
