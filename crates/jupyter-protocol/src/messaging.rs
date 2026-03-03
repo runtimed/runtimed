@@ -1060,13 +1060,18 @@ pub struct KernelInfoRequest {}
 /// A reply containing information about the kernel.
 ///
 /// See <https://jupyter-client.readthedocs.io/en/latest/messaging.html#kernel-info>
-#[derive(Serialize, Deserialize, Debug, Clone)]
+///
+/// All fields use `#[serde(default)]` because some kernels (e.g. ark for R)
+/// may omit fields that the Jupyter spec considers required. Being lenient
+/// here allows those kernels to work without crashing the client.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct KernelInfoReply {
     /// Execution status. Per the Jupyter spec this should always be present,
     /// but some kernels omit it. Defaults to `Ok` when missing.
-    /// Kernels should explicitly set this field.
     #[serde(default)]
     pub status: ReplyStatus,
+    /// Version of the Jupyter messaging protocol (e.g., "5.3").
+    #[serde(default)]
     pub protocol_version: String,
     /// Kernel implementation name (e.g., "ipykernel", "IRkernel").
     /// Some kernels may not provide this field.
@@ -1076,6 +1081,8 @@ pub struct KernelInfoReply {
     /// Some kernels may not provide this field.
     #[serde(default)]
     pub implementation_version: String,
+    /// Information about the language the kernel supports.
+    #[serde(default)]
     pub language_info: LanguageInfo,
     #[serde(default)]
     pub banner: String,
@@ -1121,7 +1128,7 @@ impl CodeMirrorMode {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct LanguageInfo {
     pub name: String,
     pub version: String,
