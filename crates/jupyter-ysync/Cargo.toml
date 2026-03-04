@@ -19,7 +19,7 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 thiserror = { workspace = true }
 base64 = { workspace = true }
-pyo3 = { version = "0.23", optional = true, features = ["extension-module"] }
+pyo3 = { version = "0.24", optional = true, features = ["extension-module"] }
 
 # Client dependencies (optional)
 async-tungstenite = { version = "0.32", features = ["tokio-runtime"], optional = true }
