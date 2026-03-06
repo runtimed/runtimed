@@ -998,6 +998,48 @@ mod test {
     }
 
     #[test]
+    fn test_parse_v4_5_notebook_without_cell_ids() {
+        let notebook_json = r###"{
+ "cells": [
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": ["print('hello')"],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": ["# Title"]
+  },
+  {
+   "cell_type": "raw",
+   "metadata": {},
+   "source": ["raw content"]
+  }
+ ],
+ "metadata": {},
+ "nbformat": 4,
+ "nbformat_minor": 5
+}"###;
+        let notebook =
+            parse_notebook(notebook_json).expect("Should parse notebook without cell IDs");
+
+        if let Notebook::V4(nb) = notebook {
+            assert_eq!(nb.cells.len(), 3);
+            // Verify UUIDs were generated for all cells
+            for cell in &nb.cells {
+                assert!(!cell.id().as_str().is_empty());
+                // UUIDs are 36 characters (with hyphens)
+                assert_eq!(cell.id().as_str().len(), 36);
+            }
+        } else {
+            panic!("Expected V4 notebook");
+        }
+    }
+
+    #[test]
     fn test_multiline_string_preserves_lines() {
         use nbformat::v4::MultilineString;
 
