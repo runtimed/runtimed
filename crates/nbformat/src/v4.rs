@@ -185,8 +185,9 @@ pub struct KernelSpec {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct LanguageInfo {
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub codemirror_mode: Option<CodemirrorMode>,
     #[serde(flatten)]
     pub additional: HashMap<String, serde_json::Value>,
@@ -490,4 +491,70 @@ where
             },
         )
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn language_info_no_codemirror_mode_does_not_round_trip_null() {
+        // codemirror_mode absent in input must remain absent after serialization
+        let li: LanguageInfo =
+            serde_json::from_str(r#"{"name":"python","version":"3.8.0"}"#).unwrap();
+        let serialized = serde_json::to_string(&li).unwrap();
+        assert!(
+            !serialized.contains("codemirror_mode"),
+            "codemirror_mode should be absent, got: {serialized}"
+        );
+    }
+
+    #[test]
+    fn language_info_no_version_does_not_round_trip_null() {
+        // version absent in input must remain absent after serialization
+        let li: LanguageInfo = serde_json::from_str(r#"{"name":"python"}"#).unwrap();
+        let serialized = serde_json::to_string(&li).unwrap();
+        assert!(
+            !serialized.contains("version"),
+            "version should be absent, got: {serialized}"
+        );
+    }
+
+    #[test]
+    fn language_info_present_fields_round_trip() {
+        // Fields that are present must survive the round-trip
+        let li: LanguageInfo = serde_json::from_str(
+            r#"{"name":"python","version":"3.8.0","codemirror_mode":"python"}"#,
+        )
+        .unwrap();
+        let serialized = serde_json::to_string(&li).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(v["name"], "python");
+        assert_eq!(v["version"], "3.8.0");
+        assert_eq!(v["codemirror_mode"], "python");
+    }
+
+    #[test]
+    fn full_notebook_round_trip_no_nulls() {
+        let json = r#"{
+          "nbformat": 4,
+          "nbformat_minor": 5,
+          "metadata": {
+            "kernelspec": {"display_name": "Python 3", "name": "python3"},
+            "language_info": {"name": "python", "version": "3.8.0"}
+          },
+          "cells": []
+        }"#;
+        let nb = crate::parse_notebook(json).unwrap();
+        let out = crate::serialize_notebook(&nb).unwrap();
+        assert!(
+            !out.contains("codemirror_mode"),
+            "codemirror_mode should be absent, got: {out}"
+        );
+        // version was present in input and must survive
+        assert!(
+            out.contains("\"version\""),
+            "version should be present, got: {out}"
+        );
+    }
 }
