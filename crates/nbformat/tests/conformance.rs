@@ -144,7 +144,10 @@ mod test {
                 if let Err(ref e) = notebook {
                     println!("Error for {}: {:?}", path_str, e);
                 }
-                if path_str.contains("invalid_cell_id") || path_str.contains("invalid_metadata") {
+                if path_str.contains("invalid_cell_id")
+                    || path_str.contains("invalid_metadata")
+                    || path_str.contains("no_cell_id")
+                {
                     assert!(
                         matches!(notebook, Err(nbformat::NotebookError::JsonError(_))),
                         "Expected JsonError for invalid data in {}",
@@ -1023,20 +1026,13 @@ mod test {
  "nbformat": 4,
  "nbformat_minor": 5
 }"###;
-        let notebook =
-            parse_notebook(notebook_json).expect("Should parse notebook without cell IDs");
-
-        if let Notebook::V4(nb) = notebook {
-            assert_eq!(nb.cells.len(), 3);
-            // Verify UUIDs were generated for all cells
-            for cell in &nb.cells {
-                assert!(!cell.id().as_str().is_empty());
-                // UUIDs are 36 characters (with hyphens)
-                assert_eq!(cell.id().as_str().len(), 36);
-            }
-        } else {
-            panic!("Expected V4 notebook");
-        }
+        assert!(
+            matches!(
+                parse_notebook(notebook_json),
+                Err(nbformat::NotebookError::JsonError(_))
+            ),
+            "Expected JsonError for v4.5 notebook missing cell IDs"
+        );
     }
 
     #[test]
