@@ -234,7 +234,7 @@ use uuid::Uuid;
 use crate::{
     create_kernel_control_connection, create_kernel_heartbeat_connection,
     create_kernel_iopub_xpub_connection, create_kernel_shell_connection,
-    create_kernel_stdin_connection, peek_ports, KernelIoPubXPubConnection, Result,
+    create_kernel_stdin_connection, peek_ports_with_listeners, KernelIoPubXPubConnection, Result,
     RouterSendConnection, SubscriptionEvent,
 };
 
@@ -352,7 +352,12 @@ impl TestKernel {
         config: TestKernelConfig,
     ) -> Result<(JoinHandle<Result<()>>, ConnectionInfo)> {
         let ip: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
-        let ports = peek_ports(ip, 5).await?;
+        // Hold the listeners alive across the spawn of the kernel task so that
+        // no other process can steal the ports between allocation and the
+        // kernel binding them. The listeners are moved into the spawned task
+        // and dropped there immediately before the kernel's own sockets bind
+        // the same ports. See `peek_ports_with_listeners`.
+        let (ports, listeners) = peek_ports_with_listeners(ip, 5).await?;
 
         let connection_info = ConnectionInfo {
             transport: Transport::TCP,
@@ -367,7 +372,14 @@ impl TestKernel {
             kernel_name: Some("test".to_string()),
         };
 
-        let handle = Self::start(connection_info.clone(), config).await?;
+        let run_connection_info = connection_info.clone();
+        let handle = tokio::spawn(async move {
+            // Drop the placeholder listeners immediately before the kernel
+            // binds its own sockets to the reserved ports. This is the
+            // smallest possible race window.
+            drop(listeners);
+            Self::run(&run_connection_info, config).await
+        });
         Ok((handle, connection_info))
     }
 

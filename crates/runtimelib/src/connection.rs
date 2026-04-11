@@ -38,21 +38,53 @@ pub use zeromq::util::PeerIdentity;
 
 use crate::{Result, RuntimeError};
 
+/// Find a set of open ports and return both the port numbers and the
+/// [`TcpListener`]s holding them.
+///
+/// The returned listeners MUST be kept alive until the downstream process binds
+/// the ports (e.g. until after `Command::spawn()` returns for a Jupyter kernel
+/// subprocess, or until the in-process sockets have been bound). Dropping the
+/// listeners prematurely re-opens a TOCTOU race that allows the OS to reassign
+/// the ports to other processes, which manifests as intermittent
+/// `Address already in use` errors under concurrent kernel launches.
+///
+/// The typical pattern is:
+///
+/// ```ignore
+/// let (ports, _listeners) = peek_ports_with_listeners(ip, 5).await?;
+/// // ... build ConnectionInfo, write connection file ...
+/// let mut process = kernel_specification
+///     .command(&connection_path, None, None)?
+///     .spawn()?;
+/// // `_listeners` drops here; the child process binds the same ports moments
+/// // later as its first action, closing the race window.
+/// ```
+pub async fn peek_ports_with_listeners(
+    ip: IpAddr,
+    num: usize,
+) -> Result<(Vec<u16>, Vec<TcpListener>)> {
+    let addr_zeroport: SocketAddr = SocketAddr::new(ip, 0);
+
+    let mut ports: Vec<u16> = Vec::with_capacity(num);
+    let mut listeners: Vec<TcpListener> = Vec::with_capacity(num);
+    for _ in 0..num {
+        let listener = TcpListener::bind(addr_zeroport).await?;
+        ports.push(listener.local_addr()?.port());
+        listeners.push(listener);
+    }
+    Ok((ports, listeners))
+}
+
 /// Find a set of open ports. This function creates a listener with the port set to 0.
 /// The listener is closed at the end of the function when the listener goes out of scope.
 ///
-/// This of course opens a race condition in between closing the port and usage by a kernel,
-/// but it is inherent to the design of the Jupyter protocol.
+/// NOTE: This function contains an inherent TOCTOU race — by the time it returns,
+/// the listeners have been dropped and the OS may reassign the ports to other
+/// processes before the caller can bind them. Prefer
+/// [`peek_ports_with_listeners`] for kernel-launch workflows where you can keep
+/// the listeners alive until the ports are re-bound by the downstream process.
 pub async fn peek_ports(ip: IpAddr, num: usize) -> Result<Vec<u16>> {
-    let mut addr_zeroport: SocketAddr = SocketAddr::new(ip, 0);
-    addr_zeroport.set_port(0);
-
-    let mut ports: Vec<u16> = Vec::new();
-    for _ in 0..num {
-        let listener = TcpListener::bind(addr_zeroport).await?;
-        let bound_port = listener.local_addr()?.port();
-        ports.push(bound_port);
-    }
+    let (ports, _listeners) = peek_ports_with_listeners(ip, num).await?;
     Ok(ports)
 }
 
@@ -712,6 +744,63 @@ mod tests {
             "HMAC should NOT include buffers per Jupyter spec. \
              The fact that these differ proves the bug exists."
         );
+    }
+
+    /// Regression test for the `peek_ports` TOCTOU race.
+    ///
+    /// `peek_ports_with_listeners` must hand out unique ports even when called
+    /// concurrently from many tasks — every returned port is backed by a live
+    /// `TcpListener`, so the OS cannot reassign the same port number to two
+    /// simultaneous callers. Before the fix, the old `peek_ports` dropped each
+    /// listener on the same loop iteration it was created, which under load
+    /// would eventually hand out overlapping ports (or, more commonly,
+    /// overlapping ports that were then bound by unrelated processes) and
+    /// surface as `Address already in use` failures when kernels tried to
+    /// bind.
+    #[cfg(feature = "tokio-runtime")]
+    #[tokio::test]
+    async fn peek_ports_with_listeners_no_collisions_under_concurrency() {
+        use std::collections::HashSet;
+        use std::net::Ipv4Addr;
+
+        const TASKS: usize = 32;
+        const PORTS_PER_TASK: usize = 5;
+
+        let ip: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
+
+        // Kick off TASKS concurrent allocations. Each task holds its listeners
+        // until all tasks have reported back, so if any two allocations ever
+        // share a port number we'll see it in the final HashSet count.
+        let mut handles = Vec::with_capacity(TASKS);
+        for _ in 0..TASKS {
+            handles.push(tokio::spawn(async move {
+                peek_ports_with_listeners(ip, PORTS_PER_TASK).await
+            }));
+        }
+
+        let mut all_ports: Vec<u16> = Vec::with_capacity(TASKS * PORTS_PER_TASK);
+        // Keep listeners alive until every task has handed back its results so
+        // the OS can't recycle a port between tasks during the test itself.
+        let mut kept_listeners: Vec<TcpListener> = Vec::with_capacity(TASKS * PORTS_PER_TASK);
+        for handle in handles {
+            let (ports, listeners) = handle.await.expect("task panicked").expect("peek failed");
+            assert_eq!(ports.len(), PORTS_PER_TASK);
+            all_ports.extend(ports);
+            kept_listeners.extend(listeners);
+        }
+
+        let unique: HashSet<u16> = all_ports.iter().copied().collect();
+        assert_eq!(
+            unique.len(),
+            all_ports.len(),
+            "peek_ports_with_listeners handed out overlapping ports under \
+             concurrency: {} unique out of {} total",
+            unique.len(),
+            all_ports.len(),
+        );
+
+        // Drop everything explicitly so the test's intent is obvious.
+        drop(kept_listeners);
     }
 
     /// Test that verification only checks first 4 parts (correct per spec).

@@ -21,7 +21,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Python kernel not found");
 
     let ip = std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1));
-    let ports = runtimelib::peek_ports(ip, 5).await?;
+    // Hold the listeners (`_listeners`) alive until after `spawn()` so the OS
+    // cannot reassign the ports to another process in the race window between
+    // port allocation and the kernel subprocess binding them. See
+    // `peek_ports_with_listeners` for details.
+    let (ports, _listeners) = runtimelib::peek_ports_with_listeners(ip, 5).await?;
     assert_eq!(ports.len(), 5);
 
     let connection_info = ConnectionInfo {
