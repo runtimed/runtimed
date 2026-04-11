@@ -21,7 +21,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Python kernel not found");
 
     let ip = std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1));
-    let ports = runtimelib::peek_ports(ip, 5).await?;
+    // Hold the listeners alive until after `spawn()` so the OS cannot reassign
+    // the ports to another process between allocation and the kernel subprocess
+    // binding them. We MUST drop them before the kernel subprocess tries to
+    // bind — otherwise the kernel's bind fails with `EADDRINUSE` (we're holding
+    // the ports!) and the example deadlocks waiting for a kernel that never
+    // came up. See `peek_ports_with_listeners` for details.
+    let (ports, listeners) = runtimelib::peek_ports_with_listeners(ip, 5).await?;
     assert_eq!(ports.len(), 5);
 
     let connection_info = ConnectionInfo {
@@ -61,6 +67,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .stdin(std::process::Stdio::piped())
         .kill_on_drop(true)
         .spawn()?;
+
+    // Release the reserved ports immediately now that the kernel subprocess
+    // exists. The kernel will bind them as its first action, closing the race
+    // window to the sub-millisecond interval between this drop and the
+    // subprocess's own `bind()` syscall.
+    drop(listeners);
 
     let session_id = Uuid::new_v4().to_string();
 
