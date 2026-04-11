@@ -28,6 +28,9 @@ shellexpand = "3.1.0"
 glob = "0.3.1"
 thiserror = { workspace = true }
 
+[dev-dependencies]
+async-rust-lsp = "0.2"
+
 [features]
 default = ["ring"]
 ring = ["dep:ring"]
