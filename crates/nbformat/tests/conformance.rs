@@ -169,7 +169,10 @@ mod test {
                 if let Err(ref e) = notebook {
                     println!("Error for {}: {:?}", path_str, e);
                 }
-                if path_str.contains("invalid_cell_id") || path_str.contains("invalid_metadata") {
+                if path_str.contains("invalid_cell_id")
+                    || path_str.contains("invalid_metadata")
+                    || path_str.contains("invalid_unique_cell_id")
+                {
                     assert!(
                         matches!(notebook, Err(nbformat::NotebookError::JsonError(_))),
                         "Expected JsonError for invalid data in {}",
@@ -1079,6 +1082,100 @@ mod test {
         for cell in &repaired.cells {
             assert_eq!(cell.id().as_str().len(), 36);
         }
+    }
+
+    #[test]
+    fn test_v45_mixed_present_and_missing_cell_ids() {
+        use nbformat::{Notebook, Quirk};
+
+        let notebook_json = r###"{
+ "cells": [
+  {
+   "id": "keep-me",
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": ["# Heading"]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": ["print('hi')"]
+  }
+ ],
+ "metadata": {},
+ "nbformat": 4,
+ "nbformat_minor": 5
+}"###;
+
+        let parsed = parse_notebook(notebook_json).expect("should parse as quirks mode");
+
+        let quirks = match parsed {
+            Notebook::V4QuirksMode(q) => q,
+            other => panic!("expected V4QuirksMode, got {:?}", other),
+        };
+
+        assert_eq!(quirks.quirks(), &[Quirk::MissingCellId { cell_index: 1 }]);
+
+        let cells = &quirks.notebook().cells;
+        assert_eq!(cells[0].id().as_str(), "keep-me", "explicit id preserved");
+        assert_eq!(cells[1].id().as_str().len(), 36, "missing id fabricated");
+    }
+
+    #[test]
+    fn test_serialize_v4_quirks_mode_errors() {
+        use nbformat::{serialize_notebook, Notebook, NotebookError};
+
+        let notebook_json = read_notebook("tests/notebooks/test4.5_no_cell_id.ipynb");
+        let parsed = parse_notebook(&notebook_json).expect("should parse");
+
+        assert!(matches!(&parsed, Notebook::V4QuirksMode(_)));
+
+        let err = serialize_notebook(&parsed).expect_err("quirks mode must not serialize");
+        match err {
+            NotebookError::ValidationError(msg) => {
+                assert!(
+                    msg.contains("repair"),
+                    "error message should mention repair(), got: {msg}",
+                );
+            }
+            other => panic!("expected ValidationError, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_v4_quirks_repair_round_trip() {
+        use nbformat::{serialize_notebook, Notebook};
+
+        let notebook_json = read_notebook("tests/notebooks/test4.5_no_cell_id.ipynb");
+        let parsed = parse_notebook(&notebook_json).expect("should parse");
+
+        let quirks = match parsed {
+            Notebook::V4QuirksMode(q) => q.clone(),
+            other => panic!("expected V4QuirksMode, got {:?}", other),
+        };
+
+        let repaired = quirks.repair();
+        assert!(!repaired.cells.is_empty());
+        for cell in &repaired.cells {
+            assert!(!cell.id().as_str().is_empty());
+        }
+
+        serialize_notebook(&Notebook::V4(repaired)).expect("repaired v4 serializes");
+    }
+
+    #[test]
+    fn test_v44_stays_legacy_not_quirks_mode() {
+        use nbformat::Notebook;
+
+        let notebook_json = read_notebook("tests/notebooks/test4jupyter_metadata_timings.ipynb");
+        let parsed = parse_notebook(&notebook_json).expect("should parse");
+
+        assert!(
+            matches!(parsed, Notebook::Legacy(_)),
+            "v4.4 notebooks must remain in Legacy; no silent up-conversion to V4 or V4QuirksMode",
+        );
     }
 
     #[test]
