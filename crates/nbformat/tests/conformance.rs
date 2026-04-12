@@ -1056,8 +1056,7 @@ mod test {
 }"###;
         use nbformat::Quirk;
 
-        let parsed =
-            parse_notebook(notebook_json).expect("should parse as quirks mode");
+        let parsed = parse_notebook(notebook_json).expect("should parse as quirks mode");
 
         let quirks = match parsed {
             Notebook::V4QuirksMode(q) => q,
