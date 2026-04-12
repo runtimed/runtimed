@@ -73,13 +73,48 @@ pub enum Notebook {
     V3(v3::Notebook),
 }
 
+/// Walk a raw v4.5 notebook value and report spec violations that
+/// the lenient deserializer would otherwise hide. This runs BEFORE
+/// serde deserialization because the `default_cell_id` fallback
+/// makes fabricated cell ids indistinguishable from real ones
+/// after the fact.
+fn detect_v45_quirks(value: &serde_json::Value) -> Vec<Quirk> {
+    let mut quirks = Vec::new();
+
+    let Some(cells) = value.get("cells").and_then(|v| v.as_array()) else {
+        return quirks;
+    };
+
+    for (cell_index, cell) in cells.iter().enumerate() {
+        let has_non_empty_id = cell
+            .get("id")
+            .and_then(|v| v.as_str())
+            .map(|s| !s.is_empty())
+            .unwrap_or(false);
+
+        if !has_non_empty_id {
+            quirks.push(Quirk::MissingCellId { cell_index });
+        }
+    }
+
+    quirks
+}
+
 pub fn parse_notebook(json: &str) -> Result<Notebook, NotebookError> {
     let value: serde_json::Value = serde_json::from_str(json)?;
     let nbformat = value["nbformat"].as_i64().unwrap_or(0) as i32;
     let nbformat_minor = value["nbformat_minor"].as_i64().unwrap_or(0) as i32;
 
     match (nbformat, nbformat_minor) {
-        (4, 5) => Ok(Notebook::V4(serde_json::from_value::<v4::Notebook>(value)?)),
+        (4, 5) => {
+            let quirks = detect_v45_quirks(&value);
+            let notebook = serde_json::from_value::<v4::Notebook>(value)?;
+            if quirks.is_empty() {
+                Ok(Notebook::V4(notebook))
+            } else {
+                Ok(Notebook::V4QuirksMode(V4Quirks { notebook, quirks }))
+            }
+        }
         (4, 0) | (4, 1) | (4, 2) | (4, 3) | (4, 4) => Ok(Notebook::Legacy(
             serde_json::from_value::<legacy::Notebook>(value)?,
         )),

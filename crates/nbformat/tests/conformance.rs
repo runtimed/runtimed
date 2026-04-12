@@ -129,6 +129,31 @@ mod test {
     }
 
     #[test]
+    fn test_v45_notebook_missing_cell_ids_is_quirks_mode() {
+        use nbformat::{Notebook, Quirk};
+
+        let notebook_json = read_notebook("tests/notebooks/test4.5_no_cell_id.ipynb");
+        let parsed = parse_notebook(&notebook_json).expect("should parse as quirks mode");
+
+        let quirks = match parsed {
+            Notebook::V4QuirksMode(q) => q,
+            other => panic!("expected V4QuirksMode, got {:?}", other),
+        };
+
+        assert_eq!(
+            quirks.quirks(),
+            &[Quirk::MissingCellId { cell_index: 0 }],
+            "should report missing cell id at index 0",
+        );
+        assert_eq!(quirks.notebook().cells.len(), 1);
+
+        // The fabricated id is present and looks like a UUID.
+        let id = quirks.notebook().cells[0].id().as_str();
+        assert!(!id.is_empty());
+        assert_eq!(id.len(), 36);
+    }
+
+    #[test]
     fn test_open_all_notebooks_in_dir() {
         let dir = Path::new("tests/notebooks");
         for entry in fs::read_dir(dir).expect("Failed to read directory") {
@@ -1028,14 +1053,14 @@ mod test {
 }"###;
         let notebook = parse_notebook(notebook_json).expect("Should parse notebook without cell IDs");
 
-        if let nbformat::Notebook::V4(nb) = notebook {
-            assert_eq!(nb.cells.len(), 3);
-            for cell in &nb.cells {
-                assert!(!cell.id().as_str().is_empty());
-                assert_eq!(cell.id().as_str().len(), 36);
-            }
-        } else {
-            panic!("Expected V4 notebook");
+        let nb = match notebook {
+            nbformat::Notebook::V4QuirksMode(q) => q.repair(),
+            other => panic!("Expected V4QuirksMode notebook, got {:?}", other),
+        };
+        assert_eq!(nb.cells.len(), 3);
+        for cell in &nb.cells {
+            assert!(!cell.id().as_str().is_empty());
+            assert_eq!(cell.id().as_str().len(), 36);
         }
     }
 
