@@ -4,6 +4,8 @@ All notable changes to `nbformat` will be documented in this file.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-04-12
+
 ### Breaking
 
 - Add `Notebook::V4QuirksMode` variant for v4.5 notebooks with missing cell IDs. (#295)
