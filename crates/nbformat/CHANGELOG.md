@@ -4,6 +4,16 @@ All notable changes to `nbformat` will be documented in this file.
 
 ## [Unreleased]
 
+### Breaking
+
+- Add `Notebook::V4QuirksMode` variant for v4.5 notebooks with missing cell IDs. (#295)
+- Mark `Notebook` enum as `#[non_exhaustive]`.
+
+### Added
+
+- `V4Quirks` wrapper with `repair()` method to surface and fix spec violations via the type system.
+- `Quirk` enum (also `#[non_exhaustive]`) with `MissingCellId` variant.
+
 ## [1.2.2] - 2026-03-14
 
 ## [1.2.1] - 2026-03-06

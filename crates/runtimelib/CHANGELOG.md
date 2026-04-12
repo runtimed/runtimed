@@ -4,6 +4,14 @@ All notable changes to `runtimelib` will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- `peek_ports_with_listeners()` to hold TcpListeners across kernel spawn, closing the port reuse race window. (#296)
+
+### Internal
+
+- Add tokio mutex lint integration test. (#297)
+
 ## [1.5.0] - 2026-03-06
 
 ## [1.4.0] - 2026-02-25
