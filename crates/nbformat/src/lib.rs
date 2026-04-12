@@ -15,11 +15,89 @@ pub enum NotebookError {
     ValidationError(String),
 }
 
+/// A v4.5 spec violation detected during parse.
+///
+/// Currently only `MissingCellId` is emitted; the enum is
+/// `#[non_exhaustive]` so future additions are minor-safe.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Quirk {
+    /// A 4.5 cell lacked a required `id` field. `cell_index` is the
+    /// cell's position in the on-disk `cells` array.
+    MissingCellId { cell_index: usize },
+}
+
+/// A v4.5 notebook that violated the 4.5 spec on load.
+///
+/// Missing cell ids have already been filled with fresh UUIDs by the
+/// lenient deserializer — `notebook` is safe to inspect, but the bytes
+/// on disk did not carry these ids. Callers must explicitly promote
+/// this via [`V4Quirks::repair`] before the result is considered a
+/// spec-compliant `v4::Notebook`.
+#[derive(Debug, Clone)]
+pub struct V4Quirks {
+    notebook: v4::Notebook,
+    quirks: Vec<Quirk>,
+}
+
+impl V4Quirks {
+    /// The quirks detected during parse, in document order.
+    pub fn quirks(&self) -> &[Quirk] {
+        &self.quirks
+    }
+
+    /// Borrow the parsed notebook. Fabricated cell ids are already
+    /// present in the returned reference.
+    pub fn notebook(&self) -> &v4::Notebook {
+        &self.notebook
+    }
+
+    /// Consume and promote to a valid `v4::Notebook`.
+    ///
+    /// Because the lenient deserializer already filled missing ids
+    /// with fresh UUIDs, this is a type-system promotion, not a
+    /// runtime mutation. The fabricated ids become authoritative.
+    /// Callers that want stable ids across future loads should
+    /// persist the repaired notebook back to disk.
+    pub fn repair(self) -> v4::Notebook {
+        self.notebook
+    }
+}
+
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Notebook {
     V4(v4::Notebook),
+    V4QuirksMode(V4Quirks),
     Legacy(legacy::Notebook),
     V3(v3::Notebook),
+}
+
+/// Walk a raw v4.5 notebook value and report spec violations that
+/// the lenient deserializer would otherwise hide. This runs BEFORE
+/// serde deserialization because the `default_cell_id` fallback
+/// makes fabricated cell ids indistinguishable from real ones
+/// after the fact.
+fn detect_v45_quirks(value: &serde_json::Value) -> Vec<Quirk> {
+    let mut quirks = Vec::new();
+
+    let Some(cells) = value.get("cells").and_then(|v| v.as_array()) else {
+        return quirks;
+    };
+
+    for (cell_index, cell) in cells.iter().enumerate() {
+        let has_non_empty_id = cell
+            .get("id")
+            .and_then(|v| v.as_str())
+            .map(|s| !s.is_empty())
+            .unwrap_or(false);
+
+        if !has_non_empty_id {
+            quirks.push(Quirk::MissingCellId { cell_index });
+        }
+    }
+
+    quirks
 }
 
 pub fn parse_notebook(json: &str) -> Result<Notebook, NotebookError> {
@@ -28,7 +106,15 @@ pub fn parse_notebook(json: &str) -> Result<Notebook, NotebookError> {
     let nbformat_minor = value["nbformat_minor"].as_i64().unwrap_or(0) as i32;
 
     match (nbformat, nbformat_minor) {
-        (4, 5) => Ok(Notebook::V4(serde_json::from_value::<v4::Notebook>(value)?)),
+        (4, 5) => {
+            let quirks = detect_v45_quirks(&value);
+            let notebook = serde_json::from_value::<v4::Notebook>(value)?;
+            if quirks.is_empty() {
+                Ok(Notebook::V4(notebook))
+            } else {
+                Ok(Notebook::V4QuirksMode(V4Quirks { notebook, quirks }))
+            }
+        }
         (4, 0) | (4, 1) | (4, 2) | (4, 3) | (4, 4) => Ok(Notebook::Legacy(
             serde_json::from_value::<legacy::Notebook>(value)?,
         )),
@@ -54,6 +140,9 @@ pub fn serialize_notebook(notebook: &Notebook) -> Result<String, NotebookError> 
 
             Ok(notebook_json)
         }
+        Notebook::V4QuirksMode(_) => Err(NotebookError::ValidationError(
+            "v4.5 notebook has quirks — call V4Quirks::repair() before serializing".to_string(),
+        )),
         Notebook::Legacy(notebook) => Err(NotebookError::UnsupportedVersion(
             notebook.nbformat,
             notebook.nbformat_minor,
