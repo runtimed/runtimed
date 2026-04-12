@@ -54,6 +54,10 @@ fn main() {
                 }
             }
         }
+        Ok(_) => {
+            eprintln!("Error: unsupported notebook variant");
+            std::process::exit(1);
+        }
         Err(e) => {
             eprintln!("Error parsing notebook: {}", e);
             std::process::exit(1);

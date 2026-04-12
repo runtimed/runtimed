@@ -474,6 +474,7 @@ mod test {
             }
             Notebook::Legacy(_) => panic!("Expected V4 notebook, got legacy"),
             Notebook::V3(_) => panic!("Expected V4 notebook, got v3"),
+            _ => panic!("Unexpected notebook variant"),
         }
 
         let serialized = serialize_notebook(&notebook).expect("Failed to serialize notebook");
@@ -648,6 +649,7 @@ mod test {
             }
             Notebook::Legacy(_) => panic!("Expected V4 notebook, got legacy"),
             Notebook::V3(_) => panic!("Expected V4 notebook, got v3"),
+            _ => panic!("Unexpected notebook variant"),
         }
     }
 
@@ -959,6 +961,7 @@ mod test {
             }
             Notebook::Legacy(_) => panic!("Expected V4 notebook, got legacy"),
             Notebook::V3(_) => panic!("Expected V4 notebook, got v3"),
+            _ => panic!("Unexpected notebook variant"),
         }
     }
 

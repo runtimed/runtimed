@@ -15,9 +15,60 @@ pub enum NotebookError {
     ValidationError(String),
 }
 
+/// A v4.5 spec violation detected during parse.
+///
+/// Currently only `MissingCellId` is emitted; the enum is
+/// `#[non_exhaustive]` so future additions are minor-safe.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Quirk {
+    /// A 4.5 cell lacked a required `id` field. `cell_index` is the
+    /// cell's position in the on-disk `cells` array.
+    MissingCellId { cell_index: usize },
+}
+
+/// A v4.5 notebook that violated the 4.5 spec on load.
+///
+/// Missing cell ids have already been filled with fresh UUIDs by the
+/// lenient deserializer — `notebook` is safe to inspect, but the bytes
+/// on disk did not carry these ids. Callers must explicitly promote
+/// this via [`V4Quirks::repair`] before the result is considered a
+/// spec-compliant `v4::Notebook`.
+#[derive(Debug, Clone)]
+pub struct V4Quirks {
+    notebook: v4::Notebook,
+    quirks: Vec<Quirk>,
+}
+
+impl V4Quirks {
+    /// The quirks detected during parse, in document order.
+    pub fn quirks(&self) -> &[Quirk] {
+        &self.quirks
+    }
+
+    /// Borrow the parsed notebook. Fabricated cell ids are already
+    /// present in the returned reference.
+    pub fn notebook(&self) -> &v4::Notebook {
+        &self.notebook
+    }
+
+    /// Consume and promote to a valid `v4::Notebook`.
+    ///
+    /// Because the lenient deserializer already filled missing ids
+    /// with fresh UUIDs, this is a type-system promotion, not a
+    /// runtime mutation. The fabricated ids become authoritative.
+    /// Callers that want stable ids across future loads should
+    /// persist the repaired notebook back to disk.
+    pub fn repair(self) -> v4::Notebook {
+        self.notebook
+    }
+}
+
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Notebook {
     V4(v4::Notebook),
+    V4QuirksMode(V4Quirks),
     Legacy(legacy::Notebook),
     V3(v3::Notebook),
 }
@@ -54,6 +105,9 @@ pub fn serialize_notebook(notebook: &Notebook) -> Result<String, NotebookError> 
 
             Ok(notebook_json)
         }
+        Notebook::V4QuirksMode(_) => Err(NotebookError::ValidationError(
+            "v4.5 notebook has quirks — call V4Quirks::repair() before serializing".to_string(),
+        )),
         Notebook::Legacy(notebook) => Err(NotebookError::UnsupportedVersion(
             notebook.nbformat,
             notebook.nbformat_minor,
