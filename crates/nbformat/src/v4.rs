@@ -272,6 +272,10 @@ impl<'a> TryFrom<&'a str> for CellId {
     }
 }
 
+fn default_cell_id() -> CellId {
+    CellId::from(Uuid::new_v4())
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum CellType {
     Code,
@@ -284,6 +288,7 @@ pub enum CellType {
 pub enum Cell {
     #[serde(rename = "markdown")]
     Markdown {
+        #[serde(default = "default_cell_id")]
         id: CellId,
         metadata: CellMetadata,
         #[serde(deserialize_with = "deserialize_source")]
@@ -293,6 +298,7 @@ pub enum Cell {
     },
     #[serde(rename = "code")]
     Code {
+        #[serde(default = "default_cell_id")]
         id: CellId,
         metadata: CellMetadata,
         execution_count: Option<i32>,
@@ -303,6 +309,7 @@ pub enum Cell {
     },
     #[serde(rename = "raw")]
     Raw {
+        #[serde(default = "default_cell_id")]
         id: CellId,
         metadata: CellMetadata,
         #[serde(deserialize_with = "deserialize_source")]
