@@ -4,6 +4,8 @@ All notable changes to `runtimelib` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-04-12
+
 ### Added
 
 - `peek_ports_with_listeners()` to hold TcpListeners across kernel spawn, closing the port reuse race window. (#296)
