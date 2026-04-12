@@ -1051,15 +1051,32 @@ mod test {
  "nbformat": 4,
  "nbformat_minor": 5
 }"###;
-        let notebook = parse_notebook(notebook_json).expect("Should parse notebook without cell IDs");
+        use nbformat::Quirk;
 
-        let nb = match notebook {
-            nbformat::Notebook::V4QuirksMode(q) => q.repair(),
-            other => panic!("Expected V4QuirksMode notebook, got {:?}", other),
+        let parsed =
+            parse_notebook(notebook_json).expect("should parse as quirks mode");
+
+        let quirks = match parsed {
+            Notebook::V4QuirksMode(q) => q,
+            other => panic!("expected V4QuirksMode, got {:?}", other),
         };
-        assert_eq!(nb.cells.len(), 3);
-        for cell in &nb.cells {
-            assert!(!cell.id().as_str().is_empty());
+
+        assert_eq!(
+            quirks.quirks(),
+            &[
+                Quirk::MissingCellId { cell_index: 0 },
+                Quirk::MissingCellId { cell_index: 1 },
+                Quirk::MissingCellId { cell_index: 2 },
+            ],
+        );
+
+        let repaired = quirks.repair();
+        assert_eq!(repaired.cells.len(), 3);
+        let mut ids: Vec<&str> = repaired.cells.iter().map(|c| c.id().as_str()).collect();
+        ids.sort();
+        ids.dedup();
+        assert_eq!(ids.len(), 3, "all fabricated ids must be unique");
+        for cell in &repaired.cells {
             assert_eq!(cell.id().as_str().len(), 36);
         }
     }
