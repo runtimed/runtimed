@@ -44,6 +44,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 At present, this crate supports v4.5 notebooks via `Notebook::V4`, v4.1-v4.4 via `Notebook::Legacy` and v3 via `Notebook::V3`. v4.5 have some more hard constraints on CellIDs being required, only allowing certain characters, and not having duplicates. Converting from a v4.1-v4.4 notebook to a v4.5 notebook requires modifying the notebook to include Cell IDs.
 
+Notebooks that declare v4.5 but omit cell ids load as `Notebook::V4QuirksMode`; callers must either inspect the quirks and reject the notebook, or call `V4Quirks::repair()` to promote it to a valid `v4::Notebook`.
+
 
 ## ROADMAP
 
