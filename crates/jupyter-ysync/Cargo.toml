@@ -1,6 +1,6 @@
 [package]
 name = "jupyter-ysync"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 description = "Y-sync protocol implementation for Jupyter notebook collaboration"
 license = "BSD-3-Clause"
