@@ -237,7 +237,7 @@ where
             "application/vnd.vega.v4+json" => MediaType::VegaV4(value),
             "application/vnd.vega.v5+json" => MediaType::VegaV5(value),
             "application/vdom.v1+json" => MediaType::Vdom(value),
-            _ => MediaType::Other((key, value)),
+            _ => MediaType::Other((key.clone(), rejoin_notebook_mime_value(&key, value))),
         };
         content.push(mediatype);
     }
@@ -259,6 +259,38 @@ where
             Ok(text)
         }
         _ => Err(de::Error::custom("Invalid value for text-based media type")),
+    }
+}
+
+fn is_json_mime(mime_type: &str) -> bool {
+    mime_type == "application/json"
+        || (mime_type.starts_with("application/") && mime_type.ends_with("+json"))
+}
+
+fn should_split_notebook_mime(mime_type: &str) -> bool {
+    mime_type.starts_with("text/")
+        || mime_type == "application/javascript"
+        || mime_type == "image/svg+xml"
+}
+
+fn split_text_for_notebook(text: &str) -> Value {
+    Value::Array(
+        text.split_inclusive('\n')
+            .map(|s| Value::String(s.to_string()))
+            .collect(),
+    )
+}
+
+fn rejoin_notebook_mime_value(mime_type: &str, value: Value) -> Value {
+    if is_json_mime(mime_type) {
+        return value;
+    }
+
+    match value {
+        Value::Array(arr) if arr.iter().all(|v| v.is_string()) => {
+            Value::String(arr.iter().filter_map(|v| v.as_str()).collect())
+        }
+        other => other,
     }
 }
 
@@ -299,41 +331,25 @@ where
             | MediaType::Markdown(text)
             | MediaType::Svg(text) => {
                 if with_multiline {
-                    let lines: Vec<String> =
-                        text.split_inclusive('\n').map(|s| s.to_string()).collect();
-
-                    if lines.len() > 1 {
-                        Value::Array(lines.into_iter().map(Value::String).collect())
-                    } else {
-                        Value::Array(vec![Value::String(text.clone())])
-                    }
+                    split_text_for_notebook(text)
                 } else {
                     Value::String(text.clone())
                 }
             }
-            // ** Treat images in a special way **
-            // Jupyter, in practice, will attempt to keep the multiline version of the image around if it was written in
-            // that way. We'd have to do extra tracking in order to keep this enum consistent, so this is an area
-            // where we may wish to diverge from practice (not protocol or schema, just practice).
-            //
-            // As an example, some frontends will convert images to base64 and then split them into 80 character chunks
-            // with newlines interspersed. We could perform the chunking but then in many cases we will no longer match.
             MediaType::Jpeg(text) | MediaType::Png(text) | MediaType::Gif(text) => {
-                if with_multiline {
-                    let lines: Vec<String> =
-                        text.split_inclusive('\n').map(|s| s.to_string()).collect();
-
-                    if lines.len() > 1 {
-                        Value::Array(lines.into_iter().map(Value::String).collect())
-                    } else {
-                        Value::String(text.clone())
+                Value::String(text.clone())
+            }
+            MediaType::Other((mime_type, value)) => {
+                let value = rejoin_notebook_mime_value(mime_type, value.clone());
+                if with_multiline && should_split_notebook_mime(mime_type) {
+                    match value {
+                        Value::String(text) => split_text_for_notebook(&text),
+                        other => other,
                     }
                 } else {
-                    Value::String(text.clone())
+                    value
                 }
             }
-            // Keep unknown media types as is
-            MediaType::Other((_, value)) => value.clone(),
             _ => {
                 let serialized =
                     serde_json::to_value(media_type).map_err(serde::ser::Error::custom)?;
@@ -428,9 +444,13 @@ pub type MimeType = MediaType;
 #[cfg(test)]
 mod test {
     use datatable::TableSchemaField;
+    use serde::Serialize;
     use serde_json::json;
 
     use super::*;
+
+    #[derive(Serialize)]
+    struct NotebookMedia<'a>(#[serde(serialize_with = "serialize_media_for_notebook")] &'a Media);
 
     #[test]
     fn svg_deserialized_correctly() {
@@ -652,6 +672,62 @@ mod test {
         assert!(bundle
             .content
             .contains(&MediaType::Html("<h1>\n  Hello, world!\n</h1>".to_string())));
+    }
+
+    #[test]
+    fn notebook_serialization_keeps_binary_media_as_strings() {
+        let raw = r#"{
+            "application/octet-stream": ["bin-one\n", "bin-two"],
+            "image/gif": ["gif-one\n", "gif-two"],
+            "image/jpeg": ["jpeg-one\n", "jpeg-two"],
+            "image/png": ["png-one\n", "png-two\n"],
+            "text/plain": ["plain-one\n", "plain-two"]
+        }"#;
+
+        let bundle: Media = serde_json::from_str(raw).unwrap();
+        let notebook_value = serde_json::to_value(NotebookMedia(&bundle)).unwrap();
+
+        assert_eq!(
+            notebook_value["application/octet-stream"],
+            "bin-one\nbin-two"
+        );
+        assert_eq!(notebook_value["image/gif"], "gif-one\ngif-two");
+        assert_eq!(notebook_value["image/jpeg"], "jpeg-one\njpeg-two");
+        assert_eq!(notebook_value["image/png"], "png-one\npng-two\n");
+        assert_eq!(
+            notebook_value["text/plain"],
+            json!(["plain-one\n", "plain-two"])
+        );
+    }
+
+    #[test]
+    fn notebook_serialization_splits_only_jupyter_text_mimes() {
+        let media = Media::new(vec![
+            MediaType::Other(("text/x-custom".to_string(), json!("custom-one\ncustom-two"))),
+            MediaType::Other((
+                "application/x-custom+json".to_string(),
+                json!(["keep", "json", "array"]),
+            )),
+            MediaType::Other((
+                "application/octet-stream".to_string(),
+                json!("bin-one\nbin-two"),
+            )),
+        ]);
+
+        let notebook_value = serde_json::to_value(NotebookMedia(&media)).unwrap();
+
+        assert_eq!(
+            notebook_value["text/x-custom"],
+            json!(["custom-one\n", "custom-two"])
+        );
+        assert_eq!(
+            notebook_value["application/x-custom+json"],
+            json!(["keep", "json", "array"])
+        );
+        assert_eq!(
+            notebook_value["application/octet-stream"],
+            "bin-one\nbin-two"
+        );
     }
 
     #[test]

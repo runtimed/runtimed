@@ -382,7 +382,7 @@ where
     Ok(deserialized_cells)
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct CellMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,

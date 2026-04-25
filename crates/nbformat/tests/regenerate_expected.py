@@ -18,6 +18,7 @@ Requires: `pip install nbformat`.
 
 from __future__ import annotations
 
+import json
 import pathlib
 import sys
 
@@ -30,22 +31,6 @@ except ImportError:
     sys.exit(1)
 
 
-def _has_binary_outputs(nb) -> bool:
-    """Return True if any cell output includes a binary MIME payload."""
-    for cell in nb.get("cells", []):
-        for output in cell.get("outputs", []):
-            data = output.get("data") or {}
-            for mime in data:
-                if mime.startswith(("image/", "audio/", "video/")) and mime != "image/svg+xml":
-                    return True
-                if mime.startswith("application/") and mime not in (
-                    "application/json",
-                    "application/javascript",
-                ):
-                    return True
-    return False
-
-
 def main() -> int:
     here = pathlib.Path(__file__).resolve().parent
     fixtures_dir = here / "notebooks"
@@ -56,14 +41,36 @@ def main() -> int:
     skipped: list[tuple[str, str]] = []
 
     for path in sorted(fixtures_dir.glob("*.ipynb")):
+        # Skip fixtures whose filename marks them as invalid — the Rust crate
+        # rejects these on parse, so a byte-for-byte oracle is not meaningful.
+        if path.name.startswith("invalid"):
+            skipped.append((path.name, "intentionally invalid (Rust crate rejects)"))
+            continue
+
+        try:
+            raw_nb = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            raw_nb = {}
+        if raw_nb and (raw_nb.get("nbformat") != 4 or raw_nb.get("nbformat_minor", 0) != 5):
+            skipped.append(
+                (
+                    path.name,
+                    f"not v4.5 (nbformat={raw_nb.get('nbformat')}.{raw_nb.get('nbformat_minor')})",
+                )
+            )
+            continue
+        if any("id" not in cell for cell in raw_nb.get("cells", [])):
+            skipped.append((path.name, "missing cell ids (Python fills nondeterministic ids)"))
+            continue
+
         try:
             # as_version=nbformat.NO_CONVERT preserves the original nbformat
             # version so we only regenerate notebooks that are valid at their
             # declared version. Upgrading would make the test drift from the
             # Rust crate's read path.
             nb = nbformat.read(str(path), as_version=nbformat.NO_CONVERT)
-            if nb.get("nbformat") != 4 or nb.get("nbformat_minor", 0) < 5:
-                # The Rust crate requires v4.5 for serialize_notebook.
+            if nb.get("nbformat") != 4 or nb.get("nbformat_minor", 0) != 5:
+                # The Rust crate requires exactly v4.5 for serialize_notebook.
                 skipped.append(
                     (
                         path.name,
@@ -74,22 +81,6 @@ def main() -> int:
             nbformat.validate(nb)
         except Exception as exc:
             skipped.append((path.name, f"{type(exc).__name__}: {exc}"))
-            continue
-
-        # Skip fixtures whose filename marks them as invalid — the Rust crate
-        # rejects these on parse, so a byte-for-byte oracle is not meaningful.
-        if path.name.startswith("invalid"):
-            skipped.append((path.name, "intentionally invalid (Rust crate rejects)"))
-            continue
-
-        # Skip fixtures that contain binary MIME output data. Python nbformat
-        # stores binary outputs (image/png, audio/*, video/*, application/*)
-        # as single strings, while jupyter-protocol's media serializer splits
-        # every MIME type on newlines into a list. That divergence is a
-        # separate bug — not a key-ordering issue — so these fixtures cannot
-        # round-trip byte-for-byte until it is fixed upstream.
-        if _has_binary_outputs(nb):
-            skipped.append((path.name, "binary MIME outputs (unrelated serialize divergence)"))
             continue
 
         target = expected_dir / path.name
