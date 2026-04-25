@@ -123,10 +123,36 @@ pub fn parse_notebook(json: &str) -> Result<Notebook, NotebookError> {
     }
 }
 
+/// Recursively rebuild every `Value::Object` with its keys in sorted order.
+///
+/// This mirrors Python `nbformat.write`'s use of `json.dumps(..., sort_keys=True)`.
+/// We do this explicitly rather than relying on serde_json's internal map type
+/// because the `preserve_order` feature — which some downstream workspaces
+/// enable — switches the `Map` backing from `BTreeMap` (sorted) to `IndexMap`
+/// (insertion order). Applying the sort ourselves produces identical output
+/// regardless of that feature flag.
+fn sort_value_keys(value: serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::Object(map) => {
+            let mut entries: Vec<(String, serde_json::Value)> = map.into_iter().collect();
+            entries.sort_by(|a, b| a.0.cmp(&b.0));
+            let mut sorted = serde_json::Map::new();
+            for (k, v) in entries {
+                sorted.insert(k, sort_value_keys(v));
+            }
+            serde_json::Value::Object(sorted)
+        }
+        serde_json::Value::Array(items) => {
+            serde_json::Value::Array(items.into_iter().map(sort_value_keys).collect())
+        }
+        other => other,
+    }
+}
+
 pub fn serialize_notebook(notebook: &Notebook) -> Result<String, NotebookError> {
     match notebook {
         Notebook::V4(notebook) => {
-            let value = serde_json::to_value(notebook)?;
+            let value = sort_value_keys(serde_json::to_value(notebook)?);
             let mut buf = Vec::new();
             let formatter = serde_json::ser::PrettyFormatter::with_indent(b" ");
             let mut ser = serde_json::Serializer::with_formatter(&mut buf, formatter);
@@ -416,5 +442,72 @@ fn convert_v3_output(v3_output: v3::Output) -> v4::Output {
             evalue: evalue.unwrap_or_default(),
             traceback,
         }),
+    }
+}
+
+#[cfg(test)]
+mod sort_value_keys_tests {
+    use super::sort_value_keys;
+    use serde_json::json;
+
+    fn top_level_keys(v: &serde_json::Value) -> Vec<&str> {
+        v.as_object()
+            .expect("expected object")
+            .keys()
+            .map(String::as_str)
+            .collect()
+    }
+
+    #[test]
+    fn sorts_top_level_keys() {
+        let sorted = sort_value_keys(json!({
+            "zebra": 1,
+            "apple": 2,
+            "mango": 3,
+        }));
+        assert_eq!(top_level_keys(&sorted), vec!["apple", "mango", "zebra"]);
+    }
+
+    #[test]
+    fn sorts_nested_object_keys() {
+        let sorted = sort_value_keys(json!({
+            "outer": {
+                "zebra": 1,
+                "apple": 2,
+            }
+        }));
+        let inner = sorted.get("outer").unwrap();
+        assert_eq!(top_level_keys(inner), vec!["apple", "zebra"]);
+    }
+
+    #[test]
+    fn sorts_keys_inside_arrays() {
+        let sorted = sort_value_keys(json!({
+            "cells": [
+                { "zebra": 1, "apple": 2 },
+                { "mango": 3, "banana": 4 },
+            ]
+        }));
+        let cells = sorted.get("cells").unwrap().as_array().unwrap();
+        assert_eq!(top_level_keys(&cells[0]), vec!["apple", "zebra"]);
+        assert_eq!(top_level_keys(&cells[1]), vec!["banana", "mango"]);
+    }
+
+    #[test]
+    fn preserves_array_element_order() {
+        let sorted = sort_value_keys(json!({
+            "list": [3, 1, 2],
+        }));
+        let list = sorted.get("list").unwrap().as_array().unwrap();
+        let values: Vec<i64> = list.iter().map(|v| v.as_i64().unwrap()).collect();
+        assert_eq!(values, vec![3, 1, 2]);
+    }
+
+    #[test]
+    fn leaves_scalars_untouched() {
+        assert_eq!(sort_value_keys(json!(null)), json!(null));
+        assert_eq!(sort_value_keys(json!(true)), json!(true));
+        assert_eq!(sort_value_keys(json!(42)), json!(42));
+        assert_eq!(sort_value_keys(json!("hello")), json!("hello"));
     }
 }
