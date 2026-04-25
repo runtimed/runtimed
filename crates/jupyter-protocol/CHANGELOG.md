@@ -4,6 +4,8 @@ All notable changes to `jupyter-protocol` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-04-25
+
 ## [1.4.0] - 2026-02-26
 
 ### Changed
