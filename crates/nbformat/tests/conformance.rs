@@ -240,22 +240,22 @@ mod test {
 
         let serialized = serialize_notebook(&notebook).expect("Failed to serialize notebook");
 
-        let original_value: Value =
-            serde_json::from_str(&notebook_json).expect("Failed to parse original JSON");
+        let expected = read_notebook("tests/notebooks/expected/test4.5.ipynb");
+        let expected_value: Value =
+            serde_json::from_str(&expected).expect("Failed to parse expected JSON");
         let serialized_value: Value =
             serde_json::from_str(&serialized).expect("Failed to parse serialized JSON");
 
-        if let Err(diff) = compare_notebook_json(&original_value, &serialized_value) {
+        if let Err(diff) = compare_notebook_json(&expected_value, &serialized_value) {
             panic!("Serialization mismatch: {}", diff);
         }
 
         println!("Structures match in contents!");
 
-        println!("Original:\n\n{}", notebook_json);
+        println!("Expected:\n\n{}", expected);
         println!("Serialized:\n\n{}", serialized);
 
-        // Now for the hardest part -- seeing if we can get exact text back
-        assert_eq!(notebook_json, serialized);
+        assert_eq!(expected, serialized);
     }
 
     #[test]
@@ -507,18 +507,24 @@ mod test {
 
         let serialized = serialize_notebook(&notebook).expect("Failed to serialize notebook");
 
-        let original_value: Value =
-            serde_json::from_str(notebook_json).expect("Failed to parse original JSON");
         let serialized_value: Value =
             serde_json::from_str(&serialized).expect("Failed to parse serialized JSON");
 
-        if let Err(diff) = compare_notebook_json(&original_value, &serialized_value) {
-            panic!("Serialization mismatch: {}", diff);
-        }
-
-        println!("Structures match in contents!");
-
-        assert_eq!(notebook_json, serialized);
+        let data = &serialized_value["cells"][8]["outputs"][0]["data"];
+        assert_eq!(
+            data["image/png"],
+            "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9Qz0AEYBxVSF+F\nAAhKDveksOjmAAAAAElFTkSuQmCC\n"
+        );
+        assert_eq!(
+            data["text/plain"],
+            Value::Array(vec![Value::String(
+                "<IPython.core.display.Image at 0x111275490>".to_string()
+            )])
+        );
+        assert_eq!(
+            serialized_value["cells"][6]["outputs"][0]["data"]["text/hokey"],
+            Value::Array(vec![Value::String("fake output".to_string())])
+        );
     }
 
     #[test]

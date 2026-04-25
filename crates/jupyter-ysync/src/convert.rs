@@ -461,19 +461,7 @@ pub fn output_to_any(output: &Output) -> Result<Any> {
 
 /// Create a default CellMetadata with all fields set to None.
 fn default_cell_metadata() -> CellMetadata {
-    CellMetadata {
-        id: None,
-        collapsed: None,
-        scrolled: None,
-        deletable: None,
-        editable: None,
-        format: None,
-        name: None,
-        tags: None,
-        jupyter: None,
-        execution: None,
-        additional: Default::default(),
-    }
+    CellMetadata::default()
 }
 
 #[cfg(test)]
