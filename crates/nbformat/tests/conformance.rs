@@ -1205,4 +1205,278 @@ mod test {
             serde_json::from_str(&serde_json::to_string(&ms).unwrap()).unwrap();
         assert_eq!(serialized, vec!["a\n", "b"]);
     }
+
+    /// Collect the top-level keys of every object in a JSON document in the
+    /// order they appear in the serialized bytes. We hand-tokenize because
+    /// `serde_json::Value` in `preserve_order` mode would preserve order and
+    /// otherwise would not, and this test must verify what ended up on disk
+    /// regardless of that feature flag.
+    fn object_key_orders(json: &str) -> Vec<Vec<String>> {
+        let mut orders: Vec<Vec<String>> = Vec::new();
+        let bytes = json.as_bytes();
+        let mut i = 0;
+        let mut stack: Vec<Vec<String>> = Vec::new();
+        let mut expect_key: Vec<bool> = Vec::new();
+
+        while i < bytes.len() {
+            match bytes[i] {
+                b'{' => {
+                    stack.push(Vec::new());
+                    expect_key.push(true);
+                    i += 1;
+                }
+                b'}' => {
+                    let keys = stack.pop().expect("unmatched }");
+                    expect_key.pop();
+                    orders.push(keys);
+                    i += 1;
+                }
+                b':' => {
+                    if let Some(last) = expect_key.last_mut() {
+                        *last = false;
+                    }
+                    i += 1;
+                }
+                b',' => {
+                    if let Some(last) = expect_key.last_mut() {
+                        *last = true;
+                    }
+                    i += 1;
+                }
+                b'"' => {
+                    let start = i + 1;
+                    let mut j = start;
+                    while j < bytes.len() {
+                        match bytes[j] {
+                            b'\\' => j += 2,
+                            b'"' => break,
+                            _ => j += 1,
+                        }
+                    }
+                    let literal = &json[start..j];
+                    if expect_key.last().copied().unwrap_or(false) {
+                        if let Some(current) = stack.last_mut() {
+                            current.push(literal.to_string());
+                        }
+                    }
+                    i = j + 1;
+                }
+                _ => i += 1,
+            }
+        }
+
+        orders
+    }
+
+    #[test]
+    fn serialize_produces_alphabetical_keys_for_synthetic_notebook() {
+        use nbformat::v4::{
+            Cell, CellId, CellMetadata, LanguageInfo, Metadata, MultilineString,
+            Notebook as V4Notebook, Output,
+        };
+        use std::collections::HashMap;
+
+        // Build a notebook with keys that would NOT be alphabetical if we just
+        // followed Rust struct declaration order. Include a Metadata.additional
+        // entry ("a_extra") that slots in before kernelspec/language_info, and
+        // a CellMetadata.additional entry ("zzz_trailing") that must sort after
+        // the declared fields.
+        let mut extra = HashMap::new();
+        extra.insert("a_extra".to_string(), serde_json::json!({"x": 1}));
+
+        let metadata = Metadata {
+            kernelspec: None,
+            language_info: Some(LanguageInfo {
+                name: "python".to_string(),
+                version: Some("3.11.0".to_string()),
+                codemirror_mode: None,
+                additional: HashMap::new(),
+            }),
+            authors: None,
+            additional: extra,
+        };
+
+        let mut cell_meta_extra = HashMap::new();
+        cell_meta_extra.insert("zzz_trailing".to_string(), serde_json::json!(true));
+        let cell_metadata = CellMetadata {
+            id: None,
+            collapsed: None,
+            scrolled: None,
+            deletable: None,
+            editable: None,
+            format: None,
+            name: None,
+            tags: Some(vec!["demo".to_string()]),
+            jupyter: None,
+            execution: None,
+            additional: cell_meta_extra,
+        };
+
+        let code_cell = Cell::Code {
+            id: CellId::new("cell-0001").unwrap(),
+            metadata: cell_metadata.clone(),
+            execution_count: Some(1),
+            source: vec!["print('hi')".to_string()],
+            outputs: vec![Output::Stream {
+                name: "stdout".to_string(),
+                text: MultilineString("hi\n".to_string()),
+            }],
+        };
+        let md_cell = Cell::Markdown {
+            id: CellId::new("cell-0002").unwrap(),
+            metadata: cell_metadata,
+            source: vec!["# hi".to_string()],
+            attachments: None,
+        };
+
+        let nb = V4Notebook {
+            metadata,
+            nbformat: 4,
+            nbformat_minor: 5,
+            cells: vec![code_cell, md_cell],
+        };
+
+        let serialized =
+            serialize_notebook(&Notebook::V4(nb)).expect("failed to serialize notebook");
+        let orders = object_key_orders(&serialized);
+        assert!(
+            !orders.is_empty(),
+            "expected at least one object in the serialized output"
+        );
+        for keys in &orders {
+            let mut sorted = keys.clone();
+            sorted.sort();
+            assert_eq!(
+                keys, &sorted,
+                "object keys not in alphabetical order: {:?}",
+                keys
+            );
+        }
+
+        // Spot-check the root order, since that is the visible git-diff churn.
+        let root = orders
+            .last()
+            .expect("root object should be the last closed object");
+        assert_eq!(
+            root,
+            &vec![
+                "cells".to_string(),
+                "metadata".to_string(),
+                "nbformat".to_string(),
+                "nbformat_minor".to_string(),
+            ],
+            "root key order should match Python nbformat.write"
+        );
+    }
+
+    /// For every fixture under `tests/notebooks/expected/`, parse the
+    /// original fixture with the nbformat crate, serialize it, and assert
+    /// byte-for-byte equality with the `.expected` file written by Python
+    /// `nbformat.write`. This is the real contract: output must match
+    /// Jupyter's canonical serializer.
+    ///
+    /// Regenerate the expected files when fixtures change or the Python
+    /// `nbformat` package is upgraded:
+    ///
+    ///     python3 tests/regenerate_expected.py
+    #[test]
+    fn test_matches_python_oracle_output() {
+        let expected_dir = Path::new("tests/notebooks/expected");
+        if !expected_dir.exists() {
+            panic!(
+                "tests/notebooks/expected/ does not exist. Run `python3 tests/regenerate_expected.py` to create it."
+            );
+        }
+
+        let mut checked = 0;
+        for entry in fs::read_dir(expected_dir).expect("failed to read expected/") {
+            let entry = entry.expect("failed to read dir entry");
+            let path = entry.path();
+            let Some(name) = path.file_name().and_then(|s| s.to_str()) else {
+                continue;
+            };
+            if !name.ends_with(".ipynb") {
+                continue;
+            }
+
+            let original_path = format!("tests/notebooks/{}", name);
+            let expected = fs::read_to_string(&path).expect("failed to read expected notebook");
+            let original =
+                fs::read_to_string(&original_path).expect("failed to read original fixture");
+
+            let parsed = match parse_notebook(&original) {
+                Ok(Notebook::V4(nb)) => Notebook::V4(nb),
+                Ok(Notebook::V4QuirksMode(_)) => {
+                    // Quirks-mode fixtures get fresh UUIDs assigned on parse,
+                    // so the byte-level output can never match a deterministic
+                    // Python oracle. These are covered by other tests.
+                    continue;
+                }
+                Ok(other) => panic!(
+                    "expected v4.5 notebook for {name}, got different variant: {:?}",
+                    other
+                ),
+                Err(e) => panic!("failed to parse {name}: {e:?}"),
+            };
+
+            let serialized = serialize_notebook(&parsed).expect("failed to serialize notebook");
+
+            if serialized != expected {
+                // Surface a compact diff on mismatch instead of dumping both
+                // full notebooks. Show the first differing line and a small
+                // window around it.
+                let got_lines: Vec<&str> = serialized.lines().collect();
+                let want_lines: Vec<&str> = expected.lines().collect();
+                let mut first_diff = None;
+                for (i, (g, w)) in got_lines.iter().zip(want_lines.iter()).enumerate() {
+                    if g != w {
+                        first_diff = Some(i);
+                        break;
+                    }
+                }
+                let line = first_diff.unwrap_or(got_lines.len().min(want_lines.len()));
+                let start = line.saturating_sub(2);
+                let end = (line + 3).min(got_lines.len().max(want_lines.len()));
+                let mut window = String::new();
+                for i in start..end {
+                    let g = got_lines.get(i).copied().unwrap_or("<missing>");
+                    let w = want_lines.get(i).copied().unwrap_or("<missing>");
+                    if g == w {
+                        window.push_str(&format!("  {i:4}  {g}\n"));
+                    } else {
+                        window.push_str(&format!("- {i:4}  {w}\n"));
+                        window.push_str(&format!("+ {i:4}  {g}\n"));
+                    }
+                }
+                panic!(
+                    "{name}: serialized output does not match Python nbformat.write oracle.\n\
+                     First diff at line {line}:\n{window}\n\
+                     If this is intentional, rerun `python3 tests/regenerate_expected.py`."
+                );
+            }
+
+            checked += 1;
+        }
+
+        assert!(
+            checked > 0,
+            "no fixtures were checked — tests/notebooks/expected/ appears empty"
+        );
+    }
+
+    #[test]
+    fn serialize_is_idempotent_across_roundtrips() {
+        // Parsing + serializing the output of serialize_notebook should produce
+        // byte-identical output on every subsequent pass — the sort is a fixed
+        // point.
+        let notebook_json = read_notebook("tests/notebooks/test4.5.ipynb");
+        let nb1 = parse_notebook(&notebook_json).expect("parse 1");
+        let s1 = serialize_notebook(&nb1).expect("serialize 1");
+        let nb2 = parse_notebook(&s1).expect("parse 2");
+        let s2 = serialize_notebook(&nb2).expect("serialize 2");
+        let nb3 = parse_notebook(&s2).expect("parse 3");
+        let s3 = serialize_notebook(&nb3).expect("serialize 3");
+        assert_eq!(s1, s2, "second serialize diverged from first");
+        assert_eq!(s2, s3, "third serialize diverged from second");
+    }
 }
