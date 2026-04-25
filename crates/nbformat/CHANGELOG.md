@@ -4,6 +4,8 @@ All notable changes to `nbformat` will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-04-25
+
 ### Changed
 
 - `serialize_notebook` now sorts object keys alphabetically at every depth, matching Python `nbformat.write`'s `json.dumps(sort_keys=True)` output. This removes workspace-feature-flag sensitivity: before, output order depended on whether downstream crates enabled `serde_json/preserve_order`. Notebooks saved through this serializer will produce smaller and more stable git diffs.
