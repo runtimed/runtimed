@@ -4,6 +4,8 @@ All notable changes to `runtimelib` will be documented in this file.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-04-26
+
 ## [1.6.0] - 2026-04-12
 
 ### Added
