@@ -4,6 +4,8 @@ All notable changes to `nbformat` will be documented in this file.
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-04-26
+
 ## [2.2.0] - 2026-04-25
 
 ## [2.1.0] - 2026-04-25
