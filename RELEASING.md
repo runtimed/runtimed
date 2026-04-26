@@ -9,7 +9,7 @@ The workspace has this dependency structure:
 ```
 jupyter-protocol (no internal deps)
     ↓
-jupyter-serde, nbformat, jupyter-websocket-client, runtimelib
+nbformat, jupyter-websocket-client, runtimelib
     ↓
 jupyter-ysync (depends on jupyter-protocol, nbformat; optionally jupyter-websocket-client)
     ↓
@@ -31,7 +31,7 @@ cargo release -p jupyter-protocol <patch|minor|major>
 These all depend on `jupyter-protocol` and can be released together:
 
 ```
-cargo release -p jupyter-serde -p nbformat -p jupyter-websocket-client <patch|minor|major>
+cargo release -p nbformat -p jupyter-websocket-client <patch|minor|major>
 ```
 
 Runtimelib requires a feature flag when publishing:
