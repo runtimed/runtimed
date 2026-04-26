@@ -3,7 +3,6 @@
 members = [
     "crates/nbformat",
     "crates/runtimelib",
-    "crates/jupyter-serde",
     "crates/jupyter-websocket-client",
     "crates/jupyter-protocol",
     "crates/jupyter-ysync",
@@ -13,7 +12,6 @@ members = [
 
 default-members = [
     "crates/nbformat",
-    "crates/jupyter-serde",
     "crates/jupyter-protocol",
     "crates/jupyter-websocket-client",
     "crates/jupyter-ysync",
@@ -37,14 +35,14 @@ futures = "0.3"
 bytes = "1"
 base64 = "0.22"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-runtimelib = { path = "crates/runtimelib", version = "1.6.0", default-features = false }
-jupyter-protocol = { path = "crates/jupyter-protocol", version = "1.5.0" }
+runtimelib = { path = "crates/runtimelib", version = "2.0.0", default-features = false }
+jupyter-protocol = { path = "crates/jupyter-protocol", version = "2.0.0" }
 thiserror = "2"
 tokio = { version = "1.36.0", features = ["full"] }
 yrs = "0.21"
 dashmap = "6"
-nbformat = { path = "crates/nbformat", version = "2.2.0" }
-jupyter-websocket-client = { path = "crates/jupyter-websocket-client", version = "1.1.0" }
+nbformat = { path = "crates/nbformat", version = "3.0.0" }
+jupyter-websocket-client = { path = "crates/jupyter-websocket-client", version = "2.0.0" }
 
 [profile.release]
 opt-level = 'z'

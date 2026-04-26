@@ -32,5 +32,5 @@ jobs:
         run: cargo clippy -p runtimelib --all-targets --no-default-features --features "async-dispatcher-runtime,ring"
       - name: Clippy check runtimelib with tokio-runtime
         run: cargo clippy -p runtimelib --all-targets --no-default-features --features "tokio-runtime,ring"
-      - name: Clippy check jupyter-serde, nbformat, and any other defaults
+      - name: Clippy check nbformat and any other defaults
         run: cargo clippy --all-targets

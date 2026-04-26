@@ -54,9 +54,16 @@ pub type JsonObject = serde_json::Value;
 
 /// An enumeration representing various Media types, otherwise known as MIME (Multipurpose Internet Mail Extensions) types.
 /// These types are used to indicate the nature of the data in a rich content message such as `DisplayData`, `UpdateDisplayData`, and `ExecuteResult`.
+///
+/// Marked `#[non_exhaustive]` so new rich MIME variants (new Vega/VegaLite
+/// versions, vendor-prefixed formats, streaming transport envelopes) can be
+/// added without breaking downstream match arms. Pattern-match against the
+/// variants you care about and use a wildcard arm — or fall back to
+/// [`MediaType::Other`] — for everything else.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "type", content = "data")]
+#[non_exhaustive]
 pub enum MediaType {
     /// Plain text, typically representing unformatted text. (e.g. Python's `_repr_` or `_repr_pretty_` methods).
     #[serde(rename = "text/plain")]

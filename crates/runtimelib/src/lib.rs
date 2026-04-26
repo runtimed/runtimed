@@ -1,26 +1,5 @@
 #![doc = include_str!("../README.md")]
 
-#[deprecated(
-    since = "0.24.0",
-    note = "This re-export will be removed in a future version. Please use jupyter_protocol::media directly."
-)]
-#[doc(hidden)]
-pub use jupyter_protocol::media;
-
-#[deprecated(
-    since = "0.24.0",
-    note = "This re-export will be removed in a future version. Please use jupyter_protocol::media directly."
-)]
-#[doc(hidden)]
-pub use jupyter_protocol::media::*;
-
-#[deprecated(
-    since = "0.24.0",
-    note = "This re-export will be removed in a future version. Please use jupyter_protocol::media directly."
-)]
-#[doc(hidden)]
-pub use jupyter_protocol::ExecutionCount;
-
 pub mod kernelspec;
 pub use kernelspec::*;
 
