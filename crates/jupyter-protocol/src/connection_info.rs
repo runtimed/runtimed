@@ -66,16 +66,25 @@ impl std::fmt::Display for Transport {
 ///
 /// # Fields
 ///
-/// * `ip` - The IP address of the kernel.
+/// * `ip` - For TCP: the IP address (e.g. `"127.0.0.1"`). For IPC: a
+///   filesystem path prefix (e.g. `"/tmp/kernel-abc-ipc"`).
 /// * `transport` - The transport protocol (TCP or IPC).
-/// * `shell_port` - The port number for the shell channel.
-/// * `iopub_port` - The port number for the IOPub channel.
-/// * `stdin_port` - The port number for the stdin channel.
-/// * `control_port` - The port number for the control channel.
-/// * `hb_port` - The port number for the heartbeat channel.
+/// * `shell_port` - For TCP: port number. For IPC: integer suffix for the
+///   socket file path.
+/// * `iopub_port` - Same semantics as `shell_port`.
+/// * `stdin_port` - Same semantics as `shell_port`.
+/// * `control_port` - Same semantics as `shell_port`.
+/// * `hb_port` - Same semantics as `shell_port`.
 /// * `key` - The authentication key.
 /// * `signature_scheme` - The signature scheme used for message authentication.
 /// * `kernel_name` - An optional name for the kernel.
+///
+/// # IPC Transport
+///
+/// When `transport` is `IPC`, the `ip` field holds a filesystem path prefix
+/// and the port fields hold integer suffixes. The ZMQ endpoint for each
+/// channel is formed as `ipc://{ip}-{port}`, matching the convention used by
+/// ipykernel and jupyter_client.
 ///
 /// # Example
 ///
@@ -113,22 +122,25 @@ pub struct ConnectionInfo {
     pub kernel_name: Option<String>,
 }
 
-/// Constructs a URL string from the given transport, IP address, and port.
-///
-/// This is a helper function used internally to create formatted URL strings
-/// for various Jupyter communication channels.
+/// Constructs a ZMQ endpoint URL for a Jupyter channel.
 ///
 /// # Arguments
 ///
 /// * `transport` - The transport protocol (`Transport::TCP` or `Transport::IPC`).
-/// * `ip` - The IP address as a string.
-/// * `port` - The port number.
+/// * `ip` - For TCP: IP address. For IPC: filesystem path prefix.
+/// * `port` - For TCP: port number. For IPC: integer suffix appended to the path.
 ///
 /// # Returns
 ///
-/// A `String` containing the formatted URL.
+/// A `String` containing the formatted ZMQ endpoint URL.
+///
+/// TCP produces `tcp://127.0.0.1:6767`. IPC produces `ipc:///tmp/kernel-abc-1`
+/// (matching the `{ip}-{port}` convention used by ipykernel).
 fn form_url(transport: &Transport, ip: &str, port: u16) -> String {
-    format!("{}://{}:{}", transport, ip, port)
+    match transport {
+        Transport::TCP => format!("tcp://{}:{}", ip, port),
+        Transport::IPC => format!("ipc://{}-{}", ip, port),
+    }
 }
 
 /// Provides methods to generate formatted URLs for various Jupyter communication channels.
@@ -209,16 +221,68 @@ mod test {
         assert_eq!(connection_info.control_url(), "tcp://127.0.0.1:6770");
         assert_eq!(connection_info.hb_url(), "tcp://127.0.0.1:6771");
 
+        // IPC: ip is a path prefix, ports are integer suffixes.
+        // ZMQ endpoint: ipc://{ip}-{port}
         let ipc_connection_info = ConnectionInfo {
             transport: Transport::IPC,
-            ..connection_info
+            ip: "/tmp/kernel-test-ipc".to_string(),
+            shell_port: 1,
+            iopub_port: 2,
+            stdin_port: 3,
+            control_port: 4,
+            hb_port: 5,
+            key: "test_key".to_string(),
+            signature_scheme: "hmac-sha256".to_string(),
+            kernel_name: Some("test_kernel".to_string()),
         };
 
-        assert_eq!(ipc_connection_info.shell_url(), "ipc://127.0.0.1:6767");
-        assert_eq!(ipc_connection_info.iopub_url(), "ipc://127.0.0.1:6768");
-        assert_eq!(ipc_connection_info.stdin_url(), "ipc://127.0.0.1:6769");
-        assert_eq!(ipc_connection_info.control_url(), "ipc://127.0.0.1:6770");
-        assert_eq!(ipc_connection_info.hb_url(), "ipc://127.0.0.1:6771");
+        assert_eq!(
+            ipc_connection_info.shell_url(),
+            "ipc:///tmp/kernel-test-ipc-1"
+        );
+        assert_eq!(
+            ipc_connection_info.iopub_url(),
+            "ipc:///tmp/kernel-test-ipc-2"
+        );
+        assert_eq!(
+            ipc_connection_info.stdin_url(),
+            "ipc:///tmp/kernel-test-ipc-3"
+        );
+        assert_eq!(
+            ipc_connection_info.control_url(),
+            "ipc:///tmp/kernel-test-ipc-4"
+        );
+        assert_eq!(
+            ipc_connection_info.hb_url(),
+            "ipc:///tmp/kernel-test-ipc-5"
+        );
+    }
+
+    #[test]
+    fn test_ipc_connection_info_roundtrip() {
+        let info = ConnectionInfo {
+            transport: Transport::IPC,
+            ip: "/tmp/runt-nightly/kernel-fluffy-panther-ipc".to_string(),
+            shell_port: 1,
+            iopub_port: 2,
+            stdin_port: 3,
+            control_port: 4,
+            hb_port: 5,
+            key: "secret".to_string(),
+            signature_scheme: "hmac-sha256".to_string(),
+            kernel_name: Some("python3".to_string()),
+        };
+
+        let json = serde_json::to_string(&info).unwrap();
+        let parsed: ConnectionInfo = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed.transport, Transport::IPC);
+        assert_eq!(parsed.ip, "/tmp/runt-nightly/kernel-fluffy-panther-ipc");
+        assert_eq!(parsed.shell_port, 1);
+        assert_eq!(
+            parsed.shell_url(),
+            "ipc:///tmp/runt-nightly/kernel-fluffy-panther-ipc-1"
+        );
     }
 
     #[test]
