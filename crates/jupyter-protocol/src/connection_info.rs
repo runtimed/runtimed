@@ -252,10 +252,7 @@ mod test {
             ipc_connection_info.control_url(),
             "ipc:///tmp/kernel-test-ipc-4"
         );
-        assert_eq!(
-            ipc_connection_info.hb_url(),
-            "ipc:///tmp/kernel-test-ipc-5"
-        );
+        assert_eq!(ipc_connection_info.hb_url(), "ipc:///tmp/kernel-test-ipc-5");
     }
 
     #[test]
