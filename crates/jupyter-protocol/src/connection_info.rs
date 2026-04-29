@@ -127,15 +127,21 @@ pub struct ConnectionInfo {
 /// # Arguments
 ///
 /// * `transport` - The transport protocol (`Transport::TCP` or `Transport::IPC`).
-/// * `ip` - For TCP: IP address. For IPC: filesystem path prefix.
-/// * `port` - For TCP: port number. For IPC: integer suffix appended to the path.
+/// * `ip` - For TCP: an IP address (e.g. `"127.0.0.1"`). For IPC: a
+///   filesystem path prefix (e.g. `"/tmp/kernel-abc-ipc"`) — the
+///   `ConnectionInfo.ip` field carries a path, not an address, when the
+///   transport is IPC.
+/// * `port` - For TCP: port number. For IPC: integer suffix appended to
+///   the path with a `-` separator.
 ///
 /// # Returns
 ///
 /// A `String` containing the formatted ZMQ endpoint URL.
 ///
-/// TCP produces `tcp://127.0.0.1:6767`. IPC produces `ipc:///tmp/kernel-abc-1`
-/// (matching the `{ip}-{port}` convention used by ipykernel).
+/// TCP example: `tcp://127.0.0.1:6767`.
+/// IPC example: when `ip = "/tmp/kernel-abc-ipc"` and `port = 1`, produces
+/// `ipc:///tmp/kernel-abc-ipc-1`. This matches the `{ip}-{port}` convention
+/// used by ipykernel.
 fn form_url(transport: &Transport, ip: &str, port: u16) -> String {
     match transport {
         Transport::TCP => format!("tcp://{}:{}", ip, port),
