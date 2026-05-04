@@ -4,11 +4,10 @@ All notable changes to `runtimelib` will be documented in this file.
 
 ## [Unreleased]
 
-## [3.0.0] - 2026-TBD
-
 ### Deprecated
 
 - **This crate has been renamed to [`jupyter-zmq-client`](https://crates.io/crates/jupyter-zmq-client).** `runtimelib` is now a thin re-export shim that forwards all items and feature flags to `jupyter-zmq-client`. Update your `Cargo.toml` and `use` statements; this shim will not receive further changes beyond what flows through from `jupyter-zmq-client`.
+
 
 
 ## [2.0.0] - 2026-04-26

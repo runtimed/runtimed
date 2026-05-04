@@ -4,8 +4,6 @@ All notable changes to `jupyter-zmq-client` will be documented in this file.
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-TBD
-
 Initial release under the new name. Previously published as [`runtimelib`](https://crates.io/crates/runtimelib) up through `2.0.0`; `runtimelib` now re-exports this crate as a deprecated shim.
 
 ### Renamed
