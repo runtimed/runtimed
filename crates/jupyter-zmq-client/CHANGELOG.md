@@ -17,3 +17,4 @@ Initial release under the new name. Previously published as [`runtimelib`](https
 ### Changed
 
 - `RuntimeError::KernelNotFound` now carries a `searched_paths: Vec<PathBuf>` field so callers can render the directories that were searched alongside the kernels that were discoverable. **Breaking change** for any consumer constructing the variant directly; consumers that only pattern-match are unaffected because `RuntimeError` is `#[non_exhaustive]`.
+- Bump `zeromq` from `0.6.0-pre.2` to `0.6.0` (stable).
