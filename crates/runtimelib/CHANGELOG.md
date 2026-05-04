@@ -4,6 +4,14 @@ All notable changes to `runtimelib` will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- `data_dirs_with_jupyter_paths()`, `list_kernelspecs_with_jupyter_paths()`, and `find_kernelspec_with_jupyter_paths()` to surface kernels installed in Python virtualenvs by augmenting the static directory list with the `data` paths reported by `jupyter --paths --json`. Falls back to the static dirs when `jupyter` is unavailable. Fixes #304.
+
+### Changed
+
+- `RuntimeError::KernelNotFound` now carries a `searched_paths: Vec<PathBuf>` field so callers can render the directories that were searched alongside the kernels that were discoverable. **Breaking change** for any consumer constructing the variant directly; consumers that only pattern-match are unaffected because `RuntimeError` is `#[non_exhaustive]`.
+
 ## [2.0.0] - 2026-04-26
 
 ## [1.6.0] - 2026-04-12

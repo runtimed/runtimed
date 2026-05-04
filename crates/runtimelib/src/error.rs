@@ -43,10 +43,13 @@ pub enum RuntimeError {
     ZmqError(#[from] zeromq::ZmqError),
     #[error("{0}")]
     ZmqMessageError(String),
-    #[error("Kernel '{name}' not found. Available kernels: {available:?}")]
+    #[error(
+        "Kernel '{name}' not found. Available kernels: {available:?}. Searched: {searched_paths:?}"
+    )]
     KernelNotFound {
         name: String,
         available: Vec<String>,
+        searched_paths: Vec<std::path::PathBuf>,
     },
     #[error("Failed to extract kernel id from connection file {path}")]
     KernelIdMissing { path: String },

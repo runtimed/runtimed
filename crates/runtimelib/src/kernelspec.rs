@@ -68,8 +68,19 @@ impl KernelspecDir {
 // For now, just use a combination of the standard system and user data directories.
 #[cfg(feature = "tokio-runtime")]
 pub async fn list_kernelspecs() -> Vec<KernelspecDir> {
+    list_kernelspecs_in(crate::dirs::data_dirs()).await
+}
+
+/// Like [`list_kernelspecs`] but also searches the paths reported by
+/// `jupyter --paths --json`, so virtualenv-installed kernels are visible.
+#[cfg(feature = "tokio-runtime")]
+pub async fn list_kernelspecs_with_jupyter_paths() -> Vec<KernelspecDir> {
+    list_kernelspecs_in(crate::dirs::data_dirs_with_jupyter_paths().await).await
+}
+
+#[cfg(feature = "tokio-runtime")]
+async fn list_kernelspecs_in(data_dirs: Vec<PathBuf>) -> Vec<KernelspecDir> {
     let mut kernelspecs = Vec::new();
-    let data_dirs = crate::dirs::data_dirs();
     for data_dir in data_dirs {
         let mut specs = read_kernelspec_jsons(&data_dir).await;
         kernelspecs.append(&mut specs);
@@ -83,7 +94,19 @@ pub async fn list_kernelspecs() -> Vec<KernelspecDir> {
 /// exists before doing an actual read of the kernelspec JSON file.
 #[cfg(feature = "tokio-runtime")]
 pub async fn find_kernelspec(name: &str) -> Result<KernelspecDir> {
-    let dirs = crate::dirs::data_dirs();
+    find_kernelspec_in(name, crate::dirs::data_dirs()).await
+}
+
+/// Like [`find_kernelspec`] but also searches the paths reported by
+/// `jupyter --paths --json`, so virtualenv-installed kernels are findable.
+/// Falls back to [`crate::dirs::data_dirs`] if `jupyter` is unavailable.
+#[cfg(feature = "tokio-runtime")]
+pub async fn find_kernelspec_with_jupyter_paths(name: &str) -> Result<KernelspecDir> {
+    find_kernelspec_in(name, crate::dirs::data_dirs_with_jupyter_paths().await).await
+}
+
+#[cfg(feature = "tokio-runtime")]
+async fn find_kernelspec_in(name: &str, dirs: Vec<PathBuf>) -> Result<KernelspecDir> {
     let mut available_kernels = Vec::new();
 
     for data_dir in &dirs {
@@ -104,6 +127,7 @@ pub async fn find_kernelspec(name: &str) -> Result<KernelspecDir> {
     Err(crate::RuntimeError::KernelNotFound {
         name: name.to_string(),
         available: available_kernels,
+        searched_paths: dirs,
     })
 }
 
@@ -238,5 +262,70 @@ mod tests {
         d.push("tests/NOTHINGHERE");
         let kernels = list_kernelspec_names_at(&d).await;
         assert_eq!(kernels.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn find_kernelspec_in_returns_match_from_provided_dirs() {
+        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        d.push("tests");
+        let result = find_kernelspec_in("python3", vec![d.clone()]).await;
+        let spec = result.expect("python3 fixture should be found");
+        assert_eq!(spec.kernel_name, "python3");
+        assert_eq!(spec.kernelspec.display_name, "Python 3");
+    }
+
+    #[tokio::test]
+    async fn find_kernelspec_in_error_includes_searched_paths_and_available() {
+        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        d.push("tests");
+
+        let err = find_kernelspec_in("definitely-not-a-real-kernel-zzz", vec![d.clone()])
+            .await
+            .expect_err("missing kernel should error");
+
+        match err {
+            crate::RuntimeError::KernelNotFound {
+                name,
+                available,
+                searched_paths,
+            } => {
+                assert_eq!(name, "definitely-not-a-real-kernel-zzz");
+                assert_eq!(searched_paths, vec![d]);
+                assert!(available.contains(&"python3".to_string()));
+                assert!(available.contains(&"ir".to_string()));
+                assert!(available.contains(&"rust".to_string()));
+            }
+            other => panic!("expected KernelNotFound, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn list_kernelspecs_in_with_provided_dirs() {
+        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        d.push("tests");
+        let kernels = list_kernelspecs_in(vec![d]).await;
+        assert_eq!(kernels.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn kernel_not_found_error_display_mentions_searched_and_available() {
+        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        d.push("tests");
+        let err = find_kernelspec_in("nope-nope-nope", vec![d.clone()])
+            .await
+            .expect_err("missing kernel should error");
+        let rendered = format!("{err}");
+        assert!(
+            rendered.contains("nope-nope-nope"),
+            "missing kernel name in: {rendered}"
+        );
+        assert!(
+            rendered.contains("Searched"),
+            "missing 'Searched' in: {rendered}"
+        );
+        assert!(
+            rendered.contains("python3"),
+            "missing available kernel name in: {rendered}"
+        );
     }
 }
