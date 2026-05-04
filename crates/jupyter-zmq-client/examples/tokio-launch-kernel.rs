@@ -14,7 +14,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     use uuid::Uuid;
 
     let kernel_name = "python";
-    let kernelspecs = runtimelib::list_kernelspecs().await;
+    let kernelspecs = jupyter_zmq_client::list_kernelspecs().await;
     let kernel_specification = kernelspecs
         .iter()
         .find(|k| k.kernel_name.eq(kernel_name))
@@ -27,7 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // bind — otherwise the kernel's bind fails with `EADDRINUSE` (we're holding
     // the ports!) and the example deadlocks waiting for a kernel that never
     // came up. See `peek_ports_with_listeners` for details.
-    let (ports, listeners) = runtimelib::peek_ports_with_listeners(ip, 5).await?;
+    let (ports, listeners) = jupyter_zmq_client::peek_ports_with_listeners(ip, 5).await?;
     assert_eq!(ports.len(), 5);
 
     let connection_info = ConnectionInfo {
@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         kernel_name: Some(kernel_name.to_string()),
     };
 
-    let runtime_dir = runtimelib::dirs::runtime_dir();
+    let runtime_dir = jupyter_zmq_client::dirs::runtime_dir();
     tokio::fs::create_dir_all(&runtime_dir).await.map_err(|e| {
         format!(
             "Failed to create jupyter runtime dir {}: {}",
@@ -78,9 +78,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Listen for display data, execute result, stdout messages, etc.
     let mut iopub_socket =
-        runtimelib::create_client_iopub_connection(&connection_info, "", &session_id).await?;
-    let identity = runtimelib::peer_identity_for_session(&session_id)?;
-    let mut shell_socket = runtimelib::create_client_shell_connection_with_identity(
+        jupyter_zmq_client::create_client_iopub_connection(&connection_info, "", &session_id)
+            .await?;
+    let identity = jupyter_zmq_client::peer_identity_for_session(&session_id)?;
+    let mut shell_socket = jupyter_zmq_client::create_client_shell_connection_with_identity(
         &connection_info,
         &session_id,
         identity,
@@ -88,7 +89,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .await?;
     // Control socket is for kernel management, not used here
     // let mut control_socket =
-    //     runtimelib::create_client_control_connection(&connection_info, &session_id).await?;
+    //     jupyter_zmq_client::create_client_control_connection(&connection_info, &session_id).await?;
 
     let execute_request = ExecuteRequest::new("print('Hello, World!')".to_string());
     let execute_request: JupyterMessage = execute_request.into();

@@ -15,7 +15,7 @@ use jupyter_protocol::{
     LanguageInfo, Media, MediaType, ReplyStatus, ShutdownReply, Status, StreamContent,
 };
 
-use runtimelib::{KernelIoPubConnection, RouterRecvConnection, RouterSendConnection};
+use jupyter_zmq_client::{KernelIoPubConnection, RouterRecvConnection, RouterSendConnection};
 
 use ollama_client::{
     ChatMessage, Format, GenerateResponse, LocalModelListing, OllamaClient, Role, OLLAMA_ENDPOINT,
@@ -58,16 +58,21 @@ impl OllamaKernel {
     pub async fn start(model: String, connection_info: &ConnectionInfo) -> Result<()> {
         let session_id = Uuid::new_v4().to_string();
 
-        let mut heartbeat = runtimelib::create_kernel_heartbeat_connection(connection_info).await?;
+        let mut heartbeat =
+            jupyter_zmq_client::create_kernel_heartbeat_connection(connection_info).await?;
         let shell_connection =
-            runtimelib::create_kernel_shell_connection(connection_info, &session_id).await?;
+            jupyter_zmq_client::create_kernel_shell_connection(connection_info, &session_id)
+                .await?;
         let (shell_writer, mut shell_reader) = shell_connection.split();
         let mut control_connection =
-            runtimelib::create_kernel_control_connection(connection_info, &session_id).await?;
+            jupyter_zmq_client::create_kernel_control_connection(connection_info, &session_id)
+                .await?;
         let _stdin_connection =
-            runtimelib::create_kernel_stdin_connection(connection_info, &session_id).await?;
+            jupyter_zmq_client::create_kernel_stdin_connection(connection_info, &session_id)
+                .await?;
         let iopub_connection =
-            runtimelib::create_kernel_iopub_connection(connection_info, &session_id).await?;
+            jupyter_zmq_client::create_kernel_iopub_connection(connection_info, &session_id)
+                .await?;
 
         let mut ollama_kernel = Self {
             model,
@@ -604,7 +609,7 @@ pub async fn start_kernel(connection_filepath: &str) -> anyhow::Result<()> {
 async fn install_kernel() -> anyhow::Result<()> {
     println!("Installing Ollama Kernel...");
 
-    let user_data_dir = runtimelib::user_data_dir()?;
+    let user_data_dir = jupyter_zmq_client::user_data_dir()?;
     let kernel_dir = user_data_dir.join("kernels").join("ollama");
 
     tokio::fs::create_dir_all(&kernel_dir).await?;

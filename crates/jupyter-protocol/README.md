@@ -12,7 +12,7 @@ This crate provides comprehensive types and utilities for working with Jupyter m
 
 ## Usage
 
-Here's a basic example of how to use this crate with `runtimelib`, relying on Tokio for async:
+Here's a basic example of how to use this crate with [`jupyter-zmq-client`](https://crates.io/crates/jupyter-zmq-client), relying on Tokio for async:
 
 ```rust
 use jupyter_protocol::{
@@ -28,14 +28,14 @@ async fn main() -> anyhow::Result<()> {
     use uuid::Uuid;
 
     let kernel_name = "python";
-    let kernelspecs = runtimelib::list_kernelspecs().await;
+    let kernelspecs = jupyter_zmq_client::list_kernelspecs().await;
     let kernel_specification = kernelspecs
         .iter()
         .find(|k| k.kernel_name.eq(kernel_name))
         .ok_or(anyhow::anyhow!("Python kernel not found"))?;
 
     let ip = std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1));
-    let ports = runtimelib::peek_ports(ip, 5).await?;
+    let ports = jupyter_zmq_client::peek_ports(ip, 5).await?;
     assert_eq!(ports.len(), 5);
 
     let connection_info = ConnectionInfo {
@@ -51,7 +51,7 @@ async fn main() -> anyhow::Result<()> {
         kernel_name: Some(kernel_name.to_string()),
     };
 
-    let runtime_dir = runtimelib::dirs::runtime_dir();
+    let runtime_dir = jupyter_zmq_client::dirs::runtime_dir();
     tokio::fs::create_dir_all(&runtime_dir).await.map_err(|e| {
         anyhow::anyhow!(
             "Failed to create jupyter runtime dir {:?}: {}",
@@ -80,12 +80,12 @@ async fn main() -> anyhow::Result<()> {
 
     // Listen for display data, execute result, stdout messages, etc.
     let mut iopub_socket =
-        runtimelib::create_client_iopub_connection(&connection_info, "", &session_id).await?;
+        jupyter_zmq_client::create_client_iopub_connection(&connection_info, "", &session_id).await?;
     let mut shell_socket =
-        runtimelib::create_client_shell_connection(&connection_info, &session_id).await?;
+        jupyter_zmq_client::create_client_shell_connection(&connection_info, &session_id).await?;
     // Control socket is for kernel management, not used here
     // let mut control_socket =
-    //     runtimelib::create_client_control_connection(&connection_info, &session_id).await?;
+    //     jupyter_zmq_client::create_client_control_connection(&connection_info, &session_id).await?;
 
     let execute_request = ExecuteRequest::new("print('Hello, World!')".to_string());
     let execute_request: JupyterMessage = execute_request.into();

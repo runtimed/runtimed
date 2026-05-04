@@ -4,13 +4,12 @@ All notable changes to `runtimelib` will be documented in this file.
 
 ## [Unreleased]
 
-### Added
+## [3.0.0] - 2026-TBD
 
-- `data_dirs_with_jupyter_paths()`, `list_kernelspecs_with_jupyter_paths()`, and `find_kernelspec_with_jupyter_paths()` to surface kernels installed in Python virtualenvs by augmenting the static directory list with the `data` paths reported by `jupyter --paths --json`. Falls back to the static dirs when `jupyter` is unavailable. Fixes #304.
+### Deprecated
 
-### Changed
+- **This crate has been renamed to [`jupyter-zmq-client`](https://crates.io/crates/jupyter-zmq-client).** `runtimelib` is now a thin re-export shim that forwards all items and feature flags to `jupyter-zmq-client`. Update your `Cargo.toml` and `use` statements; this shim will not receive further changes beyond what flows through from `jupyter-zmq-client`.
 
-- `RuntimeError::KernelNotFound` now carries a `searched_paths: Vec<PathBuf>` field so callers can render the directories that were searched alongside the kernels that were discoverable. **Breaking change** for any consumer constructing the variant directly; consumers that only pattern-match are unaffected because `RuntimeError` is `#[non_exhaustive]`.
 
 ## [2.0.0] - 2026-04-26
 
