@@ -8,8 +8,9 @@ The runtimed project provides Rust libraries for working with Jupyter.
 
 - [`jupyter-protocol`](./crates/jupyter-protocol): Core types for Jupyter messages, independent of the underlying transport
 - [`jupyter-websocket-client`](./crates/jupyter-websocket-client): Connect to Jupyter servers, both local and remote, over WebSockets
+- [`jupyter-zmq-client`](./crates/jupyter-zmq-client): Interact natively with Jupyter kernels over ZeroMQ
 - [`nbformat`](./crates/nbformat): Parse and work with Jupyter Notebooks
-- [`runtimelib`](./crates/runtimelib): Interact natively with Jupyter kernels over ZeroMQ
+- [`runtimelib`](./crates/runtimelib): Deprecated shim that re-exports `jupyter-zmq-client` for backwards compatibility
 
 ### Reference Implementation
 

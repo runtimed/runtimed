@@ -28,9 +28,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install rust
         uses: dsherret/rust-toolchain-file@v1
-      - name: Clippy check runtimelib with async-dispatcher-runtime
-        run: cargo clippy -p runtimelib --all-targets --no-default-features --features "async-dispatcher-runtime,ring"
-      - name: Clippy check runtimelib with tokio-runtime
+      - name: Clippy check jupyter-zmq-client with async-dispatcher-runtime
+        run: cargo clippy -p jupyter-zmq-client --all-targets --no-default-features --features "async-dispatcher-runtime,ring"
+      - name: Clippy check jupyter-zmq-client with tokio-runtime
+        run: cargo clippy -p jupyter-zmq-client --all-targets --no-default-features --features "tokio-runtime,ring"
+      - name: Clippy check runtimelib shim
         run: cargo clippy -p runtimelib --all-targets --no-default-features --features "tokio-runtime,ring"
       - name: Clippy check nbformat and any other defaults
         run: cargo clippy --all-targets

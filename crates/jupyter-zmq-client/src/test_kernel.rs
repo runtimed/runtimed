@@ -17,7 +17,7 @@
 //!
 //! ```toml
 //! [dev-dependencies]
-//! runtimelib = { version = "1.2", features = ["test-kernel"] }
+//! jupyter-zmq-client = { version = "1", features = ["test-kernel"] }
 //! ```
 //!
 //! # Common Usage Patterns
@@ -28,7 +28,7 @@
 //! is echoed back as stdout:
 //!
 //! ```ignore
-//! use runtimelib::{
+//! use jupyter_zmq_client::{
 //!     TestKernel, TestKernelConfig,
 //!     create_client_shell_connection_with_identity,
 //!     create_client_iopub_connection,
@@ -81,7 +81,7 @@
 //! configure canned responses:
 //!
 //! ```ignore
-//! use runtimelib::{TestKernel, TestKernelConfig, CannedResponse};
+//! use jupyter_zmq_client::{TestKernel, TestKernelConfig, CannedResponse};
 //! use jupyter_protocol::{DisplayData, MediaType, ExecuteResult, ExecutionCount};
 //!
 //! #[tokio::test]
@@ -123,7 +123,7 @@
 //! Test how your frontend handles kernel errors:
 //!
 //! ```ignore
-//! use runtimelib::{TestKernel, TestKernelConfig, CannedResponse};
+//! use jupyter_zmq_client::{TestKernel, TestKernelConfig, CannedResponse};
 //! use jupyter_protocol::ErrorOutput;
 //!
 //! let config = TestKernelConfig::default()
@@ -147,7 +147,7 @@
 //! For testing code that reads connection files (like real kernel launchers):
 //!
 //! ```ignore
-//! use runtimelib::{TestKernel, TestKernelConfig};
+//! use jupyter_zmq_client::{TestKernel, TestKernelConfig};
 //! use jupyter_protocol::ConnectionInfo;
 //! use std::io::Write;
 //!

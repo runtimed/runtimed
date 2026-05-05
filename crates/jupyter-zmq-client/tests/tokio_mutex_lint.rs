@@ -1,8 +1,8 @@
 //! CI lint: ensure no tokio::sync::Mutex (or RwLock) guards are held across
-//! .await points anywhere in runtimelib.
+//! .await points anywhere in jupyter-zmq-client.
 //!
 //! Uses the async-rust-lsp rule engine (tree-sitter based) to scan all
-//! runtimelib source files. Any violation is a hard CI failure.
+//! jupyter-zmq-client source files. Any violation is a hard CI failure.
 //!
 //! Holding a `tokio::sync::Mutex` or `tokio::sync::RwLock` guard across an
 //! `.await` causes convoy deadlocks: if the task holding the guard is
@@ -18,11 +18,11 @@
 //!
 //! Runs under the `tokio-runtime` feature because that is the feature that
 //! brings the async code paths into the build in the first place — but the
-//! lint itself is a pure-source scan and does not execute runtimelib code,
+//! lint itself is a pure-source scan and does not execute jupyter-zmq-client code,
 //! so it works under any feature set.
 
 #[test]
-fn runtimelib_has_no_tokio_mutex_across_await() {
+fn jupyter_zmq_client_has_no_tokio_mutex_across_await() {
     let src_dir = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src"));
 
     let rs_files: Vec<std::path::PathBuf> = std::fs::read_dir(&src_dir)
@@ -69,7 +69,7 @@ fn runtimelib_has_no_tokio_mutex_across_await() {
 
     if !violations.is_empty() {
         let mut msg = format!(
-            "Found {} tokio Mutex guard(s) held across .await in runtimelib sources:\n\n",
+            "Found {} tokio Mutex guard(s) held across .await in jupyter-zmq-client sources:\n\n",
             violations.len()
         );
         for v in &violations {
