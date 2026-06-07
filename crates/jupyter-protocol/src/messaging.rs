@@ -208,19 +208,30 @@ where
     }
 }
 
-/// Deserializes the `date` field, defaulting to UNIX_EPOCH if missing or null.
+/// Deserializes the `date` field, defaulting to UNIX_EPOCH if it is missing,
+/// null, or not a parseable RFC 3339 timestamp.
 ///
-/// Some kernels (e.g., Almond) don't include the `date` field in message headers,
-/// which violates the Jupyter protocol spec. This deserializer tolerates missing
-/// dates by defaulting to UNIX epoch (1970-01-01T00:00:00Z).
+/// Some kernels violate the Jupyter messaging spec here: Almond omits the `date`
+/// field entirely, and IJava emits non-conformant values such as
+/// `2026-06-06T17:21+0000` (no seconds, colon-less offset). Tolerating both by
+/// falling back to UNIX epoch keeps a single bad header from failing the entire
+/// message (otherwise every message from such a kernel is rejected).
 ///
-/// If you see UNIX_EPOCH as the date, it likely means the kernel omitted the field.
+/// If you see UNIX_EPOCH as the date, the kernel likely omitted or malformed it.
 fn deserialize_date_with_default<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let opt = Option::<DateTime<Utc>>::deserialize(deserializer)?;
-    Ok(opt.unwrap_or_else(|| DateTime::<Utc>::from_timestamp(0, 0).expect("UNIX_EPOCH is valid")))
+    fn epoch() -> DateTime<Utc> {
+        DateTime::<Utc>::from_timestamp(0, 0).expect("UNIX_EPOCH is valid")
+    }
+    let value = Option::<Value>::deserialize(deserializer)?;
+    Ok(match value {
+        Some(Value::String(s)) => DateTime::parse_from_rfc3339(&s)
+            .map(|dt| dt.with_timezone(&Utc))
+            .unwrap_or_else(|_| epoch()),
+        _ => epoch(),
+    })
 }
 
 /// A message in the Jupyter protocol format.
@@ -2648,6 +2659,40 @@ mod test {
 
         let header: Header = serde_json::from_value(header_json).unwrap();
         assert_ne!(header.date, DateTime::<Utc>::from_timestamp(0, 0).unwrap());
+    }
+
+    #[test]
+    fn test_header_malformed_date_defaults_to_epoch() {
+        // IJava emits non-conformant dates such as `2026-06-06T17:21+0000`
+        // (no seconds, colon-less offset). A strict parse would reject the
+        // entire message; we fall back to UNIX_EPOCH instead.
+        let header_json = json!({
+            "msg_id": "test-msg-id",
+            "username": "testuser",
+            "session": "test-session",
+            "date": "2026-06-06T17:21+0000",
+            "msg_type": "execute_request",
+            "version": "5.3"
+        });
+
+        let header: Header = serde_json::from_value(header_json).unwrap();
+        assert_eq!(header.msg_id, "test-msg-id");
+        assert_eq!(header.date, DateTime::<Utc>::from_timestamp(0, 0).unwrap());
+    }
+
+    #[test]
+    fn test_header_null_date_defaults_to_epoch() {
+        let header_json = json!({
+            "msg_id": "test-msg-id",
+            "username": "testuser",
+            "session": "test-session",
+            "date": null,
+            "msg_type": "execute_request",
+            "version": "5.3"
+        });
+
+        let header: Header = serde_json::from_value(header_json).unwrap();
+        assert_eq!(header.date, DateTime::<Utc>::from_timestamp(0, 0).unwrap());
     }
 
     #[test]
