@@ -12,21 +12,16 @@ zeromq = { version = "0.6.0", default-features = false, features = [
     "tcp-transport",
     "ipc-transport",
 ] }
-base64 = { workspace = true }
 bytes = { workspace = true }
-chrono = { workspace = true }
 data-encoding = "2.5.0"
 dirs = "6.0"
 smol = { version = "2", optional = true }
-futures = { workspace = true }
 jupyter-protocol = { workspace = true }
 ring = { version = "0.17.7", optional = true }
 aws-lc-rs = { version = "1.9", optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
-shellexpand = "3.1.0"
-glob = "0.3.1"
 thiserror = { workspace = true }
 
 [dev-dependencies]
