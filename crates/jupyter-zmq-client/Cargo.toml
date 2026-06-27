@@ -1,6 +1,6 @@
 [package]
 name = "jupyter-zmq-client"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 description = "Jupyter kernel client over ZeroMQ"
 repository = "https://github.com/runtimed/runtimed"
