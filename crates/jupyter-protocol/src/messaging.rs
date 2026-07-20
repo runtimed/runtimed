@@ -1106,13 +1106,18 @@ fn default_debugger() -> bool {
 #[serde(untagged)]
 pub enum CodeMirrorMode {
     Simple(String),
-    CustomMode { name: String, version: usize },
+    CustomMode {
+        name: String,
+        #[serde(default)]
+        version: Option<usize>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CodeMirrorModeObject {
     pub name: String,
-    pub version: usize,
+    #[serde(default)]
+    pub version: Option<usize>,
 }
 
 impl CodeMirrorMode {
@@ -1127,7 +1132,7 @@ impl CodeMirrorMode {
     pub fn ipython_code_mirror_mode() -> Self {
         Self::CustomMode {
             name: "ipython".to_string(),
-            version: 3,
+            version: Some(3),
         }
     }
 }
@@ -1432,7 +1437,7 @@ pub struct ErrorOutput {
 /// See [Comm Open](https://jupyter-client.readthedocs.io/en/latest/messaging.html#opening-a-comm).
 ///
 /// Comm messages are one-way communications to update comm state, used for
-/// synchronizing widget state, or simply requesting actions of a comm’s
+/// synchronizing widget state, or simply requesting actions of a comm's
 /// counterpart.
 ///
 /// Opening a Comm produces a `comm_open` message, to be sent to the other side:
@@ -1476,7 +1481,7 @@ impl Default for CommOpen {
 /// A `comm_msg` message on the `iopub` channel.
 ///
 /// Comm messages are one-way communications to update comm state, used for
-/// synchronizing widget state, or simply requesting actions of a comm’s
+/// synchronizing widget state, or simply requesting actions of a comm's
 /// counterpart.
 ///
 /// Essentially, each comm pair defines their own message specification
@@ -2734,5 +2739,73 @@ mod test {
 
         let reply: KernelInfoReply = serde_json::from_value(reply_json).unwrap();
         assert_eq!(reply.status, ReplyStatus::Error);
+    }
+
+    #[test]
+    fn codemirror_mode_simple_string() {
+        let json = r#""r""#;
+        let result = serde_json::from_str::<CodeMirrorMode>(json);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), CodeMirrorMode::Simple(s) if s == "r"));
+    }
+
+    #[test]
+    fn codemirror_mode_object_with_version() {
+        let json = r#"{"name":"ipython","version":3}"#;
+        let result = serde_json::from_str::<CodeMirrorMode>(json);
+        assert!(result.is_ok());
+        match result.unwrap() {
+            CodeMirrorMode::CustomMode { name, version } => {
+                assert_eq!(name, "ipython");
+                assert_eq!(version, Some(3));
+            }
+            _ => panic!("Expected CustomMode"),
+        }
+    }
+
+    #[test]
+    fn codemirror_mode_object_without_version() {
+        let json = r#"{"name":"typescript"}"#;
+        let result = serde_json::from_str::<CodeMirrorMode>(json);
+        assert!(
+            result.is_ok(),
+            "should accept {{\"name\":\"typescript\"}}: {:?}",
+            result.err()
+        );
+        match result.unwrap() {
+            CodeMirrorMode::CustomMode { name, version } => {
+                assert_eq!(name, "typescript");
+                assert_eq!(version, None);
+            }
+            _ => panic!("Expected CustomMode"),
+        }
+    }
+
+    #[test]
+    fn kernel_info_reply_deno_codemirror_mode() {
+        let reply_json = json!({
+            "status": "ok",
+            "protocol_version": "5.3",
+            "implementation": "Deno kernel",
+            "implementation_version": "2.9.3",
+            "language_info": {
+                "name": "typescript",
+                "version": "5.8.3",
+                "mimetype": "text/x.typescript",
+                "file_extension": ".ts",
+                "pygments_lexer": "typescript",
+                "codemirror_mode": {"name": "typescript"},
+                "nbconvert_exporter": "script"
+            },
+            "banner": "Welcome to Deno kernel",
+            "help_links": [{"text": "Visit Deno manual", "url": "https://docs.deno.com"}],
+            "debugger": false
+        });
+
+        let reply: KernelInfoReply = serde_json::from_value(reply_json).unwrap();
+        let mode = reply.language_info.codemirror_mode.unwrap();
+        assert!(
+            matches!(mode, CodeMirrorMode::CustomMode { ref name, version: None } if name == "typescript")
+        );
     }
 }
