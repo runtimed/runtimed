@@ -1102,22 +1102,50 @@ fn default_debugger() -> bool {
     false
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum CodeMirrorMode {
     Simple(String),
-    CustomMode {
-        name: String,
-        #[serde(default)]
-        version: Option<usize>,
-    },
+    CustomMode { name: String, version: usize },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CodeMirrorModeObject {
     pub name: String,
-    #[serde(default)]
-    pub version: Option<usize>,
+    pub version: usize,
+}
+
+impl<'de> Deserialize<'de> for CodeMirrorMode {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+
+        match value {
+            Value::String(mode) => Ok(Self::Simple(mode)),
+            Value::Object(object) => {
+                let name = object.get("name").and_then(Value::as_str).ok_or_else(|| {
+                    serde::de::Error::custom("CodeMirror mode object has no name")
+                })?;
+
+                match object.get("version") {
+                    Some(version) => {
+                        let version =
+                            usize::deserialize(version).map_err(serde::de::Error::custom)?;
+                        Ok(Self::CustomMode {
+                            name: name.to_string(),
+                            version,
+                        })
+                    }
+                    None => Ok(Self::Simple(name.to_string())),
+                }
+            }
+            value => Err(serde::de::Error::custom(format!(
+                "expected a CodeMirror mode string or object, got {value}"
+            ))),
+        }
+    }
 }
 
 impl CodeMirrorMode {
@@ -1132,7 +1160,7 @@ impl CodeMirrorMode {
     pub fn ipython_code_mirror_mode() -> Self {
         Self::CustomMode {
             name: "ipython".to_string(),
-            version: Some(3),
+            version: 3,
         }
     }
 }
@@ -2757,7 +2785,7 @@ mod test {
         match result.unwrap() {
             CodeMirrorMode::CustomMode { name, version } => {
                 assert_eq!(name, "ipython");
-                assert_eq!(version, Some(3));
+                assert_eq!(version, 3);
             }
             _ => panic!("Expected CustomMode"),
         }
@@ -2772,13 +2800,10 @@ mod test {
             "should accept {{\"name\":\"typescript\"}}: {:?}",
             result.err()
         );
-        match result.unwrap() {
-            CodeMirrorMode::CustomMode { name, version } => {
-                assert_eq!(name, "typescript");
-                assert_eq!(version, None);
-            }
-            _ => panic!("Expected CustomMode"),
-        }
+        assert!(matches!(
+            result.unwrap(),
+            CodeMirrorMode::Simple(name) if name == "typescript"
+        ));
     }
 
     #[test]
@@ -2804,8 +2829,9 @@ mod test {
 
         let reply: KernelInfoReply = serde_json::from_value(reply_json).unwrap();
         let mode = reply.language_info.codemirror_mode.unwrap();
-        assert!(
-            matches!(mode, CodeMirrorMode::CustomMode { ref name, version: None } if name == "typescript")
-        );
+        assert!(matches!(
+            mode,
+            CodeMirrorMode::Simple(name) if name == "typescript"
+        ));
     }
 }

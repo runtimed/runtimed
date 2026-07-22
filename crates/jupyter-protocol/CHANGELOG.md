@@ -4,6 +4,11 @@ All notable changes to `jupyter-protocol` will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- `CodeMirrorMode` now accepts object-valued modes that omit `version`, interpreting their
+  `name` as a simple mode without changing the public enum variants.
+
 ## [2.0.2] - 2026-06-27
 
 ## [2.0.1] - 2026-05-05
