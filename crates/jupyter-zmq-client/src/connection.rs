@@ -27,7 +27,7 @@ pub mod content {
 use tokio::net::TcpListener;
 
 #[cfg(feature = "async-dispatcher-runtime")]
-use async_std::net::TcpListener;
+use smol::net::TcpListener;
 
 use zeromq::Socket as _;
 
