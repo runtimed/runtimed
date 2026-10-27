@@ -4,6 +4,16 @@ All notable changes to `runtimelib` will be documented in this file.
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-10-27
+
+### Breaking
+
+- Re-export `jupyter-zmq-client` 2, including its Smol listener return type and
+  default `tokio-runtime,ring` features. Alternative runtime/crypto combinations
+  still work with `default-features = false` and explicit features.
+- Prefer migrating directly to `jupyter-zmq-client` rather than this deprecated
+  shim. See the workspace [migration guide](../../MIGRATION.md).
+
 ## [3.0.0] - 2026-05-05
 
 ### Deprecated

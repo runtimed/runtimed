@@ -4,6 +4,25 @@ All notable changes to `jupyter-zmq-client` will be documented in this file.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-27
+
+### Breaking
+
+- Under `async-dispatcher-runtime`, `peek_ports_with_listeners()` now returns
+  `smol::net::TcpListener` values instead of `async_std::net::TcpListener` (#325).
+  Update explicit type annotations and direct listener imports to Smol 2. The
+  Tokio return type is unchanged. The direct `async-std` dependency and its
+  implicit Cargo feature are removed; `zeromq` still uses it transitively.
+- Default features now select `tokio-runtime` and `ring`, so standalone packages
+  compile with their defaults. Alternative runtime or crypto users must set
+  `default-features = false` and select one runtime and one crypto backend.
+
+### Fixed
+
+- Exercise all four supported runtime/crypto combinations in CI, including
+  signed message round trips and tamper rejection with AWS-LC.
+- Check the Smol listener return type and port reservation lifetime.
+
 ## [1.0.1] - 2026-06-27
 
 ## [1.0.0] - 2026-05-05

@@ -4,6 +4,8 @@ All notable changes to `jupyter-protocol` will be documented in this file.
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-10-27
+
 ### Fixed
 
 - `CodeMirrorMode` now accepts object-valued modes that omit `version`, interpreting their

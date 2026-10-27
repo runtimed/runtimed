@@ -1,6 +1,6 @@
 [package]
 name = "runtimelib"
-version = "3.0.0"
+version = "4.0.0"
 edition = "2021"
 description = "Deprecated: renamed to `jupyter-zmq-client`. This crate re-exports `jupyter-zmq-client` for backwards compatibility."
 repository = "https://github.com/runtimed/runtimed"
@@ -11,7 +11,7 @@ readme = "./README.md"
 jupyter-zmq-client = { workspace = true, default-features = false }
 
 [features]
-default = ["ring"]
+default = ["tokio-runtime", "ring"]
 ring = ["jupyter-zmq-client/ring"]
 aws-lc-rs = ["jupyter-zmq-client/aws-lc-rs"]
 async-dispatcher-runtime = ["jupyter-zmq-client/async-dispatcher-runtime"]

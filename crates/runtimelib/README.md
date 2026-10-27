@@ -9,10 +9,10 @@
 
 ```toml
 # before
-runtimelib = { version = "2", features = ["tokio-runtime"] }
+runtimelib = "4"
 
 # after
-jupyter-zmq-client = { version = "1", features = ["tokio-runtime"] }
+jupyter-zmq-client = "2"
 ```
 
 ```rust,ignore
@@ -22,6 +22,10 @@ use runtimelib::{create_client_shell_connection, list_kernelspecs};
 // after
 use jupyter_zmq_client::{create_client_shell_connection, list_kernelspecs};
 ```
+
+The default features are `tokio-runtime` and `ring`. Disable defaults before
+selecting `async-dispatcher-runtime` or `aws-lc-rs`, and select exactly one runtime
+and one crypto backend. See the [supported combinations](../jupyter-zmq-client/README.md#installation).
 
 All feature flags (`tokio-runtime`, `async-dispatcher-runtime`, `ring`, `aws-lc-rs`, `test-kernel`) are forwarded unchanged.
 
