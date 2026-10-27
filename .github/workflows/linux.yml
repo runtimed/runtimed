@@ -49,16 +49,16 @@ jobs:
         run: cargo test -p jupyter-zmq-client --doc --verbose --features tokio-runtime
 
       - name: Build jupyter-zmq-client with async-dispatcher-runtime
-        run: cargo build -p jupyter-zmq-client --verbose --features async-dispatcher-runtime
+        run: cargo build -p jupyter-zmq-client --verbose --no-default-features --features async-dispatcher-runtime,ring
 
       - name: Run jupyter-zmq-client tests with async-dispatcher-runtime
-        run: cargo test -p jupyter-zmq-client --verbose --features async-dispatcher-runtime
+        run: cargo test -p jupyter-zmq-client --verbose --no-default-features --features async-dispatcher-runtime,ring
 
       - name: Run jupyter-zmq-client tokio example
         run: cargo run -p jupyter-zmq-client --example tokio-launch-kernel --features tokio-runtime
 
       - name: Run jupyter-zmq-client Doc Tests with async-dispatcher-runtime
-        run: cargo test -p jupyter-zmq-client --doc --verbose --features async-dispatcher-runtime
+        run: cargo test -p jupyter-zmq-client --doc --verbose --no-default-features --features async-dispatcher-runtime,ring
 
       - name: Build runtimelib shim with tokio
         run: cargo build -p runtimelib --verbose --features tokio-runtime

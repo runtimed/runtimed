@@ -6,7 +6,23 @@ This crate was previously published as [`runtimelib`](https://crates.io/crates/r
 
 ## Installation
 
-`jupyter-zmq-client` lets you pick which async runtime you want to use. If you're using tokio, include the `tokio-runtime` flag. For `async-dispatcher` users (AKA GPUI devs), use `async-dispatcher-runtime`. The async dispatcher runtime is also compatible with smol/async-std users.
+The default features are `tokio-runtime` and `ring`. Select exactly one async
+runtime and one HMAC backend. For `async-dispatcher` users (including GPUI and
+smol applications), disable defaults and enable `async-dispatcher-runtime` with
+either `ring` or `aws-lc-rs`.
+
+| Runtime | HMAC backend | Features with `default-features = false` |
+| --- | --- | --- |
+| Tokio | ring | `tokio-runtime`, `ring` |
+| Tokio | AWS-LC | `tokio-runtime`, `aws-lc-rs` |
+| async-dispatcher / smol | ring | `async-dispatcher-runtime`, `ring` |
+| async-dispatcher / smol | AWS-LC | `async-dispatcher-runtime`, `aws-lc-rs` |
+
+Enabling both runtimes or both crypto backends is unsupported. In particular,
+`--all-features` is not a supported build. Cargo unifies features within a
+dependency graph, so all users of this crate must agree on the runtime and
+backend. ZeroMQ can emit its own compilation errors for incompatible runtime
+selections before this crate's diagnostics are reached.
 
 ### Tokio Users
 
@@ -19,7 +35,14 @@ jupyter-zmq-client = { version = "1", features = ["tokio-runtime"] }
 
 ```toml
 [dependencies]
-jupyter-zmq-client = { version = "1", features = ["async-dispatcher-runtime"] }
+jupyter-zmq-client = { version = "1", default-features = false, features = ["async-dispatcher-runtime", "ring"] }
+```
+
+### AWS-LC Users
+
+```toml
+[dependencies]
+jupyter-zmq-client = { version = "1", default-features = false, features = ["tokio-runtime", "aws-lc-rs"] }
 ```
 
 ## Key Features

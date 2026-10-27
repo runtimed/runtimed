@@ -28,7 +28,7 @@ thiserror = { workspace = true }
 async-rust-lsp = "0.2"
 
 [features]
-default = ["ring"]
+default = ["tokio-runtime", "ring"]
 ring = ["dep:ring"]
 aws-lc-rs = ["dep:aws-lc-rs"]
 async-dispatcher-runtime = [

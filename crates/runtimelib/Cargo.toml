@@ -11,7 +11,7 @@ readme = "./README.md"
 jupyter-zmq-client = { workspace = true, default-features = false }
 
 [features]
-default = ["ring"]
+default = ["tokio-runtime", "ring"]
 ring = ["jupyter-zmq-client/ring"]
 aws-lc-rs = ["jupyter-zmq-client/aws-lc-rs"]
 async-dispatcher-runtime = ["jupyter-zmq-client/async-dispatcher-runtime"]

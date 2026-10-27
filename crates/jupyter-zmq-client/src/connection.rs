@@ -746,6 +746,55 @@ mod tests {
         );
     }
 
+    #[test]
+    fn signed_message_roundtrip_rejects_tampered_content() {
+        let key = Some(hmac::Key::new(hmac::HMAC_SHA256, b"test-key"));
+        let mut message: JupyterMessage = ExecuteRequest::new("1 + 1".into()).into();
+        message.buffers = vec![Bytes::from_static(b"binary buffer")];
+        let raw = RawMessage::from_jupyter_message(message).unwrap();
+        let expected_parts = raw.jparts.clone();
+        let multipart = raw.into_zmq_message(&key).unwrap();
+        let mut tampered_parts = multipart.clone().into_vec();
+
+        let received = RawMessage::from_multipart(multipart, &key).unwrap();
+        assert_eq!(received.jparts, expected_parts);
+
+        let delimiter = tampered_parts
+            .iter()
+            .position(|part| part.as_ref() == DELIMITER)
+            .unwrap();
+        // After delimiter/signature, the fourth JSON frame is content.
+        tampered_parts[delimiter + 5] = Bytes::from_static(br#"{"code":"modified"}"#);
+        let tampered = zeromq::ZmqMessage::try_from(tampered_parts).unwrap();
+        assert!(matches!(
+            RawMessage::from_multipart(tampered, &key),
+            Err(RuntimeError::VerifyError(_))
+        ));
+    }
+
+    #[cfg(feature = "async-dispatcher-runtime")]
+    #[test]
+    fn smol_listeners_reserve_ports_until_dropped() {
+        smol::block_on(async {
+            let ip = IpAddr::V4(std::net::Ipv4Addr::LOCALHOST);
+            // This explicit annotation also checks the public return type.
+            let (ports, listeners): (Vec<u16>, Vec<smol::net::TcpListener>) =
+                peek_ports_with_listeners(ip, 3).await.unwrap();
+            assert_eq!(ports.len(), listeners.len());
+            for (&port, listener) in ports.iter().zip(&listeners) {
+                assert_eq!(listener.local_addr().unwrap().port(), port);
+                let error = std::net::TcpListener::bind((ip, port)).unwrap_err();
+                assert_eq!(error.kind(), std::io::ErrorKind::AddrInUse);
+            }
+            drop(listeners);
+            let rebound: Vec<_> = ports
+                .iter()
+                .map(|&port| std::net::TcpListener::bind((ip, port)).unwrap())
+                .collect();
+            assert_eq!(rebound.len(), ports.len());
+        });
+    }
+
     /// Regression test for the `peek_ports` TOCTOU race.
     ///
     /// `peek_ports_with_listeners` must hand out unique ports even when called

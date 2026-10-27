@@ -1,0 +1,68 @@
+name: Package and feature gates
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_BUILD_JOBS: 2
+
+jobs:
+  packages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dsherret/rust-toolchain-file@v1
+      - name: Verify all published crate archives with defaults
+        run: cargo package --workspace
+
+  runtime-crypto:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [tokio-runtime, async-dispatcher-runtime]
+        crypto: [ring, aws-lc-rs]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dsherret/rust-toolchain-file@v1
+      - name: Test transport library with an explicit runtime and crypto backend
+        run: cargo test -p jupyter-zmq-client --lib --no-default-features --features "${{ matrix.runtime }},${{ matrix.crypto }}"
+      - name: Check shim with the same explicit feature selection
+        run: cargo check -p runtimelib --no-default-features --features "${{ matrix.runtime }},${{ matrix.crypto }}"
+
+  unsupported-features:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dsherret/rust-toolchain-file@v1
+      - name: Reject missing and conflicting crypto backends
+        shell: bash
+        run: |
+          expect_diagnostic() {
+            local features="$1" diagnostic="$2"
+            if cargo check -p jupyter-zmq-client --no-default-features --features "$features" > feature-check.log 2>&1; then
+              cat feature-check.log
+              echo "Unexpected success for $features"
+              exit 1
+            fi
+            grep -F "$diagnostic" feature-check.log
+          }
+          expect_diagnostic tokio-runtime 'select a crypto backend'
+          expect_diagnostic tokio-runtime,ring,aws-lc-rs 'select only one crypto backend'
+      - name: Reject incompatible runtime selections
+        shell: bash
+        run: |
+          # ZeroMQ currently rejects these before our own diagnostics are reached.
+          for features in ring tokio-runtime,async-dispatcher-runtime,ring; do
+            if cargo check -p jupyter-zmq-client --no-default-features --features "$features" > feature-check.log 2>&1; then
+              echo "Unexpected success for $features"
+              exit 1
+            fi
+            cat feature-check.log
+          done

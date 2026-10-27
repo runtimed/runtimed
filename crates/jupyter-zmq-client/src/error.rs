@@ -34,7 +34,7 @@ pub enum RuntimeError {
     #[cfg(feature = "ring")]
     #[error("{0}")]
     VerifyError(ring::error::Unspecified),
-    #[cfg(feature = "aws-lc-rs")]
+    #[cfg(all(feature = "aws-lc-rs", not(feature = "ring")))]
     #[error("{0}")]
     VerifyError(aws_lc_rs::error::Unspecified),
     #[error("{0}")]
