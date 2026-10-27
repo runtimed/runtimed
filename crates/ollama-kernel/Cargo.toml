@@ -19,4 +19,4 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
 reqwest = { version = "0.12.8", features = ["json", "stream"] }
-tokio = { version = "1.36.0", features = ["full"] }
+tokio = { version = "1.54.1", features = ["full"] }
