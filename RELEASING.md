@@ -16,14 +16,48 @@ release step has a dry-run default: inspect that result before adding
    `cargo release replace -p <crate>` and then `--execute` once to promote notes
    through the crate's `release.toml`. `cargo-release` generates dated headings.
 4. Commit the version, notes, migration instructions, and necessary fixes in a
-   reviewable PR. Run `cargo fmt --all -- --check`, `cargo package --workspace`,
-   the normal CI suite, and all four runtime/crypto combinations from
+   reviewable PR. Run `cargo fmt --all -- --check`, `cargo package --workspace --locked`,
+   `python3 scripts/check-package-locks.py target/package/*.crate`, the normal CI suite, and all four runtime/crypto combinations from
    `.github/workflows/packages.yml`. Do not use `--all-features`: the runtime and
    crypto backends are mutually exclusive. Workspace packaging stages unpublished
    internal dependencies and verifies each archive independently.
 5. Obtain review and merge the release PR. Re-fetch and verify the exact merged
    commit, clean tree, successful required checks, and unchanged registry state.
    If additional commits landed, reassess their release impact before publishing.
+
+## Preserve the reviewed dependency resolution
+
+The root `Cargo.lock` is tracked because this workspace publishes binaries as
+well as libraries. A clean source commit alone does not prove that an archive
+uses the dependency versions reviewed on another machine. Refresh dependencies
+on the release branch, review the lockfile diff, and commit it before CI.
+
+Package and check the actual archives:
+
+```sh
+cargo package --workspace --locked
+# This patch releases only Ollama, so use registry checksums for its libraries.
+cargo package -p ollama-kernel --locked
+python3 scripts/check-package-locks.py target/package/*.crate
+cargo audit --deny warnings --file target/package/ollama-kernel-<version>/Cargo.lock
+```
+
+Build/install the archive with `--locked`. Treat an audit finding or resolution
+mismatch as a release blocker; investigate reachability rather than dismissing
+it because the source commit matches. Library consumers still resolve their own
+dependencies.
+
+For the corrective Ollama 1.2.3 release, first run:
+
+```sh
+cargo publish -p ollama-kernel --locked --dry-run
+```
+
+Inspect the generated archive with the checks above, then repeat without
+`--dry-run` only after the release PR is approved, merged, and publication is
+authorized. This command preserves the lockfile; keep the existing cargo-release
+tag and push steps after registry verification.
+Do not republish the already shipped library versions or rewrite their tags.
 
 ## Publish the already prepared commit
 
