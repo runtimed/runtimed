@@ -4,7 +4,15 @@ A WebSocket client for connecting to Jupyter kernels via a Jupyter Server.
 
 For message types like `KernelInfoRequest` and `JupyterMessageContent`, use the [`jupyter-protocol`](https://crates.io/crates/jupyter-protocol) crate.
 
-Note: This crate does _not_ support tokio at this time.
+This crate uses Tokio for its WebSocket connections. Run connection operations
+inside a Tokio runtime.
+
+`JupyterWebSocket::inner` exposes an `async-tungstenite` stream. Applications that
+construct this field directly must also use `async-tungstenite = "0.35"` with
+compatible Tokio/TLS features. In particular, a stream from the 0.33 series has
+a different Rust type. Using `RemoteServer::connect_to_kernel` avoids constructing
+the stream yourself. This dependency transition must ship in a new major version
+of `jupyter-websocket-client`.
 
 ## Usage
 
