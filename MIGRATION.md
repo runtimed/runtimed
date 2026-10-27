@@ -3,7 +3,7 @@
 The prepared release train is `jupyter-protocol` 2.0.3,
 `jupyter-zmq-client` 2.0.0, `runtimelib` 4.0.0, and `ollama-kernel` 1.2.2.
 These versions are candidates until the reviewed release commit is published.
-The Ollama binary patch only adopts the updated transport dependency.
+The Ollama binary patch adopts the updated transport and protocol dependencies.
 
 ## Listener and feature changes
 

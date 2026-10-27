@@ -63,7 +63,8 @@ preceding publication is available; archive staging provides the pre-publication
 build gate.
 
 Once all selected uploads are verified, preview and execute package tagging,
-then pushing the tags, from that same approved commit:
+then push the package tags and approved commit. The local branch must already
+match the reviewed, merged commit on `main`:
 
 ```sh
 cargo release tag -p jupyter-protocol -p jupyter-zmq-client -p runtimelib -p ollama-kernel
