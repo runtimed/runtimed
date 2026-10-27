@@ -29,6 +29,22 @@ This crate is being tested for compatibility with the Jupyter CRDT ecosystem:
 
 Conformance is partial and actively in progress. If you're building on this crate, expect breaking changes.
 
+## Python bindings
+
+The optional `python` feature uses PyO3 0.29.3 or a compatible patch release.
+Rust callers of `jupyter_ysync::python` must use matching PyO3 types when passing
+`Python` or `Bound` values. The module retains its GIL requirement; free-threaded
+execution has not been validated.
+
+After building and installing the extension from `python/pyproject.toml`, run its
+dependency-free binding smoke tests:
+
+```sh
+python -m unittest discover -s python/tests -p test_bindings_smoke.py -v
+```
+
+The broader conformance suite additionally requires the Python `test` extras.
+
 ## Example
 
 ```rust
