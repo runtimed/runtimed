@@ -34,7 +34,6 @@ aws-lc-rs = ["dep:aws-lc-rs"]
 async-dispatcher-runtime = [
     "zeromq/async-dispatcher-runtime",
     "async-dispatcher",
-    "async-std",
     "smol",
 ]
 tokio-runtime = ["tokio", "zeromq/tokio-runtime"]
@@ -47,10 +46,6 @@ optional = true
 
 [dependencies.async-dispatcher]
 version = "0.1"
-optional = true
-
-[dependencies.async-std]
-version = "1"
 optional = true
 
 [package.metadata.docs.rs]
