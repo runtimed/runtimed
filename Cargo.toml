@@ -22,7 +22,7 @@ default-members = [
 resolver = "2"
 
 [workspace.dependencies]
-anyhow = "1"
+anyhow = "1.0.104"
 async-trait = "0.1.68"
 async-tungstenite = { version = ">= 0.29.1" }
 serde = { version = "1", features = ["derive"] }
@@ -33,14 +33,14 @@ chrono = { version = "0.4", default-features = false, features = [
     "serde",
 ] }
 futures = "0.3"
-bytes = "1"
+bytes = "1.12.1"
 base64 = "0.22"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 runtimelib = { path = "crates/runtimelib", version = "4.0.0", default-features = false }
 jupyter-zmq-client = { path = "crates/jupyter-zmq-client", version = "2.0.0", default-features = false }
 jupyter-protocol = { path = "crates/jupyter-protocol", version = "2.0.3" }
 thiserror = "2"
-tokio = { version = "1.36.0", features = ["full"] }
+tokio = { version = "1.54.1", features = ["full"] }
 yrs = "0.21"
 dashmap = "6"
 nbformat = { path = "crates/nbformat", version = "3.0.0" }
