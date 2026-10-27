@@ -97,7 +97,8 @@ impl PyNotebookDoc {
 }
 
 /// Python module for jupyter_ysync.
-#[pymodule]
+// Preserve the existing GIL requirement; free-threaded support needs separate validation.
+#[pymodule(gil_used = true)]
 pub fn jupyter_ysync(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyNotebookDoc>()?;
     Ok(())
