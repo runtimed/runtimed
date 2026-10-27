@@ -28,21 +28,21 @@ selections before this crate's diagnostics are reached.
 
 ```toml
 [dependencies]
-jupyter-zmq-client = { version = "1", features = ["tokio-runtime"] }
+jupyter-zmq-client = "2"
 ```
 
 ### Async-dispatcher Users
 
 ```toml
 [dependencies]
-jupyter-zmq-client = { version = "1", default-features = false, features = ["async-dispatcher-runtime", "ring"] }
+jupyter-zmq-client = { version = "2", default-features = false, features = ["async-dispatcher-runtime", "ring"] }
 ```
 
 ### AWS-LC Users
 
 ```toml
 [dependencies]
-jupyter-zmq-client = { version = "1", default-features = false, features = ["tokio-runtime", "aws-lc-rs"] }
+jupyter-zmq-client = { version = "2", default-features = false, features = ["tokio-runtime", "aws-lc-rs"] }
 ```
 
 ## Key Features

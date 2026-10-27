@@ -9,10 +9,10 @@
 
 ```toml
 # before
-runtimelib = { version = "2", features = ["tokio-runtime"] }
+runtimelib = "4"
 
 # after
-jupyter-zmq-client = { version = "1", features = ["tokio-runtime"] }
+jupyter-zmq-client = "2"
 ```
 
 ```rust,ignore

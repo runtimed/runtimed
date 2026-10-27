@@ -4,6 +4,8 @@ All notable changes to `jupyter-zmq-client` will be documented in this file.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-27
+
 ### Breaking
 
 - Under `async-dispatcher-runtime`, `peek_ports_with_listeners()` now returns

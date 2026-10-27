@@ -4,6 +4,8 @@ All notable changes to `runtimelib` will be documented in this file.
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-10-27
+
 ### Breaking
 
 - Re-export `jupyter-zmq-client` 2, including its Smol listener return type and
