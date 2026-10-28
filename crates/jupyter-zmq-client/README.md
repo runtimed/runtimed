@@ -24,25 +24,28 @@ dependency graph, so all users of this crate must agree on the runtime and
 backend. ZeroMQ can emit its own compilation errors for incompatible runtime
 selections before this crate's diagnostics are reached.
 
+Public socket types and `Connection<S>` use `zeromq` 0.7. If your application
+also depends directly on ZeroMQ, align that dependency to `0.7`.
+
 ### Tokio Users
 
 ```toml
 [dependencies]
-jupyter-zmq-client = "2"
+jupyter-zmq-client = "3"
 ```
 
 ### Async-dispatcher Users
 
 ```toml
 [dependencies]
-jupyter-zmq-client = { version = "2", default-features = false, features = ["async-dispatcher-runtime", "ring"] }
+jupyter-zmq-client = { version = "3", default-features = false, features = ["async-dispatcher-runtime", "ring"] }
 ```
 
 ### AWS-LC Users
 
 ```toml
 [dependencies]
-jupyter-zmq-client = { version = "2", default-features = false, features = ["tokio-runtime", "aws-lc-rs"] }
+jupyter-zmq-client = { version = "3", default-features = false, features = ["tokio-runtime", "aws-lc-rs"] }
 ```
 
 ## Key Features
