@@ -319,7 +319,13 @@ impl RawMessage {
             .ok_or(RuntimeError::MissingDelimiter)?;
         let mut parts = multipart.into_vec();
 
+        if parts.len() == delimiter_index + 1 {
+            return Err(RuntimeError::MissingHmac);
+        }
         let jparts: Vec<_> = parts.drain(delimiter_index + 2..).collect();
+        if jparts.len() < 4 {
+            return Err(RuntimeError::InsufficientMessageParts(jparts.len()));
+        }
         let expected_hmac = parts.pop().ok_or(RuntimeError::MissingHmac)?;
         // Remove delimiter, so that what's left is just the identities.
         parts.pop();
@@ -713,6 +719,41 @@ mod tests {
     use super::*;
     use bytes::Bytes;
     use jupyter_protocol::messaging::{ExecuteRequest, JupyterMessage};
+
+    #[test]
+    fn multipart_rejects_missing_signature() {
+        for key in [Some(hmac::Key::new(hmac::HMAC_SHA256, b"test-key")), None] {
+            for identities in [vec![], vec![Bytes::from_static(b"routing-id")]] {
+                let mut parts = identities;
+                parts.push(Bytes::from_static(DELIMITER));
+                let multipart = zeromq::ZmqMessage::try_from(parts).unwrap();
+                assert!(matches!(
+                    RawMessage::from_multipart(multipart, &key),
+                    Err(RuntimeError::MissingHmac)
+                ));
+            }
+        }
+    }
+
+    #[test]
+    fn multipart_rejects_truncated_json_frames() {
+        for key in [Some(hmac::Key::new(hmac::HMAC_SHA256, b"test-key")), None] {
+            for count in 0..4 {
+                for identities in [vec![], vec![Bytes::from_static(b"routing-id")]] {
+                    let mut parts = identities;
+                    parts.push(Bytes::from_static(DELIMITER));
+                    // Empty signatures are valid framing, including on unsigned connections.
+                    parts.push(Bytes::new());
+                    parts.extend((0..count).map(|_| Bytes::from_static(b"{}")));
+                    let multipart = zeromq::ZmqMessage::try_from(parts).unwrap();
+                    assert!(matches!(
+                        RawMessage::from_multipart(multipart, &key),
+                        Err(RuntimeError::InsufficientMessageParts(actual)) if actual == count
+                    ));
+                }
+            }
+        }
+    }
 
     /// Test that HMAC signing produces the same result whether or not buffers are present.
     ///
