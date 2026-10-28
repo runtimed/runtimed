@@ -11,8 +11,7 @@ inside a Tokio runtime.
 construct this field directly must also use `async-tungstenite = "0.35"` with
 compatible Tokio/TLS features. In particular, a stream from the 0.33 series has
 a different Rust type. Using `RemoteServer::connect_to_kernel` avoids constructing
-the stream yourself. This dependency transition must ship in a new major version
-of `jupyter-websocket-client`.
+the stream yourself. This dependency transition ships in `jupyter-websocket-client` 3.
 
 ## Usage
 

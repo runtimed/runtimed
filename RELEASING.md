@@ -1,5 +1,21 @@
 # Releasing
 
+## Current transport release candidate
+
+Prepare and review `jupyter-zmq-client` 3.0.0, `jupyter-websocket-client` 3.0.0,
+`runtimelib` 5.0.0, and `ollama-kernel` 1.2.4.
+Publish the two clients first, then the shim and Ollama after their
+respective dependencies are visible. Protocol and nbformat stay unchanged.
+Y-sync is tested with the shared WebSocket dependency but is not selected for
+publication: its optional PyO3 advisories are addressed separately by #327.
+
+Before publication, use workspace packaging to stage the unpublished internal
+dependencies. The standalone Ollama packaging step becomes possible only after
+jupyter-zmq-client 3 is on crates.io. Validate the staged archives and lockfiles
+in CI, then repeat standalone packaging against the registry before publishing
+each dependent crate. The older commands below describe the preceding releases;
+use the candidate package versions above for this train.
+
 We use `cargo-release` and publish Rust crates to crates.io. Every mutating
 release step has a dry-run default: inspect that result before adding
 `--execute`. Never bypass required CI or branch protections.

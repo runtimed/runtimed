@@ -4,6 +4,10 @@ All notable changes to `runtimelib` will be documented in this file.
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-10-28
+
+- Re-export jupyter-zmq-client 3 and its ZeroMQ 0.7 public types. Prefer depending directly on jupyter-zmq-client; the existing runtime and crypto feature forwarding is unchanged.
+
 ## [4.0.0] - 2026-10-27
 
 ### Breaking
