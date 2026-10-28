@@ -2,7 +2,7 @@
 
 The next candidate releases are `jupyter-zmq-client` 3.0.0,
 `runtimelib` 5.0.0, `jupyter-websocket-client` 3.0.0,
-and `ollama-kernel` 1.2.4.
+`jupyter-ysync` 0.3.0, and `ollama-kernel` 1.2.4.
 `jupyter-protocol` remains at 2.0.3 and `nbformat` at 3.0.0.
 
 ## ZeroMQ public types
@@ -24,8 +24,17 @@ Use `jupyter-websocket-client = "3"` and align direct `async-tungstenite`
 dependencies to `0.35`, including compatible Tokio/TLS features. This applies
 when constructing `JupyterWebSocket::inner`. `RemoteServer::connect_to_kernel` manages stream construction for you.
 Y-sync's optional client shares this dependency; its transport fields are private,
-so this WebSocket update alone preserves its public API. Y-sync publication is
-held for the separate PyO3 upgrade in #327, which requires a 0.3.0 release.
+so this WebSocket update alone preserves its public API.
+
+## Optional Python bindings
+
+Y-sync 0.3.0 also incorporates #327: the optional `python` feature now uses
+PyO3 0.29.3 or a compatible patch release. Rust callers passing `Python`,
+`Bound`, or `PyResult` values through the public `jupyter_ysync::python` module
+must align direct PyO3 dependencies to 0.29. This dependency type change requires
+the new pre-1.0 compatibility series even though the Python methods are unchanged.
+The extension explicitly retains its GIL requirement. Python distribution
+metadata remains separate; this release does not publish a wheel to PyPI.
 
 ## Dependency resolution and TLS
 

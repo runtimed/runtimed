@@ -3,11 +3,12 @@
 ## Current transport release candidate
 
 Prepare and review `jupyter-zmq-client` 3.0.0, `jupyter-websocket-client` 3.0.0,
-`runtimelib` 5.0.0, and `ollama-kernel` 1.2.4.
-Publish the two clients first, then the shim and Ollama after their
+`runtimelib` 5.0.0, `jupyter-ysync` 0.3.0, and `ollama-kernel` 1.2.4.
+Publish the two clients first, then the shim, Y-sync, and Ollama after their
 respective dependencies are visible. Protocol and nbformat stay unchanged.
-Y-sync is tested with the shared WebSocket dependency but is not selected for
-publication: its optional PyO3 advisories are addressed separately by #327.
+Y-sync incorporates #327's patched PyO3 dependency. Test both the optional
+WebSocket client and the installed Python extension before publication; the
+Python wheel CI matrix covers Python 3.10 and 3.14. No PyPI release is included.
 
 Before publication, use workspace packaging to stage the unpublished internal
 dependencies. The standalone Ollama packaging step becomes possible only after
