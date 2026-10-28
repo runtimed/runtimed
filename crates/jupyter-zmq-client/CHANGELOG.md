@@ -4,6 +4,10 @@ All notable changes to `jupyter-zmq-client` will be documented in this file.
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-10-28
+
+- Reject multipart messages missing the signature frame or any of the four JSON frames before HMAC verification, returning an error instead of panicking (#332). This applies to signed and unsigned connections and preserves valid-message handling.
+
 ## [3.0.0] - 2026-10-28
 
 - Upgrade to ZeroMQ 0.7. Public sockets, message/error types, trait bounds, and PeerIdentity now belong to the 0.7 series; update direct zeromq dependencies to match. Windows IPC uses the internal socket2/async-io adapter instead of win_uds. Runtime and crypto feature selection is unchanged.

@@ -1,21 +1,17 @@
 # Releasing
 
-## Current transport release candidate
+## Current patch release candidate
 
-Prepare and review `jupyter-zmq-client` 3.0.0, `jupyter-websocket-client` 3.0.0,
-`runtimelib` 5.0.0, `jupyter-ysync` 0.3.0, and `ollama-kernel` 1.2.4.
-Publish the two clients first, then the shim, Y-sync, and Ollama after their
-respective dependencies are visible. Protocol and nbformat stay unchanged.
-Y-sync incorporates #327's patched PyO3 dependency. Test both the optional
-WebSocket client and the installed Python extension before publication; the
-Python wheel CI matrix covers Python 3.10 and 3.14. No PyPI release is included.
+Prepare and review only `jupyter-zmq-client` 3.0.1, containing #332's malformed
+multipart input checks. Other package versions stay unchanged. No dependent
+crate or Python publication is included.
 
-Before publication, use workspace packaging to stage the unpublished internal
-dependencies. The standalone Ollama packaging step becomes possible only after
-jupyter-zmq-client 3 is on crates.io. Validate the staged archives and lockfiles
-in CI, then repeat standalone packaging against the registry before publishing
-each dependent crate. The older commands below describe the preceding releases;
-use the candidate package versions above for this train.
+Validate workspace archives and lockfiles in CI, then dry-run and execute
+`cargo release publish -p jupyter-zmq-client` from the reviewed merge. Verify
+the registry archive and run an external consumer that rejects malformed
+messages and still receives valid messages over TCP and IPC. Tag and push only
+`jupyter-zmq-client-v3.0.1` after verification. The older commands below describe
+preceding releases; use this candidate's package and version for this patch.
 
 We use `cargo-release` and publish Rust crates to crates.io. Every mutating
 release step has a dry-run default: inspect that result before adding
