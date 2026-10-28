@@ -10,10 +10,10 @@
 //!
 //! ```toml
 //! # before
-//! runtimelib = { version = "2", features = ["tokio-runtime"] }
+//! runtimelib = { version = "5", features = ["tokio-runtime"] }
 //!
 //! # after
-//! jupyter-zmq-client = { version = "1", features = ["tokio-runtime"] }
+//! jupyter-zmq-client = { version = "3", features = ["tokio-runtime"] }
 //! ```
 //!
 //! ```rust,ignore

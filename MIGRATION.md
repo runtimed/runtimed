@@ -1,3 +1,50 @@
+# ZeroMQ 0.7 and WebSocket 0.35 migration
+
+The next candidate releases are `jupyter-zmq-client` 3.0.0,
+`runtimelib` 5.0.0, `jupyter-websocket-client` 3.0.0,
+`jupyter-ysync` 0.3.0, and `ollama-kernel` 1.2.4.
+`jupyter-protocol` remains at 2.0.3 and `nbformat` at 3.0.0.
+
+## ZeroMQ public types
+
+Update direct `zeromq` dependencies to `0.7` alongside `jupyter-zmq-client = "3"`
+(or the deprecated `runtimelib = "5"` shim). Socket aliases, `Connection<S>`
+trait bounds, `PeerIdentity`, `RuntimeError::ZmqError`, and subscription message
+arguments expose ZeroMQ types; values from 0.6 and 0.7 cannot be mixed.
+ZeroMQ's `SocketBackend::socket_options` now returns `&Arc<SocketOptions>`.
+Windows IPC no longer depends on `win_uds`; the adapter lives in ZeroMQ.
+
+Runtime and crypto features retain their existing defaults and explicit choices.
+The dispatcher backend still transitively uses async-std. ZeroMQ 0.7 requires
+Rust 1.89; this workspace continues to build and test with Rust 1.90.
+
+## WebSocket public types
+
+Use `jupyter-websocket-client = "3"` and align direct `async-tungstenite`
+dependencies to `0.35`, including compatible Tokio/TLS features. This applies
+when constructing `JupyterWebSocket::inner`. `RemoteServer::connect_to_kernel` manages stream construction for you.
+Y-sync's optional client shares this dependency; its transport fields are private,
+so this WebSocket update alone preserves its public API.
+
+## Optional Python bindings
+
+Y-sync 0.3.0 also incorporates #327: the optional `python` feature now uses
+PyO3 0.29.3 or a compatible patch release. Rust callers passing `Python`,
+`Bound`, or `PyResult` values through the public `jupyter_ysync::python` module
+must align direct PyO3 dependencies to 0.29. This dependency type change requires
+the new pre-1.0 compatibility series even though the Python methods are unchanged.
+The extension explicitly retains its GIL requirement. Python distribution
+metadata remains separate; this release does not publish a wheel to PyPI.
+
+## Dependency resolution and TLS
+
+Update application lockfiles when adopting these releases. The reviewed workspace
+and packaged lockfiles use `rustls-webpki` 0.103.16 and `webpki-roots` 1.0.11.
+Libraries do not impose their lockfiles on consumers; verify the application's
+resolved TLS graph separately. ZeroMQ itself has no TLS/WebPKI dependency.
+
+The following section documents the preceding release for older consumers.
+
 # October 2026 release migration
 
 The prepared release train is `jupyter-protocol` 2.0.3,

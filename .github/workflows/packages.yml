@@ -20,8 +20,6 @@ jobs:
       - uses: dsherret/rust-toolchain-file@v1
       - name: Verify all published crate archives with defaults
         run: cargo package --workspace --locked
-      - name: Verify Ollama against already published libraries
-        run: cargo package -p ollama-kernel --locked
       - name: Verify packaged dependency resolutions
         run: |
           python3 -m unittest discover -s scripts

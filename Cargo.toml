@@ -24,7 +24,7 @@ resolver = "2"
 [workspace.dependencies]
 anyhow = "1.0.104"
 async-trait = "0.1.68"
-async-tungstenite = { version = ">= 0.29.1" }
+async-tungstenite = { version = "0.35" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 uuid = { version = "1", features = ["serde", "v4", "v5"] }
@@ -36,15 +36,15 @@ futures = "0.3"
 bytes = "1.12.1"
 base64 = "0.22"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-runtimelib = { path = "crates/runtimelib", version = "4.0.0", default-features = false }
-jupyter-zmq-client = { path = "crates/jupyter-zmq-client", version = "2.0.0", default-features = false }
+runtimelib = { path = "crates/runtimelib", version = "5.0.0", default-features = false }
+jupyter-zmq-client = { path = "crates/jupyter-zmq-client", version = "3.0.0", default-features = false }
 jupyter-protocol = { path = "crates/jupyter-protocol", version = "2.0.3" }
 thiserror = "2"
 tokio = { version = "1.54.1", features = ["full"] }
 yrs = "0.21"
 dashmap = "6"
 nbformat = { path = "crates/nbformat", version = "3.0.0" }
-jupyter-websocket-client = { path = "crates/jupyter-websocket-client", version = "2.0.0" }
+jupyter-websocket-client = { path = "crates/jupyter-websocket-client", version = "3.0.0" }
 
 [profile.release]
 opt-level = 'z'

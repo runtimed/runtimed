@@ -1,6 +1,6 @@
 [package]
 name = "jupyter-websocket-client"
-version = "2.0.0"
+version = "3.0.0"
 edition = "2021"
 description = "Connect to Jupyter Servers over WebSockets"
 repository = "https://github.com/runtimed/runtimed"
@@ -15,7 +15,7 @@ serde_json = { workspace = true }
 futures = { workspace = true }
 uuid = { workspace = true }
 url = "2.5.2"
-async-tungstenite = {version = ">= 0.29.1", features = ["tokio", "tokio-rustls-manual-roots"] }
+async-tungstenite = { workspace = true, features = ["tokio", "tokio-rustls-manual-roots"] }
 tokio = { workspace = true }
 jupyter-protocol = { workspace = true }
 

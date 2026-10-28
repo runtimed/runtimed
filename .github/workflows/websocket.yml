@@ -1,0 +1,24 @@
+name: WebSocket consumers
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_BUILD_JOBS: 2
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dsherret/rust-toolchain-file@v1
+      - name: Test the WebSocket client
+        run: cargo test -p jupyter-websocket-client
+      - name: Test Y-sync with its optional client
+        run: cargo test -p jupyter-ysync --features client

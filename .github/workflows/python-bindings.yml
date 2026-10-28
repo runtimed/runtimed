@@ -1,0 +1,39 @@
+name: Python bindings
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.14"]
+    env:
+      CARGO_BUILD_JOBS: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dsherret/rust-toolchain-file@v1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install 'maturin>=1,<2'
+      - name: Check combined Python and WebSocket client features
+        env:
+          PYO3_PYTHON: python
+        run: cargo check -p jupyter-ysync --locked --features client,python
+      - name: Build and install the optional extension
+        working-directory: crates/jupyter-ysync/python
+        run: |
+          maturin build --locked --profile dev --interpreter python --out "$RUNNER_TEMP/wheels"
+          python -m pip install --no-deps "$RUNNER_TEMP"/wheels/*.whl
+      - name: Exercise the installed binding
+        working-directory: crates/jupyter-ysync/python
+        run: python -m unittest discover -s tests -p test_bindings_smoke.py -v

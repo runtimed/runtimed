@@ -1,6 +1,6 @@
 [package]
 name = "jupyter-zmq-client"
-version = "2.0.0"
+version = "3.0.0"
 edition = "2021"
 description = "Jupyter kernel client over ZeroMQ"
 repository = "https://github.com/runtimed/runtimed"
@@ -8,7 +8,7 @@ license = "BSD-3-Clause"
 readme = "./README.md"
 
 [dependencies]
-zeromq = { version = "0.6.0", default-features = false, features = [
+zeromq = { version = "0.7.0", default-features = false, features = [
     "tcp-transport",
     "ipc-transport",
 ] }

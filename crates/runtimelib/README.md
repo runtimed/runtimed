@@ -9,10 +9,10 @@
 
 ```toml
 # before
-runtimelib = "4"
+runtimelib = "5"
 
 # after
-jupyter-zmq-client = "2"
+jupyter-zmq-client = "3"
 ```
 
 ```rust,ignore
