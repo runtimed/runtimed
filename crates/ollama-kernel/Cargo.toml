@@ -1,6 +1,6 @@
 [package]
 name = "ollama-kernel"
-version = "1.2.4"
+version = "1.2.5"
 edition = "2021"
 description = "Ollama Jupyter Kernel"
 repository = "https://github.com/runtimed/runtimed"
@@ -18,5 +18,5 @@ futures = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
-reqwest = { version = "0.12.8", features = ["json", "stream"] }
+reqwest = { workspace = true, features = ["stream"] }
 tokio = { version = "1.54.1", features = ["full"] }

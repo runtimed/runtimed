@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.2.5] - 2026-10-29
+
+- Use the workspace reqwest configuration with Rustls. The kernel talks to Ollama
+  over plain HTTP on localhost, so native TLS and its openssl dependency on Linux
+  are no longer part of the build.
+
 ## [1.2.4] - 2026-10-28
 
 - Use jupyter-zmq-client 3 with ZeroMQ 0.7, including the internal Windows IPC adapter. Preserve the reviewed TLS dependency resolution in the published binary lockfile.
