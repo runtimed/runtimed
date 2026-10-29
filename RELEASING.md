@@ -2,15 +2,16 @@
 
 ## Current patch release candidate
 
-Prepare and review only `jupyter-zmq-client` 3.0.1, containing #332's malformed
-multipart input checks. Other package versions stay unchanged. No dependent
-crate or Python publication is included.
+Prepare and review only `ollama-kernel` 1.2.5. It moves to the workspace
+reqwest configuration (Rustls), which removes native TLS and openssl from the
+published binary lockfile. Other package versions stay unchanged. No library
+or Python publication is included.
 
 Validate workspace archives and lockfiles in CI, then dry-run and execute
-`cargo release publish -p jupyter-zmq-client` from the reviewed merge. Verify
-the registry archive and run an external consumer that rejects malformed
-messages and still receives valid messages over TCP and IPC. Tag and push only
-`jupyter-zmq-client-v3.0.1` after verification. The older commands below describe
+`cargo release publish -p ollama-kernel` from the reviewed merge. Audit the
+packaged `ollama-kernel-1.2.5/Cargo.lock`, install the registry archive with
+`--locked`, and run `ollama-kernel --help`. Tag and push only
+`ollama-kernel-v1.2.5` after verification. The older commands below describe
 preceding releases; use this candidate's package and version for this patch.
 
 We use `cargo-release` and publish Rust crates to crates.io. Every mutating
