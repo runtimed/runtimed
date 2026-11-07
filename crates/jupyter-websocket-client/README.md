@@ -8,10 +8,11 @@ This crate uses Tokio for its WebSocket connections. Run connection operations
 inside a Tokio runtime.
 
 `JupyterWebSocket::inner` exposes an `async-tungstenite` stream. Applications that
-construct this field directly must also use `async-tungstenite = "0.35"` with
-compatible Tokio/TLS features. In particular, a stream from the 0.33 series has
-a different Rust type. Using `RemoteServer::connect_to_kernel` avoids constructing
-the stream yourself. This dependency transition ships in `jupyter-websocket-client` 3.
+construct this field directly must resolve the same `async-tungstenite` version
+as this crate, with compatible Tokio/TLS features. This crate accepts the 0.33,
+0.34 and 0.35 series (`>=0.33, <0.36`), so Cargo unifies on whichever series your
+application selects. Using `RemoteServer::connect_to_kernel` avoids constructing
+the stream yourself.
 
 ## Usage
 
