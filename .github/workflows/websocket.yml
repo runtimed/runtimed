@@ -22,3 +22,9 @@ jobs:
         run: cargo test -p jupyter-websocket-client
       - name: Test Y-sync with its optional client
         run: cargo test -p jupyter-ysync --features client
+      - name: Resolve the oldest supported async-tungstenite series
+        run: cargo update -p async-tungstenite --precise 0.33.0
+      - name: Test the WebSocket client on async-tungstenite 0.33
+        run: cargo test -p jupyter-websocket-client
+      - name: Test Y-sync on async-tungstenite 0.33
+        run: cargo test -p jupyter-ysync --features client

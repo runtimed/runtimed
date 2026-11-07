@@ -21,7 +21,9 @@ Rust 1.89; this workspace continues to build and test with Rust 1.90.
 ## WebSocket public types
 
 Use `jupyter-websocket-client = "3"` and align direct `async-tungstenite`
-dependencies to `0.35`, including compatible Tokio/TLS features. This applies
+dependencies with the client, including compatible Tokio/TLS features. From
+3.0.1 the client accepts the 0.33 through 0.35 series, so an application on 0.33
+can stay there. This applies
 when constructing `JupyterWebSocket::inner`. `RemoteServer::connect_to_kernel` manages stream construction for you.
 Y-sync's optional client shares this dependency; its transport fields are private,
 so this WebSocket update alone preserves its public API.

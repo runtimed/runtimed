@@ -2,17 +2,18 @@
 
 ## Current patch release candidate
 
-Prepare and review only `ollama-kernel` 1.2.5. It moves to the workspace
-reqwest configuration (Rustls), which removes native TLS and openssl from the
-published binary lockfile. Other package versions stay unchanged. No library
-or Python publication is included.
+Prepare and review only `jupyter-websocket-client` 3.0.1. It widens
+`async-tungstenite` from `0.35` to `>=0.33, <0.36`, so applications on the 0.33
+series (Zed) unify with the client instead of pulling tungstenite 0.30 and a
+second RustCrypto 0.11 stack. The public API is unchanged. Other package
+versions stay unchanged. `jupyter-ysync` shares the workspace requirement; its
+transport fields are private, so it needs no release for this change.
 
-Validate workspace archives and lockfiles in CI, then dry-run and execute
-`cargo release publish -p ollama-kernel` from the reviewed merge. Audit the
-packaged `ollama-kernel-1.2.5/Cargo.lock`, install the registry archive with
-`--locked`, and run `ollama-kernel --help`. Tag and push only
-`ollama-kernel-v1.2.5` after verification. The older commands below describe
-preceding releases; use this candidate's package and version for this patch.
+Validate in CI, including the WebSocket workflow's 0.33 resolution, then
+dry-run and execute `cargo release publish -p jupyter-websocket-client` from the
+reviewed merge. Tag and push only `jupyter-websocket-client-v3.0.1` after
+verification. The older commands below describe preceding releases; use this
+candidate's package and version for this patch.
 
 We use `cargo-release` and publish Rust crates to crates.io. Every mutating
 release step has a dry-run default: inspect that result before adding
