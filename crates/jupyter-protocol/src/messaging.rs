@@ -897,6 +897,8 @@ pub enum ReplyStatus {
     #[default]
     Ok,
     Error,
+    // Older spec revisions spelled this `abort`, and some kernels (e.g. IRkernel) still send it
+    #[serde(alias = "abort")]
     Aborted,
 }
 
@@ -2502,6 +2504,27 @@ mod test {
         let reply: ExecuteReply = serde_json::from_value(reply_json).unwrap();
         assert_eq!(reply.execution_count, ExecutionCount::new(0));
         assert_eq!(reply.status, ReplyStatus::Aborted);
+    }
+
+    #[test]
+    fn test_execute_reply_legacy_abort_status() {
+        let reply_json = serde_json::json!({
+            "status": "abort",
+            "execution_count": 3
+        });
+        let reply: ExecuteReply = serde_json::from_value(reply_json).unwrap();
+        assert_eq!(reply.status, ReplyStatus::Aborted);
+        assert_eq!(reply.execution_count, ExecutionCount::new(3));
+    }
+
+    #[test]
+    fn test_reply_status_aborted_serializes_as_aborted() {
+        let reply = ExecuteReply {
+            status: ReplyStatus::Aborted,
+            ..Default::default()
+        };
+        let value = serde_json::to_value(&reply).unwrap();
+        assert_eq!(value["status"], "aborted");
     }
 
     #[test]
