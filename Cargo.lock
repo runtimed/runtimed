@@ -1192,7 +1192,7 @@ dependencies = [
 
 [[package]]
 name = "jupyter-protocol"
-version = "2.0.3"
+version = "2.0.4"
 dependencies = [
  "async-trait",
  "bytes",

@@ -2,18 +2,18 @@
 
 ## Current patch release candidate
 
-Prepare and review only `jupyter-websocket-client` 3.0.1. It widens
-`async-tungstenite` from `0.35` to `>=0.33, <0.36`, so applications on the 0.33
-series (Zed) unify with the client instead of pulling tungstenite 0.30 and a
-second RustCrypto 0.11 stack. The public API is unchanged. Other package
-versions stay unchanged. `jupyter-ysync` shares the workspace requirement; its
-transport fields are private, so it needs no release for this change.
+Prepare and review only `jupyter-protocol` 2.0.4. It ships #336: `ReplyStatus`
+deserializes the legacy `abort` spelling (sent by IRkernel for interrupted
+executions) as `Aborted`. Serialization and the public API are unchanged. Other
+package versions stay unchanged. Every consumer already requires `^2.0.3`, so
+published `nbformat`, transport, `runtimelib`, `jupyter-ysync`, and Ollama
+versions pick up 2.0.4 without a release of their own.
 
-Validate in CI, including the WebSocket workflow's 0.33 resolution, then
-dry-run and execute `cargo release publish -p jupyter-websocket-client` from the
-reviewed merge. Tag and push only `jupyter-websocket-client-v3.0.1` after
-verification. The older commands below describe preceding releases; use this
-candidate's package and version for this patch.
+Validate in CI, then dry-run and execute
+`cargo release publish -p jupyter-protocol` from the reviewed merge. Tag and
+push only `jupyter-protocol-v2.0.4` after verification. The older commands below
+describe preceding releases; use this candidate's package and version for this
+patch.
 
 We use `cargo-release` and publish Rust crates to crates.io. Every mutating
 release step has a dry-run default: inspect that result before adding
