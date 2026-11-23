@@ -4,6 +4,13 @@ All notable changes to `jupyter-protocol` will be documented in this file.
 
 ## [Unreleased]
 
+## [2.0.4] - 2026-11-23
+
+### Fixed
+
+- `ReplyStatus` now accepts the legacy `abort` spelling as `Aborted` when deserializing. IRkernel
+  sends it for interrupted executions. Serialization still emits `aborted`. (#336)
+
 ## [2.0.3] - 2026-10-27
 
 ### Fixed
