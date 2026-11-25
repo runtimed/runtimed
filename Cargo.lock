@@ -1383,7 +1383,6 @@ name = "nbformat"
 version = "3.0.0"
 dependencies = [
  "anyhow",
- "chrono",
  "jupyter-protocol",
  "serde",
  "serde_json",
@@ -1422,7 +1421,6 @@ dependencies = [
  "anyhow",
  "async-trait",
  "bytes",
- "chrono",
  "clap",
  "futures",
  "jupyter-protocol",
