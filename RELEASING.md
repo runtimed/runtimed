@@ -59,7 +59,10 @@ cargo audit --deny warnings --file target/package/ollama-kernel-<version>/Cargo.
 
 Build/install the archive with `--locked`. Treat an audit finding or resolution
 mismatch as a release blocker; investigate reachability rather than dismissing
-it because the source commit matches. Library consumers still resolve their own
+it because the source commit matches. Run `cargo audit` from the workspace root
+so it reads `.cargo/audit.toml`. Each ignored advisory there records why it is
+ignored and when to remove it; only informational advisories with no patched
+release belong in that list. Library consumers still resolve their own
 dependencies.
 
 For the corrective Ollama 1.2.3 release, first run:

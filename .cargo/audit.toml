@@ -1,0 +1,13 @@
+# cargo-audit reads this file when run from the workspace root, including the
+# CI audit of the Ollama archive lockfile. Every entry needs a reason and an
+# exit condition.
+
+[advisories]
+ignore = [
+    # chrono is unmaintained (informational; no vulnerability, no patched
+    # release). `chrono::DateTime<Utc>` is part of jupyter-protocol's public
+    # `Header.date`, so replacing it is a breaking release of jupyter-protocol
+    # and every crate that re-exports its types. Remove this entry when that
+    # migration lands.
+    "RUSTSEC-2026-0543",
+]
