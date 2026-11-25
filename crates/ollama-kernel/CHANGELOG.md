@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Drop the unused direct `chrono` dependency. `chrono` still arrives through
+  `jupyter-protocol`. (#339)
+
 ## [1.2.5] - 2026-10-29
 
 - Use the workspace reqwest configuration with Rustls. The kernel talks to Ollama

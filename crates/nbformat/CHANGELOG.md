@@ -4,6 +4,9 @@ All notable changes to `nbformat` will be documented in this file.
 
 ## [Unreleased]
 
+- Drop the unused direct `chrono` dependency. `chrono` still arrives through
+  `jupyter-protocol`. (#339)
+
 ## [3.0.0] - 2026-04-26
 
 ## [2.2.0] - 2026-04-25
